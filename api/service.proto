@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package service;
+
+option go_package="app/services";
+
+message RegisterMachineReq {
+  string Region = 1;
+  string IP = 2;
+  int32 Port = 3;
+  int32 Weight = 4;
+}
+
+message RegisterMachineResp {
+  int32 Code = 1;
+  string Msg = 2;
+}
+
+message RunStressReq {
+  int64 PlanID = 1;
+  int64 TeamID = 2;
+  repeated int64 SceneID = 3;
+  int64 UserID = 4;
+}
+
+message RunStressResp {
+  int32 Code = 1;
+  string Msg = 2;
+}
+
+message NotifyStopStressReq {
+  int64 ReportID = 1;
+}
+
+message NotifyStopStressResp {
+  int32 Code = 1;
+  string Msg = 2;
+}
+
+service KpController {
+  // 注册机器
+  rpc RegisterMachine (RegisterMachineReq) returns (RegisterMachineResp);
+  // 发起压测任务
+  rpc RunStress (RunStressReq) returns (RunStressResp);
+  // 通知压测任务停止
+  rpc NotifyStopStress (NotifyStopStressReq) returns (NotifyStopStressResp);
+}

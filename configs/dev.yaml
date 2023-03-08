@@ -1,0 +1,67 @@
+base:
+  is_debug:
+  domain:
+  max_concurrency:
+
+http:
+  port:
+
+mysql:
+  username:
+  password:
+  host:
+  port:
+  dbname:
+  charset:
+
+mongodb:
+  dsn:
+  database:
+  pool_size:
+
+jwt:
+  issuer:
+  secret:
+
+
+clients:
+  runner:
+    run_api:
+    run_scene:
+    stop_scene:
+    run_plan:
+    stop_plan:
+
+proof:
+  info_log:
+  err_log:
+
+log:
+  InfoPath:
+  ErrPath:
+
+redis:
+  address:
+  password:
+  db:
+
+redisReport:
+  address:
+  password:
+  db:
+
+smtp:
+  host:
+  port:
+  email:
+  password:
+
+sms:
+  id:
+  secret:
+
+inviteData:
+  AesSecretKey:
+
+#初始化压力机可使用分区
+canUsePartitionTotalNum: 2
