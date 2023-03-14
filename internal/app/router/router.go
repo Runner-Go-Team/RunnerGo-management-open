@@ -62,14 +62,12 @@ func RegisterRouter(r *gin.Engine) {
 	auth.POST("reset_password", handler.AuthResetPassword)
 
 	// 新注册登录相关接口
-	auth.POST("register_or_login", handler.RegisterOrLogin)          // 登录注册二合一接口
 	auth.POST("check_user_is_register", handler.CheckUserIsRegister) // 检查手机号或邮箱是否注册
 	auth.POST("set_user_password", handler.SetUserPassword)          // 设置用户密码
 
 	// 微信登录相关接口
 	auth.POST("get_wechat_login_qr_code", handler.GetWechatLoginQrCode)       // 获取微信登录二维码
 	auth.POST("get_wechat_login_result", handler.GetWechatLoginResult)        // 获取微信登录结果
-	auth.POST("wechat_register_or_login", handler.WechatRegisterOrLogin)      // 微信注册或登录二合一接口
 	auth.POST("check_wechat_is_change_bind", handler.CheckWechatIsChangeBind) // 检查当前用户是否需要换绑微信
 
 	// 开启接口鉴权

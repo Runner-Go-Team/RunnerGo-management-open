@@ -97,7 +97,7 @@ func DeleteScene(ctx context.Context, req *rao.DeleteSceneReq, userID string) er
 				}
 			} else {
 				_, err = tx.StressPlanTimedTaskConf.WithContext(ctx).Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID),
-					tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID), tx.StressPlanTimedTaskConf.SenceID.Eq(req.TargetID)).Delete()
+					tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID), tx.StressPlanTimedTaskConf.SceneID.Eq(req.TargetID)).Delete()
 				if err != nil {
 					return err
 				}

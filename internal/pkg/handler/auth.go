@@ -1,14 +1,8 @@
 package handler
 
 import (
-	"gorm.io/gorm"
 	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/encrypt"
 	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal/model"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-omnibus/omnibus"
@@ -21,113 +15,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-// RegisterOrLogin 登录注册接口二合一
-func RegisterOrLogin(ctx *gin.Context) {
-	var req rao.RegisterOrLoginReq
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
-		return
-	}
-
-	//校验短信验证码是否正确
-	verifySuc, _ := auth.VerifySmsCode(ctx, req.Mobile, req.VerifyCode)
-	if verifySuc == false {
-		response.ErrorWithMsg(ctx, errno.ErrSmsCodeVerifyFail, "")
-		return
-	}
-
-	// 校验邀请链接验证码
-	inviteTeamID := ""
-	var inviteRoleID int64 = consts.RoleTypeMember
-	inviteUserID := ""
-	inviteInfoArr := make([]string, 0, 4)
-	if req.InviteVerifyCode != "" {
-		userInfoString := encrypt.AesDecrypt(req.InviteVerifyCode, conf.Conf.InviteData.AesSecretKey)
-		inviteInfoArr = strings.Split(userInfoString, "_")
-		if len(inviteInfoArr) != 4 {
-			response.ErrorWithMsg(ctx, errno.ErrInviteCodeFailed, "")
-			return
-		}
-		inviteTeamID = inviteInfoArr[0]
-		inviteRoleID, _ = strconv.ParseInt(inviteInfoArr[1], 10, 64)
-		inviteUserID = inviteInfoArr[2]
-	}
-
-	defaultTeamID := ""
-
-	// 查看用户是否注册
-	//检查当前手机号是否注册过
-	isRegister := false
-	userInfo, err := auth.CheckMobileIsRegister(ctx, req.Mobile)
-	if err != nil { // 没注册过
-		userInfo, err = auth.ToSignUp(ctx, req.Mobile, req.UtmSource, inviteInfoArr)
-		if err != nil {
-			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-			return
-		}
-	} else {
-		isRegister = true
-		if req.InviteVerifyCode != "" {
-			tx := dal.GetQuery()
-			// 2、把当前用户放到被邀请的团队里面
-			_, err = tx.UserTeam.WithContext(ctx).Where(tx.UserTeam.UserID.Eq(userInfo.UserID)).Where(tx.UserTeam.TeamID.Eq(inviteTeamID)).First()
-			if err != nil && err != gorm.ErrRecordNotFound {
-				response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-				return
-			}
-			if err == gorm.ErrRecordNotFound { // 没查到，就插入
-				insertData := &model.UserTeam{
-					UserID:       userInfo.UserID,
-					TeamID:       inviteTeamID,
-					RoleID:       inviteRoleID,
-					InviteUserID: inviteUserID,
-				}
-				err = tx.UserTeam.WithContext(ctx).Create(insertData)
-				if err != nil {
-					response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-					return
-				}
-			}
-		}
-	}
-
-	// 以下注册过，直接登录
-	d := 7 * 24 * time.Hour
-	if req.IsAutoLogin {
-		d = 30 * 24 * time.Hour
-	}
-
-	token, exp, err := jwt.GenerateTokenByTime(userInfo.UserID, d)
-	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrInvalidToken, err.Error())
-		return
-	}
-
-	if err := auth.UpdateLoginTime(ctx, userInfo.UserID); err != nil {
-		log.Logger.Errorf("update login time err %s", err)
-	}
-
-	if req.InviteVerifyCode == "" {
-		defaultTeamID, _ = auth.GetAvailTeamID(ctx, userInfo.UserID)
-	} else {
-		defaultTeamID = inviteTeamID
-	}
-
-	userSettings := rao.UserSettings{
-		CurrentTeamID: defaultTeamID,
-	}
-	_ = auth.SetUserSettings(ctx, userInfo.UserID, &userSettings)
-
-	response.SuccessWithData(ctx, rao.MobileAuthLoginResp{
-		Token:         token,
-		ExpireTimeSec: exp.Unix(),
-		TeamID:        defaultTeamID,
-		IsRegister:    isRegister,
-	})
-
-	return
-}
 
 // UserRegister 注册
 func UserRegister(ctx *gin.Context) {
@@ -752,67 +639,6 @@ func GetWechatLoginResult(ctx *gin.Context) {
 		return
 	}
 	response.SuccessWithData(ctx, res)
-	return
-}
-
-func WechatRegisterOrLogin(ctx *gin.Context) {
-	var req rao.WechatRegisterOrLoginReq
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
-		return
-	}
-
-	//校验短信验证码是否正确
-	verifySuc, _ := auth.VerifySmsCode(ctx, req.Mobile, req.VerifyCode)
-	if verifySuc == false {
-		response.ErrorWithMsg(ctx, errno.ErrSmsCodeVerifyFail, "")
-		return
-	}
-
-	if req.Mobile == "" || req.VerifyCode == "" || req.Ticket == "" {
-		response.ErrorWithMsg(ctx, errno.ErrParam, "")
-		return
-	}
-
-	//校验短信验证码是否正确
-	userInfo, err := auth.WechatRegisterOrLogin(ctx, &req)
-	if err != nil {
-		if err.Error() == "微信登录二维码过期" {
-			response.ErrorWithMsg(ctx, errno.ErrWechatLoginQrCodeOverdue, err.Error())
-		} else {
-			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-		}
-		return
-	}
-
-	// 生成token
-	d := 1 * 24 * time.Hour
-	if req.IsAutoLogin {
-		d = 30 * 24 * time.Hour
-	}
-
-	token, exp, err := jwt.GenerateTokenByTime(userInfo.UserID, d)
-	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrInvalidToken, err.Error())
-		return
-	}
-
-	if err := auth.UpdateLoginTime(ctx, userInfo.UserID); err != nil {
-		log.Logger.Info("update login time err %s", err)
-	}
-
-	availTeamID, _ := auth.GetAvailTeamID(ctx, userInfo.UserID)
-	userSettings := rao.UserSettings{
-		CurrentTeamID: availTeamID,
-	}
-	_ = auth.SetUserSettings(ctx, userInfo.UserID, &userSettings)
-
-	response.SuccessWithData(ctx, rao.AuthLoginResp{
-		Token:         token,
-		ExpireTimeSec: exp.Unix(),
-		TeamID:        availTeamID,
-		IsRegister:    true,
-	})
 	return
 }
 

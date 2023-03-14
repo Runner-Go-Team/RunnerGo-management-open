@@ -65,3 +65,6 @@ inviteData:
 
 #初始化压力机可使用分区
 canUsePartitionTotalNum: 2
+
+#单台压力机能快速负载的并发数
+oneMachineCanConcurrenceNum: 5000

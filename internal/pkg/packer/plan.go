@@ -76,7 +76,7 @@ func TransSaveTimingTaskConfigReqToModelData(req *rao.SavePlanConfReq, userID st
 	}
 	return &model.StressPlanTimedTaskConf{
 		PlanID:        req.PlanID,
-		SenceID:       req.SceneID,
+		SceneID:       req.SceneID,
 		TeamID:        req.TeamID,
 		UserID:        userID,
 		Frequency:     req.TimedTaskConf.Frequency,

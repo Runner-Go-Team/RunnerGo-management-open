@@ -29,7 +29,7 @@ func newStressPlanTimedTaskConf(db *gorm.DB, opts ...gen.DOOption) stressPlanTim
 	_stressPlanTimedTaskConf.ALL = field.NewAsterisk(tableName)
 	_stressPlanTimedTaskConf.ID = field.NewInt32(tableName, "id")
 	_stressPlanTimedTaskConf.PlanID = field.NewString(tableName, "plan_id")
-	_stressPlanTimedTaskConf.SenceID = field.NewString(tableName, "sence_id")
+	_stressPlanTimedTaskConf.SceneID = field.NewString(tableName, "scene_id")
 	_stressPlanTimedTaskConf.TeamID = field.NewString(tableName, "team_id")
 	_stressPlanTimedTaskConf.UserID = field.NewString(tableName, "user_id")
 	_stressPlanTimedTaskConf.Frequency = field.NewInt32(tableName, "frequency")
@@ -56,7 +56,7 @@ type stressPlanTimedTaskConf struct {
 	ALL           field.Asterisk
 	ID            field.Int32  // 表id
 	PlanID        field.String // 计划id
-	SenceID       field.String // 场景id
+	SceneID       field.String // 场景id
 	TeamID        field.String // 团队id
 	UserID        field.String // 用户ID
 	Frequency     field.Int32  // 任务执行频次: 0-一次，1-每天，2-每周，3-每月
@@ -89,7 +89,7 @@ func (s *stressPlanTimedTaskConf) updateTableName(table string) *stressPlanTimed
 	s.ALL = field.NewAsterisk(table)
 	s.ID = field.NewInt32(table, "id")
 	s.PlanID = field.NewString(table, "plan_id")
-	s.SenceID = field.NewString(table, "sence_id")
+	s.SceneID = field.NewString(table, "scene_id")
 	s.TeamID = field.NewString(table, "team_id")
 	s.UserID = field.NewString(table, "user_id")
 	s.Frequency = field.NewInt32(table, "frequency")
@@ -131,7 +131,7 @@ func (s *stressPlanTimedTaskConf) fillFieldMap() {
 	s.fieldMap = make(map[string]field.Expr, 17)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["plan_id"] = s.PlanID
-	s.fieldMap["sence_id"] = s.SenceID
+	s.fieldMap["scene_id"] = s.SceneID
 	s.fieldMap["team_id"] = s.TeamID
 	s.fieldMap["user_id"] = s.UserID
 	s.fieldMap["frequency"] = s.Frequency

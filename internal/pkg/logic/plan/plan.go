@@ -214,7 +214,7 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 			_, err := tx.StressPlanTimedTaskConf.WithContext(ctx).
 				Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID)).
 				Where(tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID)).
-				Where(tx.StressPlanTimedTaskConf.SenceID.Eq(req.SceneID)).Delete()
+				Where(tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).Delete()
 			if err != nil {
 				log.Logger.Info("保存配置--不存在定时任务或删除mysql失败,err:", err)
 			}
@@ -284,7 +284,7 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 			_, err = tx.StressPlanTimedTaskConf.WithContext(ctx).
 				Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID)).
 				Where(tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID)).
-				Where(tx.StressPlanTimedTaskConf.SenceID.Eq(req.SceneID)).First()
+				Where(tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).First()
 			if err != nil && err != gorm.ErrRecordNotFound { // 查询出错
 				log.Logger.Info("保存配置--查询定时任务数据失败，err:", req)
 				return err
@@ -320,7 +320,7 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 				updateData["status"] = consts.TimedTaskWaitEnable
 				_, err = tx.StressPlanTimedTaskConf.WithContext(ctx).Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID)).
 					Where(tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID)).
-					Where(tx.StressPlanTimedTaskConf.SenceID.Eq(req.SceneID)).Updates(updateData)
+					Where(tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).Updates(updateData)
 				if err != nil {
 					log.Logger.Info("保存配置--更新定时任务配置失败，err:", err)
 					return err
@@ -425,7 +425,7 @@ func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskRes
 		// 查询定时任务信息
 		timingTaskConfigInfo, err := tx.StressPlanTimedTaskConf.WithContext(ctx).Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID),
 			tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID),
-			tx.StressPlanTimedTaskConf.SenceID.Eq(req.SceneID)).First()
+			tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).First()
 		if err == nil {
 			var modeConf rao.ModeConf
 			err := json.Unmarshal([]byte(timingTaskConfigInfo.ModeConf), &modeConf)
@@ -726,10 +726,10 @@ func ClonePlan(ctx context.Context, req *rao.ClonePlanReq, userID string) error 
 				return err
 			}
 			for _, timedTaskInfo := range timedTaskList {
-				sceneID := timedTaskInfo.SenceID
+				sceneID := timedTaskInfo.SceneID
 				timedTaskInfo.ID = 0
 				timedTaskInfo.PlanID = newPlanID
-				timedTaskInfo.SenceID = targetMemo[sceneID]
+				timedTaskInfo.SceneID = targetMemo[sceneID]
 				timedTaskInfo.TeamID = req.TeamID
 				timedTaskInfo.Status = consts.TimedTaskWaitEnable
 				timedTaskInfo.RunUserID = userID

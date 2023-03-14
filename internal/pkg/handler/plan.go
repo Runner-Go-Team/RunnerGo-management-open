@@ -610,7 +610,7 @@ func NotifyStopStress(ctx *gin.Context) {
 			// 判断定时任务频次
 			ttc := dal.GetQuery().StressPlanTimedTaskConf
 			TimedTaskConfInfo, err := ttc.WithContext(ctx).Where(ttc.TeamID.Eq(req.TeamID),
-				ttc.PlanID.Eq(req.PlanID), ttc.SenceID.Neq(reportInfo.SceneID)).First()
+				ttc.PlanID.Eq(req.PlanID), ttc.SceneID.Neq(reportInfo.SceneID)).First()
 			nowTime := time.Now().Unix()
 			if err == nil {
 				if TimedTaskConfInfo.Frequency == 0 || (TimedTaskConfInfo.Frequency != 0 && TimedTaskConfInfo.TaskCloseTime <= nowTime) {

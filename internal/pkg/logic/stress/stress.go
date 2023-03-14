@@ -15,6 +15,7 @@ import (
 	"kp-management/internal/pkg/biz/log"
 	"kp-management/internal/pkg/biz/record"
 	"kp-management/internal/pkg/biz/uuid"
+	"kp-management/internal/pkg/conf"
 	"math"
 	"sort"
 	"strconv"
@@ -372,7 +373,7 @@ func (s *AssembleTask) Execute(baton *Baton) (int, error) {
 	tx := dal.GetQuery().StressPlanTimedTaskConf
 	// 判断参数是否包含scene_ids
 	if baton.RunType == 2 { // 说明当前任务时定时任务自动过来执行的
-		timedTaskConfInfo, err := tx.WithContext(baton.Ctx).Where(tx.SenceID.Eq(baton.SceneIDs[0])).First()
+		timedTaskConfInfo, err := tx.WithContext(baton.Ctx).Where(tx.SceneID.Eq(baton.SceneIDs[0])).First()
 		if err != nil {
 			return errno.ErrMysqlFailed, err
 		}
@@ -385,7 +386,7 @@ func (s *AssembleTask) Execute(baton *Baton) (int, error) {
 		}
 		memo[baton.SceneIDs[0]] = &run_plan.Task{
 			PlanID:      timedTaskConfInfo.PlanID,
-			SceneID:     timedTaskConfInfo.SenceID,
+			SceneID:     timedTaskConfInfo.SceneID,
 			TaskType:    baton.plan.TaskType,
 			TaskMode:    timedTaskConfInfo.TaskMode,
 			ControlMode: timedTaskConfInfo.ControlMode,
@@ -795,7 +796,7 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 		// 如果小于5000  直接分配、
 		// 判断当前任务单个接口并发数是否超5000
 		if stress.ConfigTask.Mode == consts.PlanModeConcurrence { // 并发模式
-			if stress.ConfigTask.ModeConf.Concurrency <= consts.OneMachineCanConcurrence {
+			if stress.ConfigTask.ModeConf.Concurrency <= int64(conf.Conf.OneMachineCanConcurrenceNum) {
 				stress.IsRun = 1
 				addr := baton.balance.GetMachine(curIndex)
 				stress.Addr = addr
@@ -806,7 +807,7 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 				continue
 			}
 		} else { // 非并发模式
-			if stress.ConfigTask.ModeConf.MaxConcurrency <= consts.OneMachineCanConcurrence {
+			if stress.ConfigTask.ModeConf.MaxConcurrency <= int64(conf.Conf.OneMachineCanConcurrenceNum) {
 				stress.IsRun = 1
 				addr := baton.balance.GetMachine(curIndex)
 				stress.Addr = addr
@@ -839,18 +840,18 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 		var mNumReal int64 = 0
 		var yuNum int64 = 0
 		if stress.ConfigTask.Mode == consts.PlanModeConcurrence { // 并发模式
-			mNum = stress.ConfigTask.ModeConf.Concurrency / consts.OneMachineCanConcurrence
+			mNum = stress.ConfigTask.ModeConf.Concurrency / int64(conf.Conf.OneMachineCanConcurrenceNum)
 			mNumReal = mNum // 当前任务拆分后需要多少台机器
-			yuNum = oneSceneTotalConcurrency % consts.OneMachineCanConcurrence
+			yuNum = oneSceneTotalConcurrency % int64(conf.Conf.OneMachineCanConcurrenceNum)
 		} else {
-			mNum = stress.ConfigTask.ModeConf.MaxConcurrency / consts.OneMachineCanConcurrence
+			mNum = stress.ConfigTask.ModeConf.MaxConcurrency / int64(conf.Conf.OneMachineCanConcurrenceNum)
 			mNumReal = mNum // 当前任务拆分后需要多少台机器
-			yuNum = oneSceneTotalConcurrency % consts.OneMachineCanConcurrence
+			yuNum = oneSceneTotalConcurrency % int64(conf.Conf.OneMachineCanConcurrenceNum)
 		}
 
-		//mNum := oneSceneTotalConcurrency / consts.OneMachineCanConcurrence
+		//mNum := oneSceneTotalConcurrency / int64(conf.Conf.OneMachineCanConcurrenceNum)
 		//mNumReal := mNum // 当前任务拆分后需要多少台机器
-		//yuNum := oneSceneTotalConcurrency % consts.OneMachineCanConcurrence
+		//yuNum := oneSceneTotalConcurrency % int64(conf.Conf.OneMachineCanConcurrenceNum)
 
 		if yuNum > 0 {
 			mNumReal = mNumReal + 1
@@ -861,11 +862,11 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 			return errno.ErrResourceNotEnough, errors.New("资源不足--当前计划中，某单个任务所需压力机数量，超过当前可用压力机数量")
 		}
 
-		oneSceneTotalConcurrencyTemp := GetOneTaskTotalGoroutines(stress, consts.OneMachineCanConcurrence)
+		oneSceneTotalConcurrencyTemp := GetOneTaskTotalGoroutines(stress, int64(conf.Conf.OneMachineCanConcurrenceNum))
 		if stress.ConfigTask.Mode == consts.PlanModeConcurrence { // 并发模式
 			for j := 0; j < int(mNum); j++ {
 				stress.IsRun = 1
-				stress.ConfigTask.ModeConf.Concurrency = consts.OneMachineCanConcurrence
+				stress.ConfigTask.ModeConf.Concurrency = int64(conf.Conf.OneMachineCanConcurrenceNum)
 				addr := baton.balance.GetMachine(curIndex)
 				stress.Addr = addr
 				stressRun = append(stressRun, *stress)
@@ -913,7 +914,7 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 				stress.IsRun = 1
 				stress.ConfigTask.ModeConf.StartConcurrency = nowStartConcurrency
 				stress.ConfigTask.ModeConf.Step = nowStep
-				stress.ConfigTask.ModeConf.MaxConcurrency = consts.OneMachineCanConcurrence
+				stress.ConfigTask.ModeConf.MaxConcurrency = int64(conf.Conf.OneMachineCanConcurrenceNum)
 				addr := baton.balance.GetMachine(curIndex)
 				stress.Addr = addr
 				stressRun = append(stressRun, *stress)

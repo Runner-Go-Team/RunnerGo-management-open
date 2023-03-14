@@ -125,9 +125,11 @@ canUsePartitionTotalNum: 2   #初始化压力机可使用分区
 | RG_SMTP_EMAIL                 | 否   |                                                    |            邮箱名称 |
 | RG_SMTP_PASSWORD              | 否   |                                                    |            邮箱名称 |
 | 邀请链接验证密钥                      ||||
-| RG_INVITE_DATA_AES_SECRET_KEY | 否   |                                                    |          邀请链接验证密钥 |
+| RG_INVITE_DATA_AES_SECRET_KEY | 否   | qazwsxedcrfvtgby                                   |      邀请链接验证密钥（key 长度必须 16/24/32长度） |
 | 普通日志目录                        ||||
-| RG_LOG_INFO_PATH              | 否   | /data/logs/RunnerGo/RunnerGo_management-info.log   |    操作日志地址 |
-| RG_LOG_ERR_PATH               | 否   | /data/logs/RunnerGo/RunnerGo_management-err.log    |    错误日志地址 |
+| RG_LOG_INFO_PATH              | 否   | /data/logs/RunnerGo/RunnerGo_management-info.log   |          操作日志地址 |
+| RG_LOG_ERR_PATH               | 否   | /data/logs/RunnerGo/RunnerGo_management-err.log    |          错误日志地址 |
 | 初始化压力机可使用分区                      ||||
-| RG_CAN_USE_PARTITION_TOTAL_NUM              | 否   | 2                                                  |    初始化压力机可使用分区 |
+| RG_CAN_USE_PARTITION_TOTAL_NUM              | 否   | 2                                                  |     初始化压力机可使用分区 |
+| 单台压力机能快速负载的并发数                      ||||
+| RG_ONE_MACHINE_CAN_CONCURRENCE_NUM              | 否   | 5000                                               |  单台压力机能快速负载的并发数 |

@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-resty/resty/v2"
-	"gorm.io/gorm"
 	"io/ioutil"
-	"kp-management/internal/pkg/biz/encrypt"
 	"kp-management/internal/pkg/biz/jwt"
 	"kp-management/internal/pkg/biz/log"
 	"kp-management/internal/pkg/biz/sms"
@@ -23,7 +21,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-omnibus/omnibus"
@@ -34,104 +31,6 @@ import (
 	"kp-management/internal/pkg/dal/query"
 	"kp-management/internal/pkg/dal/rao"
 )
-
-func ToSignUp(ctx context.Context, mobile string, utmSource string, inviteInfo []string) (*model.User, error) {
-	inviteTeamID := ""
-	var inviteRoleID int64 = consts.RoleTypeMember
-	inviteUserID := ""
-	if len(inviteInfo) > 0 {
-		inviteTeamID = inviteInfo[0]
-		inviteRoleID, _ = strconv.ParseInt(inviteInfo[1], 10, 64)
-		inviteUserID = inviteInfo[2]
-	}
-
-	rand.Seed(time.Now().UnixNano())
-	user := model.User{
-		UserID:    uuid.GetUUID(),
-		Mobile:    mobile,
-		Nickname:  mobile,
-		Avatar:    consts.DefaultAvatarMemo[rand.Intn(3)],
-		UtmSource: utmSource,
-	}
-
-	// 查询个人版套餐信息
-	var giveVumNum int64 = 0
-	var maxUserNum int64 = 0
-	tbvTable := dal.GetQuery().TeamBuyVersion
-	tbvInfo, err := tbvTable.WithContext(ctx).Where(tbvTable.ID.Eq(consts.TeamTypePrivate)).First()
-	if err != nil {
-		giveVumNum = consts.PrivateTeamDefaultVum
-		maxUserNum = consts.TrialTeamGiftUserNum
-	} else {
-		giveVumNum = tbvInfo.GiveVunNum
-		maxUserNum = tbvInfo.MaxUserNum
-	}
-
-	//新用户试用时间
-	currentTime := time.Now()
-	trialTimeAtDuration, _ := time.ParseDuration(fmt.Sprintf("+%dh", consts.PrivateTeamTrialTime))
-	trialTimeAtUnix := currentTime.Add(trialTimeAtDuration)
-	timeTemp, _ := time.ParseInLocation("2006-01-02", trialTimeAtUnix.Format("2006-01-02"), time.Local)
-	realTime := timeTemp.Unix() + (3600*24 - 1)
-	timeFormat := time.Unix(realTime, 0)
-
-	teamInfo := model.Team{
-		TeamID:              uuid.GetUUID(),
-		Name:                fmt.Sprintf("%s 的团队", mobile),
-		Type:                consts.TeamTypePrivate,
-		TrialExpirationDate: timeFormat,
-		VipExpirationDate:   timeFormat,
-		VumNum:              giveVumNum,
-		MaxUserNum:          maxUserNum,
-		TeamBuyVersionType:  1,
-	}
-
-	err = query.Use(dal.DB()).Transaction(func(tx *query.Query) error {
-		if err := tx.User.WithContext(ctx).Create(&user); err != nil {
-			return err
-		}
-
-		teamInfo.CreatedUserID = user.UserID
-		if err := tx.Team.WithContext(ctx).Create(&teamInfo); err != nil {
-			return err
-		}
-
-		err = tx.UserTeam.WithContext(ctx).Create(&model.UserTeam{
-			UserID: user.UserID,
-			TeamID: teamInfo.TeamID,
-			RoleID: consts.RoleTypeOwner,
-		})
-
-		defaultTeamID := teamInfo.TeamID // 默认团队id
-
-		if inviteTeamID != "" {
-			err = tx.UserTeam.WithContext(ctx).Create(&model.UserTeam{
-				UserID:       user.UserID,
-				TeamID:       inviteTeamID,
-				RoleID:       inviteRoleID,
-				InviteUserID: inviteUserID,
-			})
-			defaultTeamID = inviteTeamID
-		}
-
-		setTable := dal.GetQuery().Setting
-		setInsertData := &model.Setting{
-			UserID: user.UserID,
-			TeamID: defaultTeamID,
-		}
-		err = setTable.WithContext(ctx).Create(setInsertData)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &user, nil
-}
 
 func SignUp(ctx context.Context, email, password string) (*model.User, error) {
 	hashedPassword, err := omnibus.GenerateBcryptFromPassword(password)
@@ -447,16 +346,6 @@ func CheckUserIsRegister(ctx *gin.Context, req rao.CheckUserIsRegisterReq) (rao.
 	return rao.CheckUserIsRegisterResp{RegisterStatus: true}, nil
 }
 
-func CheckMobileIsRegister(ctx *gin.Context, mobile string) (*model.User, error) {
-	// 检查当前手机号是否注册
-	tx := dal.GetQuery().User
-	userInfo, err := tx.WithContext(ctx).Where(tx.Mobile.Eq(mobile)).First()
-	if err != nil {
-		return nil, err
-	}
-	return userInfo, nil
-}
-
 func SetUserPassword(ctx *gin.Context, req *rao.SetUserPasswordReq) error {
 	hashedPassword, err := omnibus.GenerateBcryptFromPassword(req.Password)
 	if err != nil {
@@ -612,196 +501,6 @@ func GetWechatLoginResult(ctx *gin.Context, req *rao.GetWechatLoginResultReq) (*
 		UserID:     userID,
 	}
 	return res, nil
-}
-
-func WechatRegisterOrLogin(ctx *gin.Context, req *rao.WechatRegisterOrLoginReq) (*model.User, error) {
-	// 获取微信openID
-	getWechatLoginResultReq := &rao.GetWechatLoginResultReq{
-		Ticket: req.Ticket,
-	}
-	wechatLoginRes, err := GetWechatLoginResult(ctx, getWechatLoginResultReq)
-	if err != nil {
-		return nil, err
-	}
-
-	if wechatLoginRes.ScanStatus == 3 {
-		return nil, fmt.Errorf("微信登录二维码过期")
-	}
-
-	inviteVerifyCode := req.InviteVerifyCode
-	inviteTeamID := ""
-	var inviteRoleID int64 = consts.RoleTypeMember
-	inviteUserID := ""
-	if inviteVerifyCode != "" {
-		userInfoString := encrypt.AesDecrypt(inviteVerifyCode, conf.Conf.InviteData.AesSecretKey)
-		userInfoArr := strings.Split(userInfoString, "_")
-		if len(userInfoArr) != 4 {
-			return nil, fmt.Errorf("邀请验证码解析错误")
-		}
-
-		inviteTeamID = userInfoArr[0]
-		inviteRoleID, _ = strconv.ParseInt(userInfoArr[1], 10, 64)
-		inviteUserID = userInfoArr[2]
-	}
-
-	userData := new(model.User)
-
-	allErr := query.Use(dal.DB()).Transaction(func(tx *query.Query) error {
-		// 查询openid是否绑定过别的账号
-		userInfo, err := tx.User.WithContext(ctx).Where(tx.User.Mobile.Eq(req.Mobile)).First()
-		if err == nil { // 当前手机号注册过
-			// 绑定并登录
-			_, err = tx.User.WithContext(ctx).Where(tx.User.Mobile.Eq(req.Mobile)).UpdateSimple(tx.User.WechatOpenID.Value(wechatLoginRes.Openid))
-			if err != nil {
-				return err
-			}
-
-			if inviteVerifyCode != "" {
-				// 2、把当前用户放到被邀请的团队里面
-				_, err = tx.UserTeam.WithContext(ctx).Where(tx.UserTeam.UserID.Eq(userInfo.UserID)).Where(tx.UserTeam.TeamID.Eq(inviteTeamID)).First()
-				if err != nil && err != gorm.ErrRecordNotFound {
-					return err
-				}
-				if err == gorm.ErrRecordNotFound { // 没查到，就插入
-					insertData := &model.UserTeam{
-						UserID:       userInfo.UserID,
-						TeamID:       inviteTeamID,
-						RoleID:       inviteRoleID,
-						InviteUserID: inviteUserID,
-					}
-					err = tx.UserTeam.WithContext(ctx).Create(insertData)
-					if err != nil {
-						return err
-					}
-				}
-
-				// 设置当前用户的默认团队
-				setTable := dal.GetQuery().Setting
-				setInsertData := &model.Setting{
-					UserID: userInfo.UserID,
-					TeamID: inviteTeamID,
-				}
-				err = setTable.WithContext(ctx).Create(setInsertData)
-				if err != nil {
-					return err
-				}
-			}
-		} else {
-			// 新注册，并且去登录
-			rand.Seed(time.Now().UnixNano())
-			user := &model.User{
-				UserID:       uuid.GetUUID(),
-				Mobile:       req.Mobile,
-				Nickname:     req.Mobile,
-				Avatar:       consts.DefaultAvatarMemo[rand.Intn(3)],
-				WechatOpenID: wechatLoginRes.Openid,
-				UtmSource:    req.UtmSource,
-			}
-
-			err = tx.User.WithContext(ctx).Create(user)
-			if err != nil {
-				return err
-			}
-
-			// 查询个人版套餐信息
-			var giveVumNum int64 = 0
-			var maxUserNum int64 = 0
-			tbvTable := dal.GetQuery().TeamBuyVersion
-			tbvInfo, err := tbvTable.WithContext(ctx).Where(tbvTable.ID.Eq(consts.TeamTypePrivate)).First()
-			if err != nil {
-				giveVumNum = consts.PrivateTeamDefaultVum
-				maxUserNum = consts.TrialTeamGiftUserNum
-			} else {
-				giveVumNum = tbvInfo.GiveVunNum
-				maxUserNum = tbvInfo.MaxUserNum
-			}
-
-			//新用户试用时间 30天
-			currentTime := time.Now()
-			trialTimeAtDuration, _ := time.ParseDuration(fmt.Sprintf("+%dh", consts.PrivateTeamTrialTime))
-			trialTimeAtUnix := currentTime.Add(trialTimeAtDuration)
-			timeTemp, _ := time.ParseInLocation("2006-01-02", trialTimeAtUnix.Format("2006-01-02"), time.Local)
-			realTime := timeTemp.Unix() + (3600*24 - 1)
-			timeFormat := time.Unix(realTime, 0)
-			teamInfo := model.Team{
-				TeamID:              uuid.GetUUID(),
-				Name:                fmt.Sprintf("%s 的团队", req.Mobile),
-				Type:                consts.TeamTypePrivate,
-				TrialExpirationDate: timeFormat,
-				VipExpirationDate:   timeFormat,
-				VumNum:              giveVumNum,
-				MaxUserNum:          maxUserNum,
-				TeamBuyVersionType:  1,
-			}
-
-			teamInfo.CreatedUserID = user.UserID
-			if err := tx.Team.WithContext(ctx).Create(&teamInfo); err != nil {
-				return err
-			}
-
-			// 创建新注册用户和私有团队关系
-			err = tx.UserTeam.WithContext(ctx).Create(&model.UserTeam{
-				UserID: user.UserID,
-				TeamID: teamInfo.TeamID,
-				RoleID: consts.RoleTypeOwner,
-			})
-
-			defaultTeamID := teamInfo.TeamID // 默认团队id
-
-			if inviteTeamID != "" {
-				err = tx.UserTeam.WithContext(ctx).Create(&model.UserTeam{
-					UserID:       user.UserID,
-					TeamID:       inviteTeamID,
-					RoleID:       inviteRoleID,
-					InviteUserID: inviteUserID,
-				})
-				defaultTeamID = inviteTeamID
-			}
-
-			// 设置当前用户的默认团队
-			setTable := dal.GetQuery().Setting
-			setInsertData := &model.Setting{
-				UserID: user.UserID,
-				TeamID: defaultTeamID,
-			}
-			err = setTable.WithContext(ctx).Create(setInsertData)
-			if err != nil {
-				return err
-			}
-		}
-
-		// 查询用户信息
-		userData, err = tx.User.WithContext(ctx).Where(tx.User.Mobile.Eq(req.Mobile)).First()
-		return err
-	})
-
-	//// 查询openid是否绑定过别的账号
-	//_, err = tx.User.WithContext(ctx).Where(tx.User.Mobile.Eq(req.Mobile)).First()
-	//if err == nil { // 当前手机号注册过
-	//	// 绑定并登录
-	//	_, err = tx.User.WithContext(ctx).Where(tx.User.Mobile.Eq(req.Mobile)).UpdateSimple(tx.User.WechatOpenID.Value(wechatLoginRes.Openid))
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//} else {
-	//	// 新注册，并且去登录
-	//	insertData := &model.User{
-	//		UserID:       uuid.GetUUID(),
-	//		Mobile:       req.Mobile,
-	//		Nickname:     req.Mobile,
-	//		WechatOpenID: wechatLoginRes.Openid,
-	//		UtmSource:    req.UtmSource,
-	//	}
-	//	err = tx.User.WithContext(ctx).Create(insertData)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
-	//
-	//// 查询用户信息
-	//userInfo, err := tx.User.WithContext(ctx).Where(tx.User.Mobile.Eq(req.Mobile)).First()
-
-	return userData, allErr
 }
 
 func CheckWechatIsChangeBind(ctx *gin.Context, req *rao.CheckWechatIsChangeBindReq) (bool, error) {

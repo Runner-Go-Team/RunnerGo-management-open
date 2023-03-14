@@ -23,10 +23,8 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		AutoPlanReport:          newAutoPlanReport(db, opts...),
 		AutoPlanTaskConf:        newAutoPlanTaskConf(db, opts...),
 		AutoPlanTimedTaskConf:   newAutoPlanTimedTaskConf(db, opts...),
-		Invoice:                 newInvoice(db, opts...),
 		Machine:                 newMachine(db, opts...),
 		Operation:               newOperation(db, opts...),
-		Order:                   newOrder(db, opts...),
 		PreinstallConf:          newPreinstallConf(db, opts...),
 		ReportMachine:           newReportMachine(db, opts...),
 		Setting:                 newSetting(db, opts...),
@@ -39,7 +37,6 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		Target:                  newTarget(db, opts...),
 		TargetDebugLog:          newTargetDebugLog(db, opts...),
 		Team:                    newTeam(db, opts...),
-		TeamBuyVersion:          newTeamBuyVersion(db, opts...),
 		TeamEnv:                 newTeamEnv(db, opts...),
 		TeamEnvService:          newTeamEnvService(db, opts...),
 		TeamUserQueue:           newTeamUserQueue(db, opts...),
@@ -48,8 +45,6 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		UserTeam:                newUserTeam(db, opts...),
 		Variable:                newVariable(db, opts...),
 		VariableImport:          newVariableImport(db, opts...),
-		VumBuyVersion:           newVumBuyVersion(db, opts...),
-		VumUseLog:               newVumUseLog(db, opts...),
 	}
 }
 
@@ -61,10 +56,8 @@ type Query struct {
 	AutoPlanReport          autoPlanReport
 	AutoPlanTaskConf        autoPlanTaskConf
 	AutoPlanTimedTaskConf   autoPlanTimedTaskConf
-	Invoice                 invoice
 	Machine                 machine
 	Operation               operation
-	Order                   order
 	PreinstallConf          preinstallConf
 	ReportMachine           reportMachine
 	Setting                 setting
@@ -77,7 +70,6 @@ type Query struct {
 	Target                  target
 	TargetDebugLog          targetDebugLog
 	Team                    team
-	TeamBuyVersion          teamBuyVersion
 	TeamEnv                 teamEnv
 	TeamEnvService          teamEnvService
 	TeamUserQueue           teamUserQueue
@@ -86,8 +78,6 @@ type Query struct {
 	UserTeam                userTeam
 	Variable                variable
 	VariableImport          variableImport
-	VumBuyVersion           vumBuyVersion
-	VumUseLog               vumUseLog
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -100,10 +90,8 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		AutoPlanReport:          q.AutoPlanReport.clone(db),
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.clone(db),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.clone(db),
-		Invoice:                 q.Invoice.clone(db),
 		Machine:                 q.Machine.clone(db),
 		Operation:               q.Operation.clone(db),
-		Order:                   q.Order.clone(db),
 		PreinstallConf:          q.PreinstallConf.clone(db),
 		ReportMachine:           q.ReportMachine.clone(db),
 		Setting:                 q.Setting.clone(db),
@@ -116,7 +104,6 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		Target:                  q.Target.clone(db),
 		TargetDebugLog:          q.TargetDebugLog.clone(db),
 		Team:                    q.Team.clone(db),
-		TeamBuyVersion:          q.TeamBuyVersion.clone(db),
 		TeamEnv:                 q.TeamEnv.clone(db),
 		TeamEnvService:          q.TeamEnvService.clone(db),
 		TeamUserQueue:           q.TeamUserQueue.clone(db),
@@ -125,8 +112,6 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		UserTeam:                q.UserTeam.clone(db),
 		Variable:                q.Variable.clone(db),
 		VariableImport:          q.VariableImport.clone(db),
-		VumBuyVersion:           q.VumBuyVersion.clone(db),
-		VumUseLog:               q.VumUseLog.clone(db),
 	}
 }
 
@@ -146,10 +131,8 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		AutoPlanReport:          q.AutoPlanReport.replaceDB(db),
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.replaceDB(db),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.replaceDB(db),
-		Invoice:                 q.Invoice.replaceDB(db),
 		Machine:                 q.Machine.replaceDB(db),
 		Operation:               q.Operation.replaceDB(db),
-		Order:                   q.Order.replaceDB(db),
 		PreinstallConf:          q.PreinstallConf.replaceDB(db),
 		ReportMachine:           q.ReportMachine.replaceDB(db),
 		Setting:                 q.Setting.replaceDB(db),
@@ -162,7 +145,6 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		Target:                  q.Target.replaceDB(db),
 		TargetDebugLog:          q.TargetDebugLog.replaceDB(db),
 		Team:                    q.Team.replaceDB(db),
-		TeamBuyVersion:          q.TeamBuyVersion.replaceDB(db),
 		TeamEnv:                 q.TeamEnv.replaceDB(db),
 		TeamEnvService:          q.TeamEnvService.replaceDB(db),
 		TeamUserQueue:           q.TeamUserQueue.replaceDB(db),
@@ -171,8 +153,6 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		UserTeam:                q.UserTeam.replaceDB(db),
 		Variable:                q.Variable.replaceDB(db),
 		VariableImport:          q.VariableImport.replaceDB(db),
-		VumBuyVersion:           q.VumBuyVersion.replaceDB(db),
-		VumUseLog:               q.VumUseLog.replaceDB(db),
 	}
 }
 
@@ -182,10 +162,8 @@ type queryCtx struct {
 	AutoPlanReport          *autoPlanReportDo
 	AutoPlanTaskConf        *autoPlanTaskConfDo
 	AutoPlanTimedTaskConf   *autoPlanTimedTaskConfDo
-	Invoice                 *invoiceDo
 	Machine                 *machineDo
 	Operation               *operationDo
-	Order                   *orderDo
 	PreinstallConf          *preinstallConfDo
 	ReportMachine           *reportMachineDo
 	Setting                 *settingDo
@@ -198,7 +176,6 @@ type queryCtx struct {
 	Target                  *targetDo
 	TargetDebugLog          *targetDebugLogDo
 	Team                    *teamDo
-	TeamBuyVersion          *teamBuyVersionDo
 	TeamEnv                 *teamEnvDo
 	TeamEnvService          *teamEnvServiceDo
 	TeamUserQueue           *teamUserQueueDo
@@ -207,8 +184,6 @@ type queryCtx struct {
 	UserTeam                *userTeamDo
 	Variable                *variableDo
 	VariableImport          *variableImportDo
-	VumBuyVersion           *vumBuyVersionDo
-	VumUseLog               *vumUseLogDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -218,10 +193,8 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		AutoPlanReport:          q.AutoPlanReport.WithContext(ctx),
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.WithContext(ctx),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.WithContext(ctx),
-		Invoice:                 q.Invoice.WithContext(ctx),
 		Machine:                 q.Machine.WithContext(ctx),
 		Operation:               q.Operation.WithContext(ctx),
-		Order:                   q.Order.WithContext(ctx),
 		PreinstallConf:          q.PreinstallConf.WithContext(ctx),
 		ReportMachine:           q.ReportMachine.WithContext(ctx),
 		Setting:                 q.Setting.WithContext(ctx),
@@ -234,7 +207,6 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		Target:                  q.Target.WithContext(ctx),
 		TargetDebugLog:          q.TargetDebugLog.WithContext(ctx),
 		Team:                    q.Team.WithContext(ctx),
-		TeamBuyVersion:          q.TeamBuyVersion.WithContext(ctx),
 		TeamEnv:                 q.TeamEnv.WithContext(ctx),
 		TeamEnvService:          q.TeamEnvService.WithContext(ctx),
 		TeamUserQueue:           q.TeamUserQueue.WithContext(ctx),
@@ -243,8 +215,6 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		UserTeam:                q.UserTeam.WithContext(ctx),
 		Variable:                q.Variable.WithContext(ctx),
 		VariableImport:          q.VariableImport.WithContext(ctx),
-		VumBuyVersion:           q.VumBuyVersion.WithContext(ctx),
-		VumUseLog:               q.VumUseLog.WithContext(ctx),
 	}
 }
 

@@ -1236,10 +1236,10 @@ func CloneAutoPlanScene(ctx *gin.Context, req *rao.CloneAutoPlanSceneReq) error 
 
 				// 6、克隆定时任务
 				timedTaskInfo, err := tx.StressPlanTimedTaskConf.WithContext(ctx).Where(tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID),
-					tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID), tx.StressPlanTimedTaskConf.SenceID.Eq(req.SceneID)).First()
+					tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID), tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).First()
 				if err == nil {
 					timedTaskInfo.ID = 0
-					timedTaskInfo.SenceID = newSceneID
+					timedTaskInfo.SceneID = newSceneID
 					timedTaskInfo.Status = consts.TimedTaskWaitEnable
 					timedTaskInfo.RunUserID = userID
 					timedTaskInfo.CreatedAt = time.Now()

@@ -10,27 +10,28 @@ import (
 var Conf Config
 
 type Config struct {
-	Base                    Base        `yaml:"base"`
-	Http                    Http        `yaml:"http"`
-	GRPC                    GRPC        `yaml:"grpc"`
-	MySQL                   MySQL       `yaml:"mysql"`
-	JWT                     JWT         `yaml:"jwt"`
-	MongoDB                 MongoDB     `yaml:"mongodb"`
-	Prometheus              Prometheus  `yaml:"prometheus"`
-	Kafka                   Kafka       `yaml:"kafka"`
-	ES                      ES          `yaml:"es"`
-	Clients                 Clients     `yaml:"clients"`
-	Proof                   Proof       `yaml:"proof"`
-	Redis                   Redis       `yaml:"redis"`
-	RedisReport             RedisReport `yaml:"redisReport"`
-	SMTP                    SMTP        `yaml:"smtp"`
-	Sms                     Sms         `yaml:"sms"`
-	InviteData              inviteData  `yaml:"inviteData"`
-	Log                     Log         `yaml:"log"`
-	Pay                     Pay         `yaml:"pay"`
-	GeeTest                 GeeTest     `yaml:"geeTest"`
-	WechatLogin             WechatLogin `yaml:"wechatLogin"`
-	CanUsePartitionTotalNum int         `yaml:"canUsePartitionTotalNum"`
+	Base                        Base        `yaml:"base"`
+	Http                        Http        `yaml:"http"`
+	GRPC                        GRPC        `yaml:"grpc"`
+	MySQL                       MySQL       `yaml:"mysql"`
+	JWT                         JWT         `yaml:"jwt"`
+	MongoDB                     MongoDB     `yaml:"mongodb"`
+	Prometheus                  Prometheus  `yaml:"prometheus"`
+	Kafka                       Kafka       `yaml:"kafka"`
+	ES                          ES          `yaml:"es"`
+	Clients                     Clients     `yaml:"clients"`
+	Proof                       Proof       `yaml:"proof"`
+	Redis                       Redis       `yaml:"redis"`
+	RedisReport                 RedisReport `yaml:"redisReport"`
+	SMTP                        SMTP        `yaml:"smtp"`
+	Sms                         Sms         `yaml:"sms"`
+	InviteData                  inviteData  `yaml:"inviteData"`
+	Log                         Log         `yaml:"log"`
+	Pay                         Pay         `yaml:"pay"`
+	GeeTest                     GeeTest     `yaml:"geeTest"`
+	WechatLogin                 WechatLogin `yaml:"wechatLogin"`
+	CanUsePartitionTotalNum     int         `yaml:"canUsePartitionTotalNum"`
+	OneMachineCanConcurrenceNum int         `yaml:"oneMachineCanConcurrenceNum"`
 }
 
 type Log struct {
@@ -185,6 +186,7 @@ func MustInitConfByEnv() {
 	initInviteData()
 	initLog()
 	initCanUsePartitionTotalNum()
+	initOneMachineCanConcurrenceNum()
 }
 
 func initBase() {
@@ -365,5 +367,17 @@ func initCanUsePartitionTotalNum() {
 			Conf.CanUsePartitionTotalNum = 2
 		}
 		Conf.CanUsePartitionTotalNum = canUsePartitionTotalNum
+	}
+}
+
+func initOneMachineCanConcurrenceNum() {
+	oneMachineCanConcurrenceNum, err := strconv.Atoi(os.Getenv("RG_ONE_MACHINE_CAN_CONCURRENCE_NUM"))
+	if err != nil {
+		Conf.OneMachineCanConcurrenceNum = 5000
+	} else {
+		if oneMachineCanConcurrenceNum == 0 {
+			Conf.OneMachineCanConcurrenceNum = 5000
+		}
+		Conf.OneMachineCanConcurrenceNum = oneMachineCanConcurrenceNum
 	}
 }

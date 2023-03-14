@@ -16,7 +16,7 @@ const TableNameStressPlanTimedTaskConf = "stress_plan_timed_task_conf"
 type StressPlanTimedTaskConf struct {
 	ID            int32          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`                      // 表id
 	PlanID        string         `gorm:"column:plan_id;not null" json:"plan_id"`                                 // 计划id
-	SenceID       string         `gorm:"column:sence_id;not null" json:"sence_id"`                               // 场景id
+	SceneID       string         `gorm:"column:scene_id;not null" json:"scene_id"`                               // 场景id
 	TeamID        string         `gorm:"column:team_id;not null" json:"team_id"`                                 // 团队id
 	UserID        string         `gorm:"column:user_id;not null" json:"user_id"`                                 // 用户ID
 	Frequency     int32          `gorm:"column:frequency;not null" json:"frequency"`                             // 任务执行频次: 0-一次，1-每天，2-每周，3-每月

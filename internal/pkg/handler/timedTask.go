@@ -59,7 +59,7 @@ func TimedTaskExec() {
 				// 把当前定时任务状态变成未开始状态
 				_, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(timedTaskInfo.TeamID)).
 					Where(tx.PlanID.Eq(timedTaskInfo.PlanID)).
-					Where(tx.SenceID.Eq(timedTaskInfo.SenceID)).
+					Where(tx.SceneID.Eq(timedTaskInfo.SceneID)).
 					UpdateColumn(tx.Status, consts.TimedTaskWaitEnable)
 				if err != nil {
 					log.Logger.Info("定时任务过期状态修改失败，err：", err)
@@ -105,7 +105,7 @@ func TimedTaskExec() {
 			}
 
 			// 给当前任务加分布式锁，防止重复执行
-			timedTaskKey := "TimeTaskRun:" + fmt.Sprintf("%s", timedTaskInfo.SenceID)
+			timedTaskKey := "TimeTaskRun:" + fmt.Sprintf("%s", timedTaskInfo.SceneID)
 			setRedisRes := dal.GetRDB().SetNX(ctx, timedTaskKey, 1, time.Second*180)
 			if setRedisRes.Val() == false {
 				continue
@@ -125,7 +125,7 @@ func TimedTaskExec() {
 
 func runTimedTask(ctx context.Context, timedTaskInfo *model.StressPlanTimedTaskConf) error {
 	sceneIDs := make([]string, 0, 1)
-	sceneIDs = append(sceneIDs, timedTaskInfo.SenceID)
+	sceneIDs = append(sceneIDs, timedTaskInfo.SceneID)
 	// 开始执行计划
 	runStressParams := RunStressReq{
 		PlanID:  timedTaskInfo.PlanID,

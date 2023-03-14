@@ -27,9 +27,6 @@ const (
 	StopAutoPlanPrefix                 = "StopAutoPlan:"
 	SubscriptionStressPlanStatusChange = "SubscriptionStressPlanStatusChange:"
 
-	// 单台压力机能快速负载的并发数
-	OneMachineCanConcurrence = 5000
-
 	// 以下是自动化测试相关配置
 	// 自动化测试计划的运行模式
 	AutoPlanTaskRunMode = 1 // 按照用例执行
