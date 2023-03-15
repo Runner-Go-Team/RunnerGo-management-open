@@ -1,13 +1,34 @@
 package main
 
 import (
+	"fmt"
+	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
 	"gorm.io/gen"
 	"gorm.io/gorm"
+	"kp-management/internal/pkg/conf"
 )
 
+func MustInitConf() {
+	viper.SetConfigFile("../../configs/dev.yaml")
+	viper.SetConfigType("yaml")
+
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		panic(fmt.Errorf("fatal error config file: %w", err))
+	}
+
+	if err := viper.Unmarshal(&conf.Conf); err != nil {
+		panic(fmt.Errorf("unmarshal error config file: %w", err))
+	}
+
+	fmt.Println("config initialized")
+}
+
 func main() {
-	dsn := "runnergo_open:czYNsm6LmfZ0XU3E@tcp(rm-2zem14s80lyu5c4z7.mysql.rds.aliyuncs.com:3306)/runnergo_open?charset=utf8mb4&parseTime=True&loc=Local"
+	MustInitConf()
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local", conf.Conf.MySQL.Username,
+		conf.Conf.MySQL.Password, conf.Conf.MySQL.Host, conf.Conf.MySQL.Port, conf.Conf.MySQL.DBName, conf.Conf.MySQL.Charset)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(err)
