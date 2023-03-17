@@ -1,6 +1,6 @@
 # ************************************************************
 # Sequel Ace SQL dump
-# 版本号： 20046
+# 版本号: 20046
 #
 # https://sequel-ace.com/
 # https://github.com/Sequel-Ace/Sequel-Ace
@@ -301,7 +301,7 @@ CREATE TABLE `stress_plan` (
   `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '计划状态1:未开始,2:进行中',
   `create_user_id` varchar(100) NOT NULL DEFAULT '0' COMMENT '创建人id',
   `run_user_id` varchar(100) NOT NULL DEFAULT '0' COMMENT '运行人id',
-  `remark` varchar(255) DEFAULT NULL COMMENT '备注',
+  `remark` text NOT NULL COMMENT '备注',
   `run_count` bigint(20) unsigned DEFAULT '0' COMMENT '运行次数',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
@@ -436,7 +436,7 @@ CREATE TABLE `target` (
   `version` int(11) NOT NULL DEFAULT '0' COMMENT '产品版本号',
   `created_user_id` varchar(100) NOT NULL COMMENT '创建人ID',
   `recent_user_id` varchar(100) NOT NULL COMMENT '最近修改人ID',
-  `description` varchar(255) DEFAULT NULL COMMENT '备注',
+  `description` text NOT NULL COMMENT '备注',
   `source` tinyint(4) DEFAULT '1' COMMENT '数据来源：1-正常来源，2-性能，3-自动化测试',
   `plan_id` varchar(100) NOT NULL DEFAULT '0' COMMENT '计划id',
   `source_id` varchar(100) NOT NULL COMMENT '引用来源ID',
@@ -638,8 +638,8 @@ CREATE TABLE `variable` (
   `scene_id` varchar(100) NOT NULL COMMENT '场景ID',
   `type` tinyint(4) NOT NULL DEFAULT '0' COMMENT '使用范围：1-全局变量，2-场景变量',
   `var` varchar(255) NOT NULL COMMENT '变量名',
-  `val` varchar(255) NOT NULL COMMENT '变量值',
-  `description` varchar(255) NOT NULL COMMENT '描述',
+  `val` text NOT NULL COMMENT '变量值',
+  `description` text NOT NULL COMMENT '描述',
   `status` tinyint(2) NOT NULL DEFAULT '1' COMMENT '开关状态：1-开启，2-关闭',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',

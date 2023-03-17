@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-omnibus/omnibus"
@@ -38,18 +39,23 @@ func SignUp(ctx context.Context, email, password string) (*model.User, error) {
 		return nil, err
 	}
 
+	emailArrTemp := strings.Split(email, "@")
+	emailArr := []rune(emailArrTemp[0])
+	nickNameTemp := emailArr[0:26]
+	nickName := string(nickNameTemp)
+
 	rand.Seed(time.Now().UnixNano())
 	user := model.User{
 		UserID:   uuid.GetUUID(),
 		Email:    email,
 		Password: hashedPassword,
-		Nickname: email,
+		Nickname: nickName,
 		Avatar:   consts.DefaultAvatarMemo[rand.Intn(3)],
 	}
 
 	teamInfo := model.Team{
 		TeamID: uuid.GetUUID(),
-		Name:   fmt.Sprintf("%s 的团队", email),
+		Name:   fmt.Sprintf("%s 的团队", nickName),
 		Type:   consts.TeamTypePrivate,
 	}
 
