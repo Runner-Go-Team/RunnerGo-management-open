@@ -412,7 +412,7 @@ CREATE TABLE `stress_plan_timed_task_conf` (
   `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
   PRIMARY KEY (`id`),
   KEY `idx_plan_id` (`plan_id`),
-  KEY `idx_scene_id` (`sence_id`)
+  KEY `idx_scene_id` (`scene_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='性能计划-定时任务配置表';
 
 
