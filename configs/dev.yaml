@@ -68,3 +68,11 @@ canUsePartitionTotalNum: 2
 
 #单台压力机能快速负载的并发数
 oneMachineCanConcurrenceNum: 5000
+
+#运行计划相关配置
+machineConfig:
+  MachineAliveTime: 10      # 压力机上报心跳超时时间，单位：秒
+  InitPartitionTotalNum: 2  # 初始化可用kafka分区数量设置
+  CpuTopLimit: 65           # 可参与压测的压力机cpu使用率上限
+  MemoryTopLimit: 65        # 可参与压测的压力机memory使用率上限
+  DiskTopLimit: 55          # 可参与压测的压力机disk使用率上限

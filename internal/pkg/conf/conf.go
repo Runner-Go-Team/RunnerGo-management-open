@@ -10,28 +10,37 @@ import (
 var Conf Config
 
 type Config struct {
-	Base                        Base        `yaml:"base"`
-	Http                        Http        `yaml:"http"`
-	GRPC                        GRPC        `yaml:"grpc"`
-	MySQL                       MySQL       `yaml:"mysql"`
-	JWT                         JWT         `yaml:"jwt"`
-	MongoDB                     MongoDB     `yaml:"mongodb"`
-	Prometheus                  Prometheus  `yaml:"prometheus"`
-	Kafka                       Kafka       `yaml:"kafka"`
-	ES                          ES          `yaml:"es"`
-	Clients                     Clients     `yaml:"clients"`
-	Proof                       Proof       `yaml:"proof"`
-	Redis                       Redis       `yaml:"redis"`
-	RedisReport                 RedisReport `yaml:"redisReport"`
-	SMTP                        SMTP        `yaml:"smtp"`
-	Sms                         Sms         `yaml:"sms"`
-	InviteData                  inviteData  `yaml:"inviteData"`
-	Log                         Log         `yaml:"log"`
-	Pay                         Pay         `yaml:"pay"`
-	GeeTest                     GeeTest     `yaml:"geeTest"`
-	WechatLogin                 WechatLogin `yaml:"wechatLogin"`
-	CanUsePartitionTotalNum     int         `yaml:"canUsePartitionTotalNum"`
-	OneMachineCanConcurrenceNum int         `yaml:"oneMachineCanConcurrenceNum"`
+	Base                        Base          `yaml:"base"`
+	Http                        Http          `yaml:"http"`
+	GRPC                        GRPC          `yaml:"grpc"`
+	MySQL                       MySQL         `yaml:"mysql"`
+	JWT                         JWT           `yaml:"jwt"`
+	MongoDB                     MongoDB       `yaml:"mongodb"`
+	Prometheus                  Prometheus    `yaml:"prometheus"`
+	Kafka                       Kafka         `yaml:"kafka"`
+	ES                          ES            `yaml:"es"`
+	Clients                     Clients       `yaml:"clients"`
+	Proof                       Proof         `yaml:"proof"`
+	Redis                       Redis         `yaml:"redis"`
+	RedisReport                 RedisReport   `yaml:"redisReport"`
+	SMTP                        SMTP          `yaml:"smtp"`
+	Sms                         Sms           `yaml:"sms"`
+	InviteData                  inviteData    `yaml:"inviteData"`
+	Log                         Log           `yaml:"log"`
+	Pay                         Pay           `yaml:"pay"`
+	GeeTest                     GeeTest       `yaml:"geeTest"`
+	WechatLogin                 WechatLogin   `yaml:"wechatLogin"`
+	CanUsePartitionTotalNum     int           `yaml:"canUsePartitionTotalNum"`
+	OneMachineCanConcurrenceNum int           `yaml:"oneMachineCanConcurrenceNum"`
+	MachineConfig               MachineConfig `yaml:"machineConfig"`
+}
+
+type MachineConfig struct {
+	MachineAliveTime      int `yaml:"MachineAliveTime"`
+	InitPartitionTotalNum int `yaml:"InitPartitionTotalNum"`
+	CpuTopLimit           int `yaml:"CpuTopLimit"`
+	MemoryTopLimit        int `yaml:"MemoryTopLimit"`
+	DiskTopLimit          int `yaml:"DiskTopLimit"`
 }
 
 type Log struct {
@@ -187,6 +196,7 @@ func MustInitConfByEnv() {
 	initLog()
 	initCanUsePartitionTotalNum()
 	initOneMachineCanConcurrenceNum()
+	initMachineConfig()
 }
 
 func initBase() {
@@ -332,7 +342,7 @@ func initSMTP() {
 	if err != nil {
 		Conf.SMTP.Port = 465
 	} else {
-		Conf.RedisReport.DB = port
+		Conf.SMTP.Port = port
 	}
 	Conf.SMTP.Email = os.Getenv("RG_SMTP_EMAIL")
 	Conf.SMTP.Password = os.Getenv("RG_SMTP_PASSWORD")
@@ -379,5 +389,42 @@ func initOneMachineCanConcurrenceNum() {
 			Conf.OneMachineCanConcurrenceNum = 5000
 		}
 		Conf.OneMachineCanConcurrenceNum = oneMachineCanConcurrenceNum
+	}
+}
+
+func initMachineConfig() {
+	machineAliveTime, err := strconv.Atoi(os.Getenv("RG_MACHINE_ALIVE_TIME"))
+	if err != nil {
+		Conf.MachineConfig.MachineAliveTime = 10
+	} else {
+		Conf.MachineConfig.MachineAliveTime = machineAliveTime
+	}
+
+	initPartitionTotalNum, err := strconv.Atoi(os.Getenv("RG_INIT_PARTITION_TOTAL_NUM"))
+	if err != nil {
+		Conf.MachineConfig.InitPartitionTotalNum = 2
+	} else {
+		Conf.MachineConfig.InitPartitionTotalNum = initPartitionTotalNum
+	}
+
+	cpuTopLimit, err := strconv.Atoi(os.Getenv("RG_CPU_TOP_LIMIT"))
+	if err != nil {
+		Conf.MachineConfig.CpuTopLimit = 65
+	} else {
+		Conf.MachineConfig.CpuTopLimit = cpuTopLimit
+	}
+
+	memoryTopLimit, err := strconv.Atoi(os.Getenv("RG_MEMORY_TOP_LIMIT"))
+	if err != nil {
+		Conf.MachineConfig.MemoryTopLimit = 65
+	} else {
+		Conf.MachineConfig.MemoryTopLimit = memoryTopLimit
+	}
+
+	diskTopLimit, err := strconv.Atoi(os.Getenv("RG_DISK_TOP_LIMIT"))
+	if err != nil {
+		Conf.MachineConfig.DiskTopLimit = 55
+	} else {
+		Conf.MachineConfig.DiskTopLimit = diskTopLimit
 	}
 }

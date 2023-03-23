@@ -196,26 +196,26 @@ func (s *CheckIdleMachine) Execute(baton *Baton) (int, error) {
 		// 压力机数据上报时间超过3秒，则认为服务不可用，不参与本次压力测试
 		nowTime := time.Now().Unix()
 		fmtNowTime := time.Now()
-		if nowTime-runnerMachineInfo.CreateTime > consts.MachineAliveTime {
+		if nowTime-runnerMachineInfo.CreateTime > int64(conf.Conf.MachineConfig.MachineAliveTime) {
 			log.Logger.Info("当前压力机上报心跳数据超时，暂不可用,当前时间为：", fmtNowTime, " 机器上报时间为：", runnerMachineInfo.FmtCreateTime)
 			continue
 		}
 
 		// 判断当前压力机性能是否爆满,如果某个指标爆满，则不参与本次压力测试
-		if runnerMachineInfo.CpuUsage >= 65 { // CPU使用判断
-			log.Logger.Info("CPU超过指标,指标为：", runnerMachineInfo.CpuUsage, "机器信息为：", machineAddr)
+		if runnerMachineInfo.CpuUsage >= float64(conf.Conf.MachineConfig.CpuTopLimit) { // CPU使用判断
+			log.Logger.Info("CPU超过使用阈值，阈值为：", conf.Conf.MachineConfig.CpuTopLimit, "当前cpu使用率为：", runnerMachineInfo.CpuUsage, "机器信息为：", machineAddr)
 			continue
 		}
 		for _, memInfo := range runnerMachineInfo.MemInfo { // 内存使用判断
-			if memInfo.UsedPercent >= 65 {
-				log.Logger.Info("内存超过指标,指标为：", memInfo.UsedPercent, "机器信息为：", machineAddr)
+			if memInfo.UsedPercent >= float64(conf.Conf.MachineConfig.MemoryTopLimit) {
+				log.Logger.Info("内存超过使用阈值，阈值为：", conf.Conf.MachineConfig.MemoryTopLimit, "当前内存使用率为：", memInfo.UsedPercent, "机器信息为：", machineAddr)
 				breakFor = true
 				break
 			}
 		}
 		for _, diskInfo := range runnerMachineInfo.DiskInfos { // 磁盘使用判断
-			if diskInfo.UsedPercent >= 55 {
-				log.Logger.Info("磁盘超过指标,指标为：", diskInfo.UsedPercent, "机器信息为：", machineAddr)
+			if diskInfo.UsedPercent >= float64(conf.Conf.MachineConfig.DiskTopLimit) {
+				log.Logger.Info("磁盘超过使用阈值，阈值为：", conf.Conf.MachineConfig.DiskTopLimit, "当前磁盘使用率为：", diskInfo.UsedPercent, "机器信息为：", machineAddr)
 				breakFor = true
 				break
 			}
@@ -775,11 +775,16 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 		machineUsableGoroutines[machineInfo.addr] = machineInfo.usableGoroutines
 	}
 	curIndex := 0 // 当前使用的压力机数组下标
+	usableMachineNum := len(baton.balance.rss)
 	memo := make(map[string]int32)
 	for k, stress := range baton.stress {
 		log.Logger.Info("当前计划执行的任务序号：", k, " 报告id:", stress.ReportID)
 
-		trString := fmt.Sprintf("%s-%s", stress.TeamID, stress.ReportID)
+		if curIndex == usableMachineNum {
+			curIndex = 0
+		}
+
+		trString := fmt.Sprintf("%s", stress.ReportID)
 		memo[trString] = 1
 
 		// 获取当前任务的总并发数
@@ -790,8 +795,6 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 			stressRun = append(stressRun, *stress)
 			continue
 		}
-
-		//log.Logger.Fatal(stress.ConfigTask.ModeConf.Concurrency)
 
 		// 如果小于5000  直接分配、
 		// 判断当前任务单个接口并发数是否超5000
@@ -848,10 +851,6 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 			mNumReal = mNum // 当前任务拆分后需要多少台机器
 			yuNum = oneSceneTotalConcurrency % int64(conf.Conf.OneMachineCanConcurrenceNum)
 		}
-
-		//mNum := oneSceneTotalConcurrency / int64(conf.Conf.OneMachineCanConcurrenceNum)
-		//mNumReal := mNum // 当前任务拆分后需要多少台机器
-		//yuNum := oneSceneTotalConcurrency % int64(conf.Conf.OneMachineCanConcurrenceNum)
 
 		if yuNum > 0 {
 			mNumReal = mNumReal + 1
@@ -942,7 +941,7 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 	}
 
 	for k, stress := range stressRun {
-		trString := fmt.Sprintf("%s-%s", stress.TeamID, stress.ReportID)
+		trString := fmt.Sprintf("%s", stress.ReportID)
 		stressRun[k].MachineNum = memo[trString]
 	}
 
@@ -1131,6 +1130,7 @@ func (s *RunMachineStress) Execute(baton *Baton) (int, error) {
 			if partition == -1 {
 				log.Logger.Info("资源不足--当前没有可用的kafka分区")
 				_ = DeletePlanReport(baton)
+				_ = UpdateStressPlanStatus(baton, int32(consts.PlanStatusNormal))
 				return errno.ErrResourceNotEnough, fmt.Errorf("资源不足--当前没有可用的kafka分区")
 			}
 			partitionMap[stress.ReportID] = partition
@@ -1158,6 +1158,7 @@ func (s *RunMachineStress) Execute(baton *Baton) (int, error) {
 			err := tx.WithContext(baton.Ctx).Create(insertData)
 			if err != nil {
 				_ = DeletePlanReport(baton)
+				_ = UpdateStressPlanStatus(baton, int32(consts.PlanStatusNormal))
 				log.Logger.Info("把报告和对应机器写入到数据库失败，err：", err)
 				return errno.ErrMysqlFailed, err
 			}
@@ -1166,6 +1167,7 @@ func (s *RunMachineStress) Execute(baton *Baton) (int, error) {
 			log.Logger.Info("请求压力机返回结果，report_id:", stress.ReportID, " 压测机器IP为：", addr, " body为：", proof.Render("body", string(runResponse.Body())))
 			if err != nil {
 				_ = DeletePlanReport(baton)
+				_ = UpdateStressPlanStatus(baton, int32(consts.PlanStatusNormal))
 				log.Logger.Info("请求压力机进行压测失败，err：", err)
 				return errno.ErrHttpFailed, err
 			}
@@ -1173,14 +1175,11 @@ func (s *RunMachineStress) Execute(baton *Baton) (int, error) {
 			// 把当前压力机使用状态设置到redis当中
 			machineUseStateKey := consts.MachineUseStatePrefix + addr
 			dal.GetRDB().SetNX(baton.Ctx, machineUseStateKey, 1, 3600*24)
-			p := query.Use(dal.DB()).StressPlan
-			_, err = p.WithContext(baton.Ctx).Where(p.TeamID.Eq(baton.TeamID), p.PlanID.Eq(baton.PlanID)).UpdateSimple(p.Status.Value(consts.PlanStatusUnderway),
-				p.RunCount.Value(baton.plan.RunCount+1))
+			err = UpdateStressPlanStatus(baton, consts.PlanStatusUnderway)
 			if err != nil {
 				log.Logger.Info("修改计划状态失败，err：", err)
 				return errno.ErrMysqlFailed, err
 			}
-			//break
 		} else {
 			sourceNotEnough++
 		}
@@ -1188,6 +1187,10 @@ func (s *RunMachineStress) Execute(baton *Baton) (int, error) {
 
 	if sourceNotEnough > 0 {
 		_ = DeletePlanReport(baton)
+		err := UpdateStressPlanStatus(baton, int32(consts.PlanStatusNormal))
+		if err != nil {
+			log.Logger.Info("修改计划状态失败，err：", err)
+		}
 		return errno.ErrResourceNotEnough, errors.New("资源不足--压力机无法支持当前任务执行")
 	}
 	return errno.Ok, nil
@@ -1284,25 +1287,25 @@ func GetRunnerMachineState(baton *Baton, addr string) bool {
 		// 压力机数据上报时间超过3秒，则认为服务不可用，不参与本次压力测试
 		nowTime := time.Now().Unix()
 		fmtNowTime := time.Now()
-		if runnerMachineInfo.CreateTime < nowTime-int64(consts.MachineAliveTime) {
+		if runnerMachineInfo.CreateTime < nowTime-int64(conf.Conf.MachineConfig.MachineAliveTime) {
 			log.Logger.Info("资源不足--运行前最后验证机器状态，上报数据超时，当前时间为：", fmtNowTime, " 上报时间为：", runnerMachineInfo.FmtCreateTime)
 			continue
 		}
 
 		// 判断当前压力机性能是否爆满,如果某个指标爆满，则不参与本次压力测试
-		if runnerMachineInfo.CpuUsage >= 65 { // CPU使用判断
+		if runnerMachineInfo.CpuUsage >= float64(conf.Conf.MachineConfig.CpuTopLimit) { // CPU使用判断
 			log.Logger.Info("资源不足--CPU超过指标,指标为：", runnerMachineInfo.CpuUsage, "机器信息为：", machineAddr)
 			continue
 		}
 		for _, memInfo := range runnerMachineInfo.MemInfo { // 内存使用判断
-			if memInfo.UsedPercent >= 65 {
+			if memInfo.UsedPercent >= float64(conf.Conf.MachineConfig.MemoryTopLimit) {
 				log.Logger.Info("资源不足--内存超过指标,指标为：", memInfo.UsedPercent, "机器信息为：", machineAddr)
 				breakFor = true
 				break
 			}
 		}
 		for _, diskInfo := range runnerMachineInfo.DiskInfos { // 磁盘使用判断
-			if diskInfo.UsedPercent >= 55 {
+			if diskInfo.UsedPercent >= float64(conf.Conf.MachineConfig.DiskTopLimit) {
 				log.Logger.Info("资源不足--磁盘超过指标,指标为：", diskInfo.UsedPercent, "机器信息为：", machineAddr)
 				breakFor = true
 				break
@@ -1348,4 +1351,25 @@ func DeletePlanReport(baton *Baton) error {
 		}
 	}
 	return nil
+}
+
+func UpdateStressPlanStatus(baton *Baton, status int32) error {
+	allErr := dal.GetQuery().Transaction(func(tx *query.Query) error {
+		if status == consts.PlanStatusNormal { // 要改成未开始状态
+			_, err := tx.StressPlan.WithContext(baton.Ctx).Where(tx.StressPlan.PlanID.Eq(baton.PlanID)).UpdateSimple(tx.StressPlan.Status.Value(status))
+			if err != nil {
+				log.Logger.Info("修改计划状态失败，err：", err)
+				return err
+			}
+		} else {
+			_, err := tx.StressPlan.WithContext(baton.Ctx).Where(tx.StressPlan.PlanID.Eq(baton.PlanID)).UpdateSimple(tx.StressPlan.Status.Value(status),
+				tx.StressPlan.RunCount.Value(baton.plan.RunCount+1))
+			if err != nil {
+				log.Logger.Info("修改计划状态失败，err：", err)
+				return err
+			}
+		}
+		return nil
+	})
+	return allErr
 }

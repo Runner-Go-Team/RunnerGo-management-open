@@ -237,7 +237,7 @@ func InitTotalKafkaPartition() {
 
 	//组装总共需要初始化的分区数组
 	canUsePartitionTotalNum := conf.Conf.CanUsePartitionTotalNum
-	totalKafkaPartitionArr := make([]interface{}, 0, consts.InitPartitionTotalNum)
+	totalKafkaPartitionArr := make([]interface{}, 0, conf.Conf.MachineConfig.InitPartitionTotalNum)
 	for i := 0; i < canUsePartitionTotalNum; i++ {
 		if _, ok := usedPartitionMap[i]; !ok {
 			totalKafkaPartitionArr = append(totalKafkaPartitionArr, i)

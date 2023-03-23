@@ -12,6 +12,4 @@ const (
 
 	StressBelongPartitionKey = "StressBelongPartition" // 压力机对应已经使用的分区数据前缀
 	TotalKafkaPartitionKey   = "TotalKafkaPartition"
-
-	InitPartitionTotalNum = 2 // 初始化总共可使用的分区上限数量
 )

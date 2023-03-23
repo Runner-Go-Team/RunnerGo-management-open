@@ -39,10 +39,13 @@ func SignUp(ctx context.Context, email, password string) (*model.User, error) {
 		return nil, err
 	}
 
+	// 截取邮箱前缀，用作用户昵称
 	emailArrTemp := strings.Split(email, "@")
 	emailArr := []rune(emailArrTemp[0])
-	nickNameTemp := emailArr[0:26]
-	nickName := string(nickNameTemp)
+	nickName := string(emailArr)
+	if len(emailArr) > 26 {
+		nickName = string(emailArr[0:26])
+	}
 
 	rand.Seed(time.Now().UnixNano())
 	user := model.User{
@@ -55,7 +58,7 @@ func SignUp(ctx context.Context, email, password string) (*model.User, error) {
 
 	teamInfo := model.Team{
 		TeamID: uuid.GetUUID(),
-		Name:   fmt.Sprintf("%s 的团队", nickName),
+		Name:   "默认团队",
 		Type:   consts.TeamTypePrivate,
 	}
 

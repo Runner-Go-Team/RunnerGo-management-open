@@ -14,6 +14,7 @@ import (
 	"kp-management/internal/pkg/biz/mail"
 	"kp-management/internal/pkg/biz/record"
 	"kp-management/internal/pkg/biz/uuid"
+	"kp-management/internal/pkg/conf"
 	"kp-management/internal/pkg/dal"
 	"kp-management/internal/pkg/dal/mao"
 	"kp-management/internal/pkg/dal/model"
@@ -449,25 +450,28 @@ func CheckIdleMachine(baton *Baton) (int, error) {
 
 		baton.MachineList = append(baton.MachineList, &runnerMachineInfo)
 
-		// 压力机数据上报时间超过3秒，则认为服务不可用，不参与本次压力测试
+		// 压力机数据上报时间超过10秒，则认为服务不可用，不参与本次压力测试
 		nowTime := time.Now().Unix()
-		if nowTime-runnerMachineInfo.CreateTime > consts.MachineAliveTime {
+		if nowTime-runnerMachineInfo.CreateTime > int64(conf.Conf.MachineConfig.MachineAliveTime) {
 			log.Logger.Info("当前压力机上报心跳数据超时，暂不可用，机器信息：", machineAddr)
 			continue
 		}
 
 		// 判断当前压力机性能是否爆满,如果某个指标爆满，则不参与本次压力测试
-		if runnerMachineInfo.CpuUsage >= 65 { // CPU使用判断
+		if runnerMachineInfo.CpuUsage >= float64(conf.Conf.MachineConfig.CpuTopLimit) { // CPU使用判断
+			log.Logger.Info("CPU超过使用阈值，阈值为：", conf.Conf.MachineConfig.CpuTopLimit, "当前cpu使用率为：", runnerMachineInfo.CpuUsage, "机器信息为：", machineAddr)
 			continue
 		}
 		for _, memInfo := range runnerMachineInfo.MemInfo { // 内存使用判断
-			if memInfo.UsedPercent >= 65 {
+			if memInfo.UsedPercent >= float64(conf.Conf.MachineConfig.MemoryTopLimit) {
+				log.Logger.Info("内存超过使用阈值，阈值为：", conf.Conf.MachineConfig.MemoryTopLimit, "当前内存使用率为：", memInfo.UsedPercent, "机器信息为：", machineAddr)
 				breakFor = true
 				break
 			}
 		}
 		for _, diskInfo := range runnerMachineInfo.DiskInfos { // 磁盘使用判断
-			if diskInfo.UsedPercent >= 55 {
+			if diskInfo.UsedPercent >= float64(conf.Conf.MachineConfig.DiskTopLimit) {
+				log.Logger.Info("磁盘超过使用阈值，阈值为：", conf.Conf.MachineConfig.DiskTopLimit, "当前磁盘使用率为：", diskInfo.UsedPercent, "机器信息为：", machineAddr)
 				breakFor = true
 				break
 			}
