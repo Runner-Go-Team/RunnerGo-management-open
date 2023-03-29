@@ -70,6 +70,7 @@ func main() {
 		g.GenerateModel("stress_plan_timed_task_conf"),
 		g.GenerateModel("target_debug_log"),
 		g.GenerateModel("user_collect_info"),
+		g.GenerateModel("public_function"),
 	)
 
 	g.Execute()

@@ -681,3 +681,14 @@ func BatchDeletePlan(ctx *gin.Context) {
 	response.Success(ctx)
 	return
 }
+
+// GetPublicFunctionList 获取公共函数列表
+func GetPublicFunctionList(ctx *gin.Context) {
+	res, err := plan.GetPublicFunctionList(ctx)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, res)
+	return
+}

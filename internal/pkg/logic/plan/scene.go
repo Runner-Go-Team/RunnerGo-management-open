@@ -23,6 +23,11 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 	targetList := make([]*model.Target, 0)
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
 
+	targetIDMap := make(map[string]int, len(req.TargetIDList))
+	for _, tID := range req.TargetIDList {
+		targetIDMap[tID] = 1
+	}
+
 	err := dal.GetQuery().Transaction(func(tx *query.Query) error {
 		targets, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.In(req.TargetIDList...)).Find()
 		if err != nil {
@@ -39,11 +44,16 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 
 		sceneNames := make([]string, 0, len(targets))
 		oldSceneIDs := make([]string, 0, len(targets))
+
+		groupIDOldToNewMap := make(map[string]string, len(targets))
 		for _, targetInfo := range targets {
 			// 分组名称
 			if targetInfo.TargetType == consts.TargetTypeGroup {
 				groupNames = append(groupNames, targetInfo.Name)
 				oldGroupsIDs = append(oldGroupsIDs, targetInfo.TargetID)
+
+				newGroupID := uuid.GetUUID()
+				groupIDOldToNewMap[targetInfo.TargetID] = newGroupID
 			}
 			// 场景名称
 			if targetInfo.TargetType == consts.TargetTypeScene {
@@ -82,23 +92,29 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 			dataFrom = "auto_plan"
 		}
 
-		// 开始导入
-		// 先导入分组
-		groupIDMap := make(map[string]string, len(targets))
+		//// 开始导入
+		//// 先导入顶层分组
 		for _, targetInfo := range targets {
 			if targetInfo.TargetType == consts.TargetTypeGroup {
 				oldGroupID := targetInfo.TargetID
+				oldParentID := targetInfo.ParentID
 				targetInfo.ID = 0
-				targetInfo.TargetID = uuid.GetUUID()
+				targetInfo.TargetID = groupIDOldToNewMap[oldGroupID]
 				targetInfo.PlanID = req.PlanID
+				targetInfo.ParentID = ""
 				targetInfo.CreatedUserID = userID
 				targetInfo.RecentUserID = userID
 				targetInfo.Source = req.Source
 				targetInfo.SourceID = oldGroupID
+
+				// 判断父级ID
+				if _, ok := targetIDMap[oldParentID]; ok {
+					targetInfo.ParentID = groupIDOldToNewMap[oldParentID]
+				}
+
 				if err := tx.Target.WithContext(ctx).Create(targetInfo); err != nil {
 					return err
 				}
-				groupIDMap[oldGroupID] = targetInfo.TargetID
 			}
 		}
 
@@ -107,14 +123,20 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 		for _, targetInfo := range targets {
 			if targetInfo.TargetType == consts.TargetTypeScene {
 				oldSceneID := targetInfo.TargetID
+				oldParentID := targetInfo.ParentID
 				targetInfo.ID = 0
 				targetInfo.TargetID = uuid.GetUUID()
 				targetInfo.PlanID = req.PlanID
-				targetInfo.ParentID = groupIDMap[targetInfo.ParentID]
+				targetInfo.ParentID = ""
 				targetInfo.CreatedUserID = userID
 				targetInfo.RecentUserID = userID
 				targetInfo.Source = req.Source
 				targetInfo.SourceID = oldSceneID
+
+				if _, ok := targetIDMap[oldParentID]; ok {
+					targetInfo.ParentID = groupIDOldToNewMap[oldParentID]
+				}
+
 				if err := tx.Target.WithContext(ctx).Create(targetInfo); err != nil {
 					return err
 				}

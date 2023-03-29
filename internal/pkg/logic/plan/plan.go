@@ -994,3 +994,22 @@ func InsertReportData(ctx *gin.Context, req *rao.NotifyStopStressReq) error {
 
 	return nil
 }
+
+func GetPublicFunctionList(ctx *gin.Context) ([]*rao.GetPublicFunctionListResp, error) {
+	tx := dal.GetQuery().PublicFunction
+	list, err := tx.WithContext(ctx).Find()
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*rao.GetPublicFunctionListResp, 0, len(list))
+	for _, functionInfo := range list {
+		tempData := &rao.GetPublicFunctionListResp{
+			Function:     functionInfo.Function,
+			FunctionName: functionInfo.FunctionName,
+			Remark:       functionInfo.Remark,
+		}
+		res = append(res, tempData)
+	}
+	return res, nil
+}

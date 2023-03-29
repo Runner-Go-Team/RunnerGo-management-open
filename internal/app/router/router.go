@@ -123,6 +123,7 @@ func RegisterRouter(r *gin.Engine) {
 	dashboard.GET("default", handler.DashboardDefault)
 	dashboard.POST("home_page", handler.HomePage)
 	dashboard.GET("underway_plans", handler.ListUnderwayPlan)
+	dashboard.GET("public_function_list", handler.GetPublicFunctionList)
 
 	// 文件夹
 	folder := api.Group("/v1/folder")

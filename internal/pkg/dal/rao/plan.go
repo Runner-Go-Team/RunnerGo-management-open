@@ -252,3 +252,9 @@ type MachineModeConf struct {
 	Machine  string   `json:"machine"`
 	ModeConf ModeConf `json:"mode_conf"`
 }
+
+type GetPublicFunctionListResp struct {
+	Function     string `json:"function"`
+	FunctionName string `json:"function_name"`
+	Remark       string `json:"remark"`
+}

@@ -26,6 +26,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		Machine:                 newMachine(db, opts...),
 		Operation:               newOperation(db, opts...),
 		PreinstallConf:          newPreinstallConf(db, opts...),
+		PublicFunction:          newPublicFunction(db, opts...),
 		ReportMachine:           newReportMachine(db, opts...),
 		Setting:                 newSetting(db, opts...),
 		SmsLog:                  newSmsLog(db, opts...),
@@ -59,6 +60,7 @@ type Query struct {
 	Machine                 machine
 	Operation               operation
 	PreinstallConf          preinstallConf
+	PublicFunction          publicFunction
 	ReportMachine           reportMachine
 	Setting                 setting
 	SmsLog                  smsLog
@@ -93,6 +95,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		Machine:                 q.Machine.clone(db),
 		Operation:               q.Operation.clone(db),
 		PreinstallConf:          q.PreinstallConf.clone(db),
+		PublicFunction:          q.PublicFunction.clone(db),
 		ReportMachine:           q.ReportMachine.clone(db),
 		Setting:                 q.Setting.clone(db),
 		SmsLog:                  q.SmsLog.clone(db),
@@ -134,6 +137,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		Machine:                 q.Machine.replaceDB(db),
 		Operation:               q.Operation.replaceDB(db),
 		PreinstallConf:          q.PreinstallConf.replaceDB(db),
+		PublicFunction:          q.PublicFunction.replaceDB(db),
 		ReportMachine:           q.ReportMachine.replaceDB(db),
 		Setting:                 q.Setting.replaceDB(db),
 		SmsLog:                  q.SmsLog.replaceDB(db),
@@ -165,6 +169,7 @@ type queryCtx struct {
 	Machine                 *machineDo
 	Operation               *operationDo
 	PreinstallConf          *preinstallConfDo
+	PublicFunction          *publicFunctionDo
 	ReportMachine           *reportMachineDo
 	Setting                 *settingDo
 	SmsLog                  *smsLogDo
@@ -196,6 +201,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		Machine:                 q.Machine.WithContext(ctx),
 		Operation:               q.Operation.WithContext(ctx),
 		PreinstallConf:          q.PreinstallConf.WithContext(ctx),
+		PublicFunction:          q.PublicFunction.WithContext(ctx),
 		ReportMachine:           q.ReportMachine.WithContext(ctx),
 		Setting:                 q.Setting.WithContext(ctx),
 		SmsLog:                  q.SmsLog.WithContext(ctx),
