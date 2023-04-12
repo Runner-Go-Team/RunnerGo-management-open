@@ -742,8 +742,15 @@ func (s *MakeStress) Execute(baton *Baton) (int, error) {
 	// 统计压力机最大的并发能力
 	var machineTotalConcurrency int64
 	for _, machineInfo := range baton.balance.rss {
-		log.Logger.Info("当前压力机IP：", machineInfo.addr, " 可用并发数为：", machineInfo.usableGoroutines)
-		machineTotalConcurrency = machineTotalConcurrency + machineInfo.usableGoroutines
+		// 计算当前机器可用协程数
+		maxGoroutines := machineInfo.usableGoroutines
+
+		if maxGoroutines > int64(conf.Conf.OneMachineCanConcurrenceNum) {
+			maxGoroutines = int64(conf.Conf.OneMachineCanConcurrenceNum)
+		}
+
+		log.Logger.Info("当前压力机IP：", machineInfo.addr, " 可用并发数为：", machineInfo.usableGoroutines, " 单机最大并发数为：", conf.Conf.OneMachineCanConcurrenceNum, " 最终可用并发数为：", maxGoroutines)
+		machineTotalConcurrency = machineTotalConcurrency + maxGoroutines
 	}
 	log.Logger.Info("当前全部压力机总的并发数和当前计划总并发数分别为：", machineTotalConcurrency, " ", allSceneTotalConcurrency)
 	if allSceneTotalConcurrency > machineTotalConcurrency {
@@ -772,7 +779,14 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 	machineUsableGoroutines := make(map[string]int64)
 	// 获取当前机器对应可用协程数
 	for _, machineInfo := range baton.balance.rss {
-		machineUsableGoroutines[machineInfo.addr] = machineInfo.usableGoroutines
+		// 计算当前机器可用协程数
+		maxGoroutines := machineInfo.usableGoroutines
+
+		if maxGoroutines > int64(conf.Conf.OneMachineCanConcurrenceNum) {
+			maxGoroutines = int64(conf.Conf.OneMachineCanConcurrenceNum)
+		}
+
+		machineUsableGoroutines[machineInfo.addr] = maxGoroutines
 	}
 	curIndex := 0 // 当前使用的压力机数组下标
 	usableMachineNum := len(baton.balance.rss)
