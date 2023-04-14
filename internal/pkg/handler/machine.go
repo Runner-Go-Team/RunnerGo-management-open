@@ -116,12 +116,19 @@ func MachineDataInsert() {
 					CPULoadOne:        float32(runnerMachineInfo.CpuLoad.Load1),
 					CPULoadFive:       float32(runnerMachineInfo.CpuLoad.Load5),
 					CPULoadFifteen:    float32(runnerMachineInfo.CpuLoad.Load15),
-					MemUsage:          float32(runnerMachineInfo.MemInfo[0].UsedPercent),
-					DiskUsage:         float32(runnerMachineInfo.DiskInfos[0].UsedPercent),
 					MaxGoroutines:     runnerMachineInfo.MaxGoroutines,
 					CurrentGoroutines: runnerMachineInfo.CurrentGoroutines,
 					ServerType:        int32(runnerMachineInfo.ServerType),
 				}
+
+				if len(runnerMachineInfo.MemInfo) > 0 {
+					updateData.MemUsage = float32(runnerMachineInfo.MemInfo[0].UsedPercent)
+				}
+
+				if len(runnerMachineInfo.DiskInfos) > 0 {
+					updateData.DiskUsage = float32(runnerMachineInfo.DiskInfos[0].UsedPercent)
+				}
+
 				_, err := tx.WithContext(ctx).Where(tx.IP.Eq(ip)).Updates(&updateData)
 				if err != nil {
 					log.Logger.Info("压力机数据入库--更新数据失败，err:", err)
@@ -137,12 +144,19 @@ func MachineDataInsert() {
 					CPULoadOne:        float32(runnerMachineInfo.CpuLoad.Load1),
 					CPULoadFive:       float32(runnerMachineInfo.CpuLoad.Load5),
 					CPULoadFifteen:    float32(runnerMachineInfo.CpuLoad.Load15),
-					MemUsage:          float32(runnerMachineInfo.MemInfo[0].UsedPercent),
-					DiskUsage:         float32(runnerMachineInfo.DiskInfos[0].UsedPercent),
 					MaxGoroutines:     runnerMachineInfo.MaxGoroutines,
 					CurrentGoroutines: runnerMachineInfo.CurrentGoroutines,
 					ServerType:        int32(runnerMachineInfo.ServerType),
 				}
+
+				if len(runnerMachineInfo.MemInfo) > 0 {
+					insertData.MemUsage = float32(runnerMachineInfo.MemInfo[0].UsedPercent)
+				}
+
+				if len(runnerMachineInfo.DiskInfos) > 0 {
+					insertData.DiskUsage = float32(runnerMachineInfo.DiskInfos[0].UsedPercent)
+				}
+
 				err := tx.WithContext(ctx).Create(&insertData)
 				if err != nil {
 					log.Logger.Info("压力机数据入库")
