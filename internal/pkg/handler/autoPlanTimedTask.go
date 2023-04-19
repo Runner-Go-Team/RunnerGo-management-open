@@ -14,6 +14,9 @@ import (
 func AutoPlanTimedTaskExec() {
 	// 开启定时任务轮询
 	for {
+		//// 睡眠一分钟，再循环执行
+		time.Sleep(60 * time.Second)
+
 		ctx := context.Background()
 		tx := dal.GetQuery().AutoPlanTimedTaskConf
 		// 组装查询条件
@@ -105,9 +108,6 @@ func AutoPlanTimedTaskExec() {
 				log.Logger.Info("自动化测试--定时任务运行失败，任务信息：", timedTaskInfo, " err：", err)
 			}
 		}
-
-		// 睡眠一分钟，再循环执行
-		time.Sleep(60 * time.Second)
 	}
 }
 
