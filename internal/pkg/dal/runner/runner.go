@@ -29,7 +29,7 @@ type StopRunnerReq struct {
 	ReportIds []string `json:"report_ids"`
 }
 
-func RunAPI(ctx context.Context, body *rao.APIDetail) (string, error) {
+func RunAPI(ctx context.Context, body rao.APIDetail) (string, error) {
 
 	//// 检查是否有引用环境服务URL
 	//var requestURLBuilder strings.Builder

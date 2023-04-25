@@ -118,6 +118,7 @@ type ReportTask struct {
 	TaskType       int32       `json:"task_type"`
 	TaskMode       int32       `json:"task_mode"`
 	ControlMode    int32       `json:"control_mode"` // 控制模式
+	DebugMode      string      `json:"debug_mode"`
 	TaskStatus     int32       `json:"task_status"`
 	ModeConf       *ModeConf   `json:"mode_conf"`
 	ChangeTakeConf []*ModeConf `json:"change_take_conf"`

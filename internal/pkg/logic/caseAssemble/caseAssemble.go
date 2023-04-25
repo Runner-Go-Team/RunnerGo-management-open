@@ -3,6 +3,7 @@ package caseAssemble
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/goccy/go-json"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gen"
@@ -19,6 +20,7 @@ import (
 	"kp-management/internal/pkg/dal/rao"
 	"kp-management/internal/pkg/dal/runner"
 	"kp-management/internal/pkg/packer"
+	"kp-management/internal/pkg/public"
 	"strconv"
 	"strings"
 )
@@ -131,6 +133,11 @@ func CopyCaseAssemble(ctx *gin.Context, req *rao.CopyAssembleReq) error {
 				}
 			}
 			newCaseName = oldCaseName + fmt.Sprintf("_%d", maxNum+1)
+		}
+
+		nameLength := public.GetStringNum(newCaseName)
+		if nameLength > 30 { // 场景名称限制30个字符
+			return fmt.Errorf("名称过长！不可超出30字符")
 		}
 
 		userID := jwt.GetUserIDByCtx(ctx)
@@ -355,22 +362,200 @@ func SendSceneCase(ctx *gin.Context, teamID string, sceneID, sceneCaseID string,
 		return "", err
 	}
 
-	sv := dal.GetQuery().Variable
-	sceneVariables, err := sv.WithContext(ctx).Where(sv.SceneID.Eq(sceneID)).Find()
-	if err != nil {
-		return "", err
+	//sv := dal.GetQuery().Variable
+	//sceneVariables, err := sv.WithContext(ctx).Where(sv.SceneID.Eq(sceneID)).Find()
+	//if err != nil {
+	//	return "", err
+	//}
+	//
+	//variables, err := sv.WithContext(ctx).Where(sv.TeamID.Eq(teamID)).Find()
+	//if err != nil {
+	//	return "", err
+	//}
+
+	// 获取全局变量
+	globalVariable := rao.GlobalVariable{}
+	// 查询全局变量
+	collection2 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
+	cur, err := collection2.Find(ctx, bson.D{{"team_id", teamID}})
+	var globalParamDataArr []*mao.GlobalParamData
+	if err == nil {
+		if err := cur.All(ctx, &globalParamDataArr); err != nil {
+			return "", fmt.Errorf("全局参数数据获取失败")
+		}
 	}
 
-	variables, err := sv.WithContext(ctx).Where(sv.TeamID.Eq(teamID)).Find()
-	if err != nil {
-		return "", err
+	cookieParam := make([]rao.CookieParam, 0, 100)
+	headerParam := make([]rao.HeaderParam, 0, 100)
+	variableParam := make([]rao.VariableParam, 0, 100)
+	assertParam := make([]rao.AssertParam, 0, 100)
+	for _, globalParamInfo := range globalParamDataArr {
+		if globalParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(cookieParam))
+			for _, v := range cookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Cookie.Parameter = parameter
+		}
+		if globalParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(headerParam))
+			for _, v := range headerParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Header.Parameter = parameter
+
+		}
+		if globalParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(variableParam))
+			for _, v := range variableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Variable = parameter
+
+		}
+		if globalParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(assertParam))
+			for _, v := range assertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Assert = parameter
+		}
+	}
+
+	// 获取场景变量
+	sceneVariable := rao.GlobalVariable{}
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+	cur, err = collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
+	var sceneParamDataArr []*mao.SceneParamData
+	if err == nil {
+		if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+			return "", fmt.Errorf("场景参数数据获取失败")
+		}
+	}
+
+	sceneCookieParam := make([]rao.CookieParam, 0, 100)
+	sceneHeaderParam := make([]rao.HeaderParam, 0, 100)
+	sceneVariableParam := make([]rao.VariableParam, 0, 100)
+	sceneAssertParam := make([]rao.AssertParam, 0, 100)
+	for _, sceneParamInfo := range sceneParamDataArr {
+		if sceneParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneCookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(sceneCookieParam))
+			for _, v := range sceneCookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Cookie.Parameter = parameter
+		}
+		if sceneParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneHeaderParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(sceneHeaderParam))
+			for _, v := range sceneHeaderParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Header.Parameter = parameter
+
+		}
+		if sceneParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneVariableParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(sceneVariableParam))
+			for _, v := range sceneVariableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Variable = parameter
+		}
+		if sceneParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneAssertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(sceneAssertParam))
+			for _, v := range sceneAssertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Assert = parameter
+		}
 	}
 
 	if err = record.InsertDebug(ctx, teamID, userID, record.OperationOperateRunSceneCase, t.Name); err != nil {
 		return "", err
 	}
 
-	req := packer.TransMaoFlowToRaoSceneCaseFlow(t, &f, vis, sceneVariables, variables)
+	req := packer.TransMaoFlowToRaoSceneCaseFlow(t, &f, vis, sceneVariable, globalVariable)
 	return runner.RunSceneCaseFlow(ctx, req)
 
 }

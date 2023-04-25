@@ -1,0 +1,33 @@
+2023-04-19T15:14:59.326+0800	[31mERROR[0m	[Recovery from panic]	{"time": "2023-04-19T15:14:59.325+0800", "error": "interface conversion: interface {} is nil, not string", "request": "POST /management/api/v1/auto_plan/get_report_detail HTTP/1.1\r\nHost: 127.0.0.1:8082\r\nAccept: */*\r\nAccept-Encoding: gzip, deflate, br\r\nAuthorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2ODM3NzY2OTgsImlhdCI6MTY4MTE4NDY5OCwiaXNzIjoia3AiLCJuYmYiOjE2ODExODQ2OTgsInVzZXJfaWQiOiIzN2ZlNjE3NS1kNjdlLTQ2ZTgtOGM4NS01ZDU5ZjFkZjFiOTAifQ.SQmm91-vi1aJKNC9h81TgP6xR7EtuZpuXsJgjZnRCgE\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\nContent-Length: 114\r\nContent-Type: application/json\r\nCurrentteamid: 186\r\nRequest: 123\r\nUser-Agent: PostmanRuntime-ApipostRuntime/1.1.0\r\n\r\n", "stack": "goroutine 105 [running]:\nruntime/debug.Stack()\n\t/opt/homebrew/Cellar/go/1.19.3/libexec/src/runtime/debug/stack.go:24 +0x64\ngithub.com/gin-contrib/zap.CustomRecoveryWithZap.func1.1()\n\t/Users/freeman/go/pkg/mod/github.com/gin-contrib/zap@v0.1.0/zap.go:146 +0x29c\npanic({0x103edbf80, 0x14015331f50})\n\t/opt/homebrew/Cellar/go/1.19.3/libexec/src/runtime/panic.go:884 +0x204\nkp-management/internal/pkg/logic/autoPlan.MakeAutoPlanReportDetail({0x10406fdc0, 0x140000edc00}, 0x1401517f9b0)\n\t/Users/freeman/go/src/runnergo-management-open/internal/pkg/logic/autoPlan/autoPlan.go:1683 +0x3938\nkp-management/internal/pkg/handler.GetAutoPlanReportDetail(0x140000edc00?)\n\t/Users/freeman/go/src/runnergo-management-open/internal/pkg/handler/autoPlan.go:575 +0x5c\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/context.go:173\nkp-management/internal/app/middleware.JWT.func1(0x140000edc00)\n\t/Users/freeman/go/src/runnergo-management-open/internal/app/middleware/jwt.go:72 +0x83c\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/context.go:173\ngithub.com/gin-contrib/zap.CustomRecoveryWithZap.func1(0x140000edc00)\n\t/Users/freeman/go/pkg/mod/github.com/gin-contrib/zap@v0.1.0/zap.go:158 +0x88\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/context.go:173\ngithub.com/gin-contrib/zap.GinzapWithConfig.func1(0x140000edc00)\n\t/Users/freeman/go/pkg/mod/github.com/gin-contrib/zap@v0.1.0/zap.go:55 +0x9c\ngithub.com/gin-gonic/gin.(*Context).Next(...)\n\t/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/context.go:173\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest(0x140000f89c0, 0x140000edc00)\n\t/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/gin.go:616 +0x554\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP(0x140000f89c0, {0x10406eaf0?, 0x140149a9500}, 0x1401491d800)\n\t/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/gin.go:572 +0x1d4\nnet/http.serverHandler.ServeHTTP({0x10406be70?}, {0x10406eaf0, 0x140149a9500}, 0x1401491d800)\n\t/opt/homebrew/Cellar/go/1.19.3/libexec/src/net/http/server.go:2947 +0x2c4\nnet/http.(*conn).serve(0x14015096640, {0x10406fc00, 0x14011bfee40})\n\t/opt/homebrew/Cellar/go/1.19.3/libexec/src/net/http/server.go:1991 +0x560\ncreated by net/http.(*Server).Serve\n\t/opt/homebrew/Cellar/go/1.19.3/libexec/src/net/http/server.go:3102 +0x444\n"}
+github.com/gin-contrib/zap.CustomRecoveryWithZap.func1.1
+	/Users/freeman/go/pkg/mod/github.com/gin-contrib/zap@v0.1.0/zap.go:142
+runtime.gopanic
+	/opt/homebrew/Cellar/go/1.19.3/libexec/src/runtime/panic.go:884
+runtime.panicdottypeE
+	/opt/homebrew/Cellar/go/1.19.3/libexec/src/runtime/iface.go:262
+kp-management/internal/pkg/logic/autoPlan.MakeAutoPlanReportDetail
+	/Users/freeman/go/src/runnergo-management-open/internal/pkg/logic/autoPlan/autoPlan.go:1683
+kp-management/internal/pkg/handler.GetAutoPlanReportDetail
+	/Users/freeman/go/src/runnergo-management-open/internal/pkg/handler/autoPlan.go:575
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/context.go:173
+kp-management/internal/app/middleware.JWT.func1
+	/Users/freeman/go/src/runnergo-management-open/internal/app/middleware/jwt.go:72
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/context.go:173
+github.com/gin-contrib/zap.CustomRecoveryWithZap.func1
+	/Users/freeman/go/pkg/mod/github.com/gin-contrib/zap@v0.1.0/zap.go:158
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/context.go:173
+github.com/gin-contrib/zap.GinzapWithConfig.func1
+	/Users/freeman/go/pkg/mod/github.com/gin-contrib/zap@v0.1.0/zap.go:55
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/context.go:173
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/gin.go:616
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/freeman/go/pkg/mod/github.com/gin-gonic/gin@v1.8.1/gin.go:572
+net/http.serverHandler.ServeHTTP
+	/opt/homebrew/Cellar/go/1.19.3/libexec/src/net/http/server.go:2947
+net/http.(*conn).serve
+	/opt/homebrew/Cellar/go/1.19.3/libexec/src/net/http/server.go:1991

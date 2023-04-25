@@ -178,7 +178,7 @@ func RunAutoPlanDetail(ctx context.Context, req RunAutoPlanReq) (int, error) {
 		return errnoNum, err
 	}
 
-	// 组装设置变量数据
+	// 组装场景变量数据
 	errnoNum, err = autoPlan.AssembleVariable(baton)
 	if err != nil {
 		return errnoNum, err
@@ -518,7 +518,12 @@ func CloneAutoPlanScene(ctx *gin.Context) {
 	}
 	err := autoPlan.CloneAutoPlanScene(ctx, &req)
 	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		if err.Error() == "名称过长！不可超出30字符" {
+			response.ErrorWithMsg(ctx, errno.ErrNameOverLength, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
+
 		return
 	}
 	response.Success(ctx)
@@ -623,5 +628,42 @@ func ReportEmailNotify(ctx *gin.Context) {
 	}
 
 	response.Success(ctx)
+	return
+}
+
+func GetReportApiDetail(ctx *gin.Context) {
+	var req rao.GetReportApiDetailReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	apiDetail, err := autoPlan.GetReportApiDetail(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrReportInRun, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, apiDetail)
+	return
+}
+
+func SendReportApi(ctx *gin.Context) {
+	var req rao.SendReportApiReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := autoPlan.SendReportApi(ctx, &req)
+	if err != nil {
+		if err.Error() == "调试接口返回非200状态" {
+			response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
+		return
+	}
+
+	response.SuccessWithData(ctx, rao.SendReportApiResp{RetID: retID})
 	return
 }

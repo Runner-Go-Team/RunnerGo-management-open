@@ -38,6 +38,7 @@ func newStressPlanTimedTaskConf(db *gorm.DB, opts ...gen.DOOption) stressPlanTim
 	_stressPlanTimedTaskConf.TaskType = field.NewInt32(tableName, "task_type")
 	_stressPlanTimedTaskConf.TaskMode = field.NewInt32(tableName, "task_mode")
 	_stressPlanTimedTaskConf.ControlMode = field.NewInt32(tableName, "control_mode")
+	_stressPlanTimedTaskConf.DebugMode = field.NewString(tableName, "debug_mode")
 	_stressPlanTimedTaskConf.ModeConf = field.NewString(tableName, "mode_conf")
 	_stressPlanTimedTaskConf.RunUserID = field.NewString(tableName, "run_user_id")
 	_stressPlanTimedTaskConf.Status = field.NewInt32(tableName, "status")
@@ -65,6 +66,7 @@ type stressPlanTimedTaskConf struct {
 	TaskType      field.Int32  // 任务类型：1-普通任务，2-定时任务
 	TaskMode      field.Int32  // 压测模式：1-并发模式，2-阶梯模式，3-错误率模式，4-响应时间模式，5-每秒请求数模式，6 -每秒事务数模式
 	ControlMode   field.Int32  // 控制模式：0-集中模式，1-单独模式
+	DebugMode     field.String // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
 	ModeConf      field.String // 压测详细配置
 	RunUserID     field.String // 运行人ID
 	Status        field.Int32  // 任务状态：0-未启用，1-运行中，2-已过期
@@ -98,6 +100,7 @@ func (s *stressPlanTimedTaskConf) updateTableName(table string) *stressPlanTimed
 	s.TaskType = field.NewInt32(table, "task_type")
 	s.TaskMode = field.NewInt32(table, "task_mode")
 	s.ControlMode = field.NewInt32(table, "control_mode")
+	s.DebugMode = field.NewString(table, "debug_mode")
 	s.ModeConf = field.NewString(table, "mode_conf")
 	s.RunUserID = field.NewString(table, "run_user_id")
 	s.Status = field.NewInt32(table, "status")
@@ -128,7 +131,7 @@ func (s *stressPlanTimedTaskConf) GetFieldByName(fieldName string) (field.OrderE
 }
 
 func (s *stressPlanTimedTaskConf) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 17)
+	s.fieldMap = make(map[string]field.Expr, 18)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["plan_id"] = s.PlanID
 	s.fieldMap["scene_id"] = s.SceneID
@@ -140,6 +143,7 @@ func (s *stressPlanTimedTaskConf) fillFieldMap() {
 	s.fieldMap["task_type"] = s.TaskType
 	s.fieldMap["task_mode"] = s.TaskMode
 	s.fieldMap["control_mode"] = s.ControlMode
+	s.fieldMap["debug_mode"] = s.DebugMode
 	s.fieldMap["mode_conf"] = s.ModeConf
 	s.fieldMap["run_user_id"] = s.RunUserID
 	s.fieldMap["status"] = s.Status

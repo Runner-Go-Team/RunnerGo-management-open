@@ -1,7 +1,5 @@
 package rao
 
-import "sync"
-
 type SendSceneReq struct {
 	TeamID  string `json:"team_id" binding:"required,gt=0"`
 	SceneID string `json:"scene_id" binding:"required,gt=0"`
@@ -89,9 +87,9 @@ type SaveFlowReq struct {
 	TeamID  string `json:"team_id" binding:"required,gt=0"`
 	Version int32  `json:"version"`
 
-	Nodes           []*Node `json:"nodes"`
-	Edges           []*Edge `json:"edges"`
-	MultiLevelNodes string  `json:"multi_level_nodes"`
+	Nodes           []Node `json:"nodes"`
+	Edges           []Edge `json:"edges"`
+	MultiLevelNodes string `json:"multi_level_nodes"`
 }
 
 type SaveFlowResp struct {
@@ -107,8 +105,8 @@ type Node struct {
 	Type    string `json:"type"`
 	IsCheck bool   `json:"is_check"`
 
-	PositionAbsolute *Point   `json:"positionAbsolute"`
-	Position         *Point   `json:"position"`
+	PositionAbsolute Point    `json:"positionAbsolute"`
+	Position         Point    `json:"position"`
 	PreList          []string `json:"pre_list"`
 	NextList         []string `json:"next_list"`
 	Width            int      `json:"width"`
@@ -122,13 +120,13 @@ type Node struct {
 	} `json:"data"`
 
 	// 接口
-	Weight            int        `json:"weight,omitempty"`
-	Mode              int        `json:"mode,omitempty"`
-	ErrorThreshold    float64    `json:"error_threshold,omitempty"`
-	ResponseThreshold int        `json:"response_threshold,omitempty"`
-	RequestThreshold  int        `json:"request_threshold,omitempty"`
-	PercentAge        int        `json:"percent_age,omitempty"`
-	API               *APIDetail `json:"api,omitempty"`
+	Weight            int       `json:"weight,omitempty"`
+	Mode              int       `json:"mode,omitempty"`
+	ErrorThreshold    float64   `json:"error_threshold,omitempty"`
+	ResponseThreshold int       `json:"response_threshold,omitempty"`
+	RequestThreshold  int       `json:"request_threshold,omitempty"`
+	PercentAge        int       `json:"percent_age,omitempty"`
+	API               APIDetail `json:"api,omitempty"`
 
 	// 全局断言
 	Assets []string `json:"assets,omitempty"`
@@ -182,9 +180,9 @@ type GetFlowResp struct {
 	TeamID  string `json:"team_id"`
 	Version int32  `json:"version"`
 
-	Nodes           []*Node `json:"nodes"`
-	Edges           []*Edge `json:"edges"`
-	MultiLevelNodes []byte  `json:"multi_level_nodes"`
+	Nodes           []Node `json:"nodes"`
+	Edges           []Edge `json:"edges"`
+	MultiLevelNodes []byte `json:"multi_level_nodes"`
 }
 
 type BatchGetFlowReq struct {
@@ -201,30 +199,71 @@ type Flow struct {
 	TeamID  string `json:"team_id"`
 	Version int32  `json:"version"`
 
-	Nodes           []*Node `json:"nodes"`
-	Edges           []*Edge `json:"edges"`
-	MultiLevelNodes []byte  `json:"multi_level_nodes"`
+	Nodes           []Node `json:"nodes"`
+	Edges           []Edge `json:"edges"`
+	MultiLevelNodes []byte `json:"multi_level_nodes"`
 }
 
 type SceneFlow struct {
-	SceneID       string        `json:"scene_id"`
-	SceneName     string        `json:"scene_name"`
-	TeamID        string        `json:"team_id"`
-	Nodes         []*Node       `json:"nodes"`
-	Configuration Configuration `json:"configuration"`
-	Variable      []*KVVariable `json:"variable"` // 全局变量
+	SceneID   string `json:"scene_id"`
+	SceneName string `json:"scene_name"`
+	TeamID    string `json:"team_id"`
+	//Nodes     []Node `json:"nodes"`
+	Configuration  SceneConfiguration `json:"configuration"`
+	Variable       []KVVariable       `json:"variable"` // 全局变量
+	NodesRound     [][]Node           `json:"nodes_round"`
+	GlobalVariable GlobalVariable     `json:"global_variable"`
+}
+
+type SceneConfiguration struct {
+	ParameterizedFile *SceneVariablePath `json:"parameterizedFile"`
+	SceneVariable     GlobalVariable     `json:"scene_variable"`
+	//Variable          []*Variable        `json:"variable"` // todo 已废弃
+}
+
+type GlobalVariable struct {
+	Cookie   Cookie          `json:"cookie"`
+	Header   Header          `json:"header"`
+	Variable []VarForm       `json:"variable"`
+	Assert   []AssertionText `json:"assert"` // 验证的方法(断言)
+}
+
+type SceneVariablePath struct {
+	Paths []FileList `json:"paths"`
+}
+
+// VarForm 参数表
+type VarForm struct {
+	IsChecked   int64       `json:"is_checked" bson:"is_checked"`
+	Type        string      `json:"type" bson:"type"`
+	FileBase64  []string    `json:"fileBase64"`
+	Key         string      `json:"key" bson:"key"`
+	Value       interface{} `json:"value" bson:"value"`
+	NotNull     int64       `json:"not_null" bson:"not_null"`
+	Description string      `json:"description" bson:"description"`
+	FieldType   string      `json:"field_type" bson:"field_type"`
+}
+
+// AssertionText 文本断言 0
+type AssertionText struct {
+	IsChecked    int    `json:"is_checked"`    // 1 选中  -1 未选
+	ResponseType int8   `json:"response_type"` //  1:ResponseHeaders; 2:ResponseData; 3: ResponseCode;
+	Compare      string `json:"compare"`       // Includes、UNIncludes、Equal、UNEqual、GreaterThan、GreaterThanOrEqual、LessThan、LessThanOrEqual、Includes、UNIncludes、NULL、NotNULL、OriginatingFrom、EndIn
+	Var          string `json:"var"`
+	Val          string `json:"val"`
 }
 
 type Configuration struct {
 	ParameterizedFile ParameterizedFile `json:"parameterizedFile" bson:"parameterizedFile"`
+	SceneVariable     GlobalVariable    `json:"scene_variable"`
 	Variable          []KV              `json:"variable" bson:"variable"`
 }
 
 // ParameterizedFile 参数化文件
 type ParameterizedFile struct {
-	Paths         []FileList     `json:"paths"` // 文件地址
-	RealPaths     []string       `json:"real_paths"`
-	VariableNames *VariableNames `json:"variable_names"` // 存储变量及数据的map
+	Paths         []FileList    `json:"paths"` // 文件地址
+	RealPaths     []string      `json:"real_paths"`
+	VariableNames VariableNames `json:"variable_names"` // 存储变量及数据的map
 }
 
 type FileList struct {
@@ -235,7 +274,7 @@ type FileList struct {
 type VariableNames struct {
 	VarMapList map[string][]string `json:"var_map_list"`
 	Index      int                 `json:"index"`
-	Mu         sync.Mutex          `json:"mu"`
+	//Mu         sync.Mutex          `json:"mu"`
 }
 
 type ConfVariable struct {

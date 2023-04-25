@@ -51,7 +51,12 @@ func CopyCaseAssemble(ctx *gin.Context) {
 
 	CopyCaseAssembleErr := caseAssemble.CopyCaseAssemble(ctx, &req)
 	if CopyCaseAssembleErr != nil {
-		response.ErrorWithMsg(ctx, errno.ErrParam, CopyCaseAssembleErr.Error())
+		if CopyCaseAssembleErr.Error() == "名称过长！不可超出30字符" {
+			response.ErrorWithMsg(ctx, errno.ErrNameOverLength, CopyCaseAssembleErr.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrParam, CopyCaseAssembleErr.Error())
+		}
+
 		return
 	}
 

@@ -25,6 +25,7 @@ type StressPlanTimedTaskConf struct {
 	TaskType      int32          `gorm:"column:task_type;not null;default:2" json:"task_type"`                   // 任务类型：1-普通任务，2-定时任务
 	TaskMode      int32          `gorm:"column:task_mode;not null;default:1" json:"task_mode"`                   // 压测模式：1-并发模式，2-阶梯模式，3-错误率模式，4-响应时间模式，5-每秒请求数模式，6 -每秒事务数模式
 	ControlMode   int32          `gorm:"column:control_mode;not null" json:"control_mode"`                       // 控制模式：0-集中模式，1-单独模式
+	DebugMode     string         `gorm:"column:debug_mode;not null;default:stop" json:"debug_mode"`              // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
 	ModeConf      string         `gorm:"column:mode_conf;not null" json:"mode_conf"`                             // 压测详细配置
 	RunUserID     string         `gorm:"column:run_user_id;not null;default:0" json:"run_user_id"`               // 运行人ID
 	Status        int32          `gorm:"column:status;not null" json:"status"`                                   // 任务状态：0-未启用，1-运行中，2-已过期

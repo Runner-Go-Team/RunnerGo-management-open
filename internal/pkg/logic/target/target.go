@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/goccy/go-json"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gen"
@@ -60,25 +61,188 @@ func SendSceneAPI(ctx context.Context, teamID string, sceneID string, nodeID str
 		})
 	}
 
-	for _, node := range n.Nodes {
-		if node.ID == nodeID {
+	// 获取全局变量
+	globalVariable := rao.GlobalVariable{}
+	// 查询全局变量
+	collection2 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
+	cur, err := collection2.Find(ctx, bson.D{{"team_id", teamID}})
+	var globalParamDataArr []*mao.GlobalParamData
+	if err == nil {
+		if err := cur.All(ctx, &globalParamDataArr); err != nil {
+			return "", fmt.Errorf("全局参数数据获取失败")
+		}
+	}
 
-			tx := dal.GetQuery().Variable
-			variables, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(teamID),
-				tx.Status.Eq(consts.VariableStatusOpen)).Order(tx.Type.Desc()).Find()
+	cookieParam := make([]rao.CookieParam, 0, 100)
+	headerParam := make([]rao.HeaderParam, 0, 100)
+	variableParam := make([]rao.VariableParam, 0, 100)
+	assertParam := make([]rao.AssertParam, 0, 100)
+	for _, globalParamInfo := range globalParamDataArr {
+		if globalParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(cookieParam))
+			for _, v := range cookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Cookie.Parameter = parameter
+		}
+		if globalParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
 			if err != nil {
 				return "", err
 			}
 
-			var vs []*rao.KVVariable
-			for _, v := range variables {
-				vs = append(vs, &rao.KVVariable{
-					Key:   v.Var,
-					Value: v.Val,
-				})
+			parameter := make([]rao.Parameter, 0, len(headerParam))
+			for _, v := range headerParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Header.Parameter = parameter
+
+		}
+		if globalParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
+			if err != nil {
+				return "", err
 			}
 
-			node.API.Variable = vs
+			parameter := make([]rao.VarForm, 0, len(variableParam))
+			for _, v := range variableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Variable = parameter
+
+		}
+		if globalParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(assertParam))
+			for _, v := range assertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Assert = parameter
+		}
+	}
+
+	// 获取场景变量
+	sceneVariable := rao.GlobalVariable{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+	cur, err = collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
+	var sceneParamDataArr []*mao.SceneParamData
+	if err == nil {
+		if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+			return "", fmt.Errorf("场景参数数据获取失败")
+		}
+	}
+
+	sceneCookieParam := make([]rao.CookieParam, 0, 100)
+	sceneHeaderParam := make([]rao.HeaderParam, 0, 100)
+	sceneVariableParam := make([]rao.VariableParam, 0, 100)
+	sceneAssertParam := make([]rao.AssertParam, 0, 100)
+	for _, sceneParamInfo := range sceneParamDataArr {
+		if sceneParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneCookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(sceneCookieParam))
+			for _, v := range sceneCookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Cookie.Parameter = parameter
+		}
+		if sceneParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneHeaderParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(sceneHeaderParam))
+			for _, v := range sceneHeaderParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Header.Parameter = parameter
+
+		}
+		if sceneParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneVariableParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(sceneVariableParam))
+			for _, v := range sceneVariableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Variable = parameter
+		}
+		if sceneParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneAssertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(sceneAssertParam))
+			for _, v := range sceneAssertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Assert = parameter
+		}
+	}
+
+	for _, node := range n.Nodes {
+		if node.ID == nodeID {
+			node.API.GlobalVariable = globalVariable
+			node.API.Configuration.SceneVariable = sceneVariable
 			if len(fileList) > 0 {
 				node.API.Configuration.ParameterizedFile.Paths = fileList
 			}
@@ -109,17 +273,182 @@ func SendScene(ctx context.Context, teamID string, sceneID string, userID string
 		return "", err
 	}
 
-	sv := dal.GetQuery().Variable
-	sceneVariables, err := sv.WithContext(ctx).Where(sv.SceneID.Eq(sceneID), sv.Status.Eq(consts.VariableStatusOpen)).Find()
-	if err != nil {
-		return "", err
+	// 获取全局变量
+	globalVariable := rao.GlobalVariable{}
+	// 查询全局变量
+	collection2 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
+	cur, err := collection2.Find(ctx, bson.D{{"team_id", teamID}})
+	var globalParamDataArr []*mao.GlobalParamData
+	if err == nil {
+		if err := cur.All(ctx, &globalParamDataArr); err != nil {
+			return "", fmt.Errorf("全局参数数据获取失败")
+		}
 	}
 
-	variables, err := sv.WithContext(ctx).Where(sv.TeamID.Eq(teamID),
-		sv.Type.Eq(consts.VariableTypeGlobal),
-		sv.Status.Eq(consts.VariableStatusOpen)).Find()
-	if err != nil {
-		return "", err
+	cookieParam := make([]rao.CookieParam, 0, 100)
+	headerParam := make([]rao.HeaderParam, 0, 100)
+	variableParam := make([]rao.VariableParam, 0, 100)
+	assertParam := make([]rao.AssertParam, 0, 100)
+	for _, globalParamInfo := range globalParamDataArr {
+		if globalParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(cookieParam))
+			for _, v := range cookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Cookie.Parameter = parameter
+		}
+		if globalParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(headerParam))
+			for _, v := range headerParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Header.Parameter = parameter
+
+		}
+		if globalParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(variableParam))
+			for _, v := range variableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Variable = parameter
+
+		}
+		if globalParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(assertParam))
+			for _, v := range assertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Assert = parameter
+		}
+	}
+
+	// 获取场景变量
+	sceneVariable := rao.GlobalVariable{}
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+	cur, err = collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
+	var sceneParamDataArr []*mao.SceneParamData
+	if err == nil {
+		if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+			return "", fmt.Errorf("场景参数数据获取失败")
+		}
+	}
+
+	sceneCookieParam := make([]rao.CookieParam, 0, 100)
+	sceneHeaderParam := make([]rao.HeaderParam, 0, 100)
+	sceneVariableParam := make([]rao.VariableParam, 0, 100)
+	sceneAssertParam := make([]rao.AssertParam, 0, 100)
+	for _, sceneParamInfo := range sceneParamDataArr {
+		if sceneParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneCookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(sceneCookieParam))
+			for _, v := range sceneCookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Cookie.Parameter = parameter
+		}
+		if sceneParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneHeaderParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(sceneHeaderParam))
+			for _, v := range sceneHeaderParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Header.Parameter = parameter
+
+		}
+		if sceneParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneVariableParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(sceneVariableParam))
+			for _, v := range sceneVariableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Variable = parameter
+		}
+		if sceneParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneAssertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(sceneAssertParam))
+			for _, v := range sceneAssertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Assert = parameter
+		}
 	}
 
 	// 增加调试场景日志
@@ -137,7 +466,7 @@ func SendScene(ctx context.Context, teamID string, sceneID string, userID string
 		return "", err
 	}
 
-	req := packer.TransMaoFlowToRaoSceneFlow(t, &f, vis, sceneVariables, variables)
+	req := packer.TransMaoFlowToRaoSceneFlow(t, &f, vis, sceneVariable, globalVariable)
 	return runner.RunScene(ctx, req)
 }
 
@@ -175,10 +504,94 @@ func SendAPI(ctx *gin.Context, teamID string, targetID string) (string, error) {
 		return "", err
 	}
 
-	v := dal.GetQuery().Variable
-	variables, err := v.WithContext(ctx).Where(v.TeamID.Eq(teamID), v.Status.Eq(consts.VariableStatusOpen)).Find()
-	if err != nil {
-		return "", err
+	// 获取全局变量
+	globalVariable := rao.GlobalVariable{}
+	// 查询全局变量
+	collection2 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
+	cur, err := collection2.Find(ctx, bson.D{{"team_id", teamID}})
+	var globalParamDataArr []*mao.GlobalParamData
+	if err == nil {
+		if err := cur.All(ctx, &globalParamDataArr); err != nil {
+			return "", fmt.Errorf("全局参数数据获取失败")
+		}
+	}
+
+	cookieParam := make([]rao.CookieParam, 0, 100)
+	headerParam := make([]rao.HeaderParam, 0, 100)
+	variableParam := make([]rao.VariableParam, 0, 100)
+	assertParam := make([]rao.AssertParam, 0, 100)
+	for _, globalParamInfo := range globalParamDataArr {
+		if globalParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(cookieParam))
+			for _, v := range cookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Cookie.Parameter = parameter
+		}
+		if globalParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(headerParam))
+			for _, v := range headerParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Header.Parameter = parameter
+
+		}
+		if globalParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(variableParam))
+			for _, v := range variableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Variable = parameter
+
+		}
+		if globalParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(assertParam))
+			for _, v := range assertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Assert = parameter
+		}
 	}
 
 	// 把调试信息入库
@@ -198,7 +611,7 @@ func SendAPI(ctx *gin.Context, teamID string, targetID string) (string, error) {
 		return "", err
 	}
 
-	retID, err := runner.RunAPI(ctx, packer.TransTargetToRaoAPIDetail(t, &apiInfo, variables))
+	retID, err := runner.RunAPI(ctx, packer.TransTargetToRaoAPIDetail(t, &apiInfo, globalVariable))
 	if err != nil {
 		return "", fmt.Errorf("调试接口返回非200状态")
 	}
@@ -395,26 +808,4 @@ func Delete(ctx context.Context, targetID string) error {
 
 		return nil
 	})
-}
-
-func APICountByTeamID(ctx context.Context, teamID string) (int64, error) {
-	tx := query.Use(dal.DB()).Target
-
-	return tx.WithContext(ctx).Where(
-		tx.TargetType.Eq(consts.TargetTypeAPI),
-		tx.TeamID.Eq(teamID),
-		tx.Status.Eq(consts.TargetStatusNormal),
-		tx.Source.Eq(consts.TargetSourceNormal),
-	).Count()
-}
-
-func SceneCountByTeamID(ctx context.Context, teamID string) (int64, error) {
-	tx := query.Use(dal.DB()).Target
-
-	return tx.WithContext(ctx).Where(
-		tx.TargetType.Eq(consts.TargetTypeScene),
-		tx.Status.Eq(consts.TargetStatusNormal),
-		tx.Source.Eq(consts.TargetSourceNormal),
-		tx.TeamID.Eq(teamID),
-	).Count()
 }

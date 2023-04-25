@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"kp-management/internal/pkg/biz/jwt"
 	"kp-management/internal/pkg/biz/log"
 	"strconv"
@@ -27,12 +28,6 @@ import (
 	"kp-management/internal/pkg/dal/rao"
 	"kp-management/internal/pkg/packer"
 )
-
-func CountByTeamID(ctx context.Context, teamID string) (int64, error) {
-	tx := query.Use(dal.DB()).StressPlanReport
-
-	return tx.WithContext(ctx).Where(tx.TeamID.Eq(teamID)).Count()
-}
 
 func ListByTeamID2(ctx context.Context, teamID string, limit, offset int, keyword string, startTimeSec, endTimeSec int64, taskType, taskMode, status, sortTag int32) ([]*rao.StressPlanReport, int64, error) {
 
@@ -295,7 +290,6 @@ func GetTaskDetail(ctx context.Context, req rao.GetReportTaskDetailReq) (*rao.Re
 	}
 
 	modeConf := &rao.ModeConf{
-		ReheatTime:       detail.ModeConf.ReheatTime,
 		RoundNum:         detail.ModeConf.RoundNum,
 		Concurrency:      detail.ModeConf.Concurrency,
 		ThresholdValue:   detail.ModeConf.ThresholdValue,
@@ -308,7 +302,6 @@ func GetTaskDetail(ctx context.Context, req rao.GetReportTaskDetailReq) (*rao.Re
 	}
 
 	changeTaskConfData := &rao.ModeConf{
-		ReheatTime:       detail.ModeConf.ReheatTime,
 		RoundNum:         detail.ModeConf.RoundNum,
 		Concurrency:      detail.ModeConf.Concurrency,
 		ThresholdValue:   detail.ModeConf.ThresholdValue,
@@ -332,7 +325,8 @@ func GetTaskDetail(ctx context.Context, req rao.GetReportTaskDetailReq) (*rao.Re
 		CreatedTimeSec: ru.CreatedAt.Unix(),
 		TaskType:       detail.TaskType,
 		TaskMode:       detail.TaskMode,
-		ControlMode:    reportInfo.ControlMode,
+		ControlMode:    detail.ControlMode,
+		DebugMode:      detail.DebugMode,
 		TaskStatus:     ru.Status,
 		ModeConf:       modeConf,
 	}
@@ -342,7 +336,6 @@ func GetTaskDetail(ctx context.Context, req rao.GetReportTaskDetailReq) (*rao.Re
 	if len(changeTaskConf) > 0 {
 		for _, changeTaskConfTmp := range changeTaskConf {
 			tmp := &rao.ModeConf{
-				ReheatTime:       changeTaskConfTmp.ModeConf.ReheatTime,
 				RoundNum:         changeTaskConfTmp.ModeConf.RoundNum,
 				Concurrency:      changeTaskConfTmp.ModeConf.Concurrency,
 				ThresholdValue:   changeTaskConfTmp.ModeConf.ThresholdValue,
@@ -385,8 +378,10 @@ func GetReportDebugStatus(ctx context.Context, req rao.GetReportReq) string {
 
 func GetReportDebugLog(ctx context.Context, report rao.GetReportReq) (err error, debugMsgList []map[string]interface{}) {
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectStressDebug)
-	filter := bson.D{{"report_id", report.ReportID}, {"team_id", report.TeamID}}
-	cur, err := collection.Find(ctx, filter)
+	filter := bson.D{{"team_id", report.TeamID}, {"report_id", report.ReportID}}
+	findOptions := options.Find().SetSort(bson.M{"response_time": -1}).SetLimit(1000)
+	cur, err := collection.Find(ctx, filter, findOptions)
+	//cur, err := collection.Find(ctx, filter)
 	if err != nil {
 		log.Logger.Info("debug日志查询失败", proof.WithError(err))
 		return
@@ -405,7 +400,7 @@ func GetReportDebugLog(ctx context.Context, report rao.GetReportReq) (err error,
 			delete(debugMsg, "assertion_failed_num")
 			delete(debugMsg, "assertion_num")
 			delete(debugMsg, "case_id")
-			delete(debugMsg, "event_id")
+			//delete(debugMsg, "event_id")
 			delete(debugMsg, "next_list")
 			delete(debugMsg, "parent_id")
 			delete(debugMsg, "plan_id")
@@ -413,14 +408,14 @@ func GetReportDebugLog(ctx context.Context, report rao.GetReportReq) (err error,
 			delete(debugMsg, "scene_id")
 			delete(debugMsg, "team_id")
 			delete(debugMsg, "type")
-			delete(debugMsg, "uuid")
+			//delete(debugMsg, "uuid")
 			debugMsgList = append(debugMsgList, debugMsg)
 		}
 	}
 
 	// 限制debug日志数量
-	if len(debugMsgList) > 500 {
-		startIndex := len(debugMsgList) - 500
+	if len(debugMsgList) > 1000 {
+		startIndex := len(debugMsgList) - 1000
 		debugMsgList = debugMsgList[startIndex:]
 	}
 	return

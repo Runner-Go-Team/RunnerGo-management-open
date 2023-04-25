@@ -149,12 +149,12 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 					return err
 				}
 				if err != mongo.ErrNoDocuments {
-					var ns *mao.Node
+					var ns mao.Node
 					if err := bson.Unmarshal(flow.Nodes, &ns); err != nil {
 						return err
 					}
-					for _, n := range ns.Nodes {
-						n.Data.From = dataFrom
+					for k := range ns.Nodes {
+						ns.Nodes[k].Data.From = dataFrom
 					}
 					nodes, err := bson.Marshal(ns)
 					if err != nil {
@@ -171,22 +171,21 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 			}
 		}
 
-		// 复制场景变量表
-		variableList, err := tx.Variable.WithContext(ctx).Where(tx.Variable.SceneID.In(oldSceneIDs...)).Find()
-		if err != nil {
-			return err
-		}
-		var variables []*model.Variable
-		for _, variable := range variableList {
-			if newSceneID, ok := sceneIDMap[variable.SceneID]; ok {
-				variable.ID = 0
-				variable.SceneID = newSceneID
-				variables = append(variables, variable)
-			}
-		}
-		if len(variables) > 0 {
-			if err := tx.Variable.WithContext(ctx).CreateInBatches(variables, 5); err != nil {
-				return err
+		// 复制场景变量
+		for _, sceneID := range oldSceneIDs {
+			collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+			cur, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}, {"scene_id", sceneID}})
+			var sceneParamDataArr []*mao.SceneParamData
+			if err == nil {
+				if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+					return fmt.Errorf("场景参数数据获取失败")
+				}
+				for _, sv := range sceneParamDataArr {
+					sv.SceneID = sceneIDMap[sceneID]
+					if _, err := collection.InsertOne(ctx, sv); err != nil {
+						return err
+					}
+				}
 			}
 		}
 

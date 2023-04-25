@@ -61,6 +61,9 @@ const (
 	ErrCannotBatchDeleteRunningPlan           = 20056
 	ErrMaxConcurrencyLessThanStartConcurrency = 20058
 	ErrNotEmailConfig                         = 20059
+	ErrEmptySceneFlow                         = 20061
+	ErrEmptyTestCaseFlow                      = 20062
+	ErrNameOverLength                         = 20063
 )
 
 // CodeAlertMap 错图码映射错误提示，展示给用户
@@ -124,6 +127,9 @@ var CodeAlertMap = map[int]string{
 	ErrCannotBatchDeleteRunningPlan: "存在运行中的计划，无法删除",
 	ErrMaxConcurrencyLessThanStartConcurrency: "最大并发数不能小于起始并发数",
 	ErrNotEmailConfig:                         "请配置邮件相关环境变量",
+	ErrEmptySceneFlow:                         "场景flow不能为空",
+	ErrEmptyTestCaseFlow:                      "场景用例flow不能为空",
+	ErrNameOverLength:                         "名称过长！不可超出30字符",
 }
 
 // CodeMsgMap 错误码映射错误信息，不展示给用户
@@ -187,4 +193,7 @@ var CodeMsgMap = map[int]string{
 	ErrCannotBatchDeleteRunningPlan: "ErrCannotBatchDeleteRunningPlan",
 	ErrMaxConcurrencyLessThanStartConcurrency: "ErrMaxConcurrencyLessThanStartConcurrency",
 	ErrNotEmailConfig:                         "ErrNotEmailConfig",
+	ErrEmptySceneFlow:                         "ErrEmptySceneFlow",
+	ErrEmptyTestCaseFlow:                      "ErrEmptyTestCaseFlow",
+	ErrNameOverLength:                         "ErrNameOverLength",
 }

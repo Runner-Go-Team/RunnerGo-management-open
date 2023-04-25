@@ -25,6 +25,7 @@ type StressPlanReport struct {
 	TaskType    int32          `gorm:"column:task_type;not null" json:"task_type"`                             // 任务类型
 	TaskMode    int32          `gorm:"column:task_mode;not null" json:"task_mode"`                             // 压测模式
 	ControlMode int32          `gorm:"column:control_mode;not null" json:"control_mode"`                       // 控制模式：0-集中模式，1-单独模式
+	DebugMode   string         `gorm:"column:debug_mode;not null;default:stop" json:"debug_mode"`              // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
 	Status      int32          `gorm:"column:status;not null" json:"status"`                                   // 报告状态1:进行中，2:已完成
 	Remark      string         `gorm:"column:remark;not null" json:"remark"`                                   // 备注
 	RunUserID   string         `gorm:"column:run_user_id;not null" json:"run_user_id"`                         // 启动人id

@@ -14,6 +14,7 @@ type API struct {
 	EnvServiceURL string       `json:"env_service_url"`
 	Header        bson.Raw     `bson:"header"`
 	Query         bson.Raw     `bson:"query"`
+	Cookie        bson.Raw     `bson:"cookie"`
 	Body          bson.Raw     `bson:"body"`
 	Auth          bson.Raw     `bson:"auth"`
 	Description   string       `bson:"description"`
@@ -30,9 +31,9 @@ type HttpApiSetup struct {
 }
 
 type Assert struct {
-	Assert []*rao.Assert `bson:"assert"`
+	Assert []rao.Assert `bson:"assert"`
 }
 
 type Regex struct {
-	Regex []*rao.Regex `bson:"regex"`
+	Regex []rao.Regex `bson:"regex"`
 }

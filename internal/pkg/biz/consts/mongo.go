@@ -20,6 +20,8 @@ const (
 	CollectReportData           = "report_data"
 	CollectAutoReport           = "auto_report"
 	CollectAutoReportDetailData = "auto_report_detail_data"
+	CollectGlobalParam          = "global_param"
+	CollectSceneParam           = "scene_param"
 
 	All         = "all"
 	OnlyError   = "only_error"

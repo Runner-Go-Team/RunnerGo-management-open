@@ -32,7 +32,6 @@ type PlanTask struct {
 }
 
 type ModeConf struct {
-	ReheatTime       int64 `json:"reheat_time"`       // 预热时长
 	RoundNum         int64 `json:"round_num"`         // 轮次
 	Concurrency      int64 `json:"concurrency"`       // 并发数
 	ThresholdValue   int64 `json:"threshold_value"`   // 阈值
@@ -118,6 +117,7 @@ type SavePlanConfReq struct {
 	TaskType      int32          `json:"task_type" binding:"required,gt=0"`
 	Mode          int32          `json:"mode" binding:"required,gt=0"`
 	ControlMode   int32          `json:"control_mode"`
+	DebugMode     string         `json:"debug_mode"`
 	Remark        string         `json:"remark"`
 	ModeConf      *ModeConf      `json:"mode_conf"`
 	TimedTaskConf *TimedTaskConf `json:"timed_task_conf"`
@@ -146,6 +146,7 @@ type PlanTaskResp struct {
 	TaskType      int32         `json:"task_type"`
 	Mode          int32         `json:"mode"`
 	ControlMode   int32         `json:"control_mode"`
+	DebugMode     string        `json:"debug_mode"`
 	ModeConf      ModeConf      `json:"mode_conf"`
 	TimedTaskConf TimedTaskConf `json:"timed_task_conf"`
 }

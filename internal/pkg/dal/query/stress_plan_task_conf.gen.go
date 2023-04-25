@@ -34,6 +34,7 @@ func newStressPlanTaskConf(db *gorm.DB, opts ...gen.DOOption) stressPlanTaskConf
 	_stressPlanTaskConf.TaskType = field.NewInt32(tableName, "task_type")
 	_stressPlanTaskConf.TaskMode = field.NewInt32(tableName, "task_mode")
 	_stressPlanTaskConf.ControlMode = field.NewInt32(tableName, "control_mode")
+	_stressPlanTaskConf.DebugMode = field.NewString(tableName, "debug_mode")
 	_stressPlanTaskConf.ModeConf = field.NewString(tableName, "mode_conf")
 	_stressPlanTaskConf.RunUserID = field.NewString(tableName, "run_user_id")
 	_stressPlanTaskConf.CreatedAt = field.NewTime(tableName, "created_at")
@@ -56,6 +57,7 @@ type stressPlanTaskConf struct {
 	TaskType    field.Int32  // 任务类型：1-普通模式，2-定时任务
 	TaskMode    field.Int32  // 压测模式：1-并发模式，2-阶梯模式，3-错误率模式，4-响应时间模式，5-每秒请求数模式，6-每秒事务数模式
 	ControlMode field.Int32  // 控制模式：0-集中模式，1-单独模式
+	DebugMode   field.String // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
 	ModeConf    field.String // 压测模式配置详情
 	RunUserID   field.String // 运行人用户ID
 	CreatedAt   field.Time   // 创建时间
@@ -84,6 +86,7 @@ func (s *stressPlanTaskConf) updateTableName(table string) *stressPlanTaskConf {
 	s.TaskType = field.NewInt32(table, "task_type")
 	s.TaskMode = field.NewInt32(table, "task_mode")
 	s.ControlMode = field.NewInt32(table, "control_mode")
+	s.DebugMode = field.NewString(table, "debug_mode")
 	s.ModeConf = field.NewString(table, "mode_conf")
 	s.RunUserID = field.NewString(table, "run_user_id")
 	s.CreatedAt = field.NewTime(table, "created_at")
@@ -113,7 +116,7 @@ func (s *stressPlanTaskConf) GetFieldByName(fieldName string) (field.OrderExpr, 
 }
 
 func (s *stressPlanTaskConf) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 12)
+	s.fieldMap = make(map[string]field.Expr, 13)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["plan_id"] = s.PlanID
 	s.fieldMap["team_id"] = s.TeamID
@@ -121,6 +124,7 @@ func (s *stressPlanTaskConf) fillFieldMap() {
 	s.fieldMap["task_type"] = s.TaskType
 	s.fieldMap["task_mode"] = s.TaskMode
 	s.fieldMap["control_mode"] = s.ControlMode
+	s.fieldMap["debug_mode"] = s.DebugMode
 	s.fieldMap["mode_conf"] = s.ModeConf
 	s.fieldMap["run_user_id"] = s.RunUserID
 	s.fieldMap["created_at"] = s.CreatedAt

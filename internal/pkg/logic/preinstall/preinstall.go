@@ -92,6 +92,7 @@ func SavePreinstall(ctx *gin.Context, req *rao.SavePreinstallReq) (int, error) {
 			TaskType:      req.TaskType,
 			TaskMode:      req.TaskMode,
 			ControlMode:   req.ControlMode,
+			DebugMode:     req.DebugMode,
 			ModeConf:      string(modeConfString),
 			TimedTaskConf: string(timedTaskConfString),
 		}
@@ -116,6 +117,7 @@ func SavePreinstall(ctx *gin.Context, req *rao.SavePreinstallReq) (int, error) {
 			tx.TaskType.Value(req.TaskType),
 			tx.TaskMode.Value(req.TaskMode),
 			tx.ControlMode.Value(req.ControlMode),
+			tx.DebugMode.Value(req.DebugMode),
 			tx.ModeConf.Value(string(modeConfString)),
 			tx.TimedTaskConf.Value(string(timedTaskConfString)),
 		)
@@ -168,6 +170,7 @@ func GetPreinstallDetail(ctx context.Context, req rao.GetPreinstallDetailReq) (*
 		TaskType:      preinstallData.TaskType,
 		TaskMode:      preinstallData.TaskMode,
 		ControlMode:   preinstallData.ControlMode,
+		DebugMode:     preinstallData.DebugMode,
 		ModeConf:      modeConf,
 		TimedTaskConf: timedTaskConf,
 	}
@@ -259,6 +262,7 @@ func GetPreinstallList(ctx *gin.Context, req rao.GetPreinstallListReq) ([]*rao.P
 			TaskType:      detail.TaskType,
 			TaskMode:      detail.TaskMode,
 			ControlMode:   detail.ControlMode,
+			DebugMode:     detail.DebugMode,
 			ModeConf:      modeConf,
 			TimedTaskConf: timedTaskConf,
 		}
@@ -338,6 +342,8 @@ func CopyPreinstall(ctx *gin.Context, req rao.CopyPreinstallReq) error {
 		UserName:      userInfo.Nickname,
 		TaskType:      oldPreinstallInfo.TaskType,
 		TaskMode:      oldPreinstallInfo.TaskMode,
+		ControlMode:   oldPreinstallInfo.ControlMode,
+		DebugMode:     oldPreinstallInfo.DebugMode,
 		ModeConf:      oldPreinstallInfo.ModeConf,
 		TimedTaskConf: oldPreinstallInfo.TimedTaskConf,
 	}

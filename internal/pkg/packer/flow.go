@@ -4,7 +4,6 @@ import (
 	"github.com/go-omnibus/proof"
 	uuid "github.com/satori/go.uuid"
 	"go.mongodb.org/mongo-driver/bson"
-
 	"kp-management/internal/pkg/dal/mao"
 	"kp-management/internal/pkg/dal/model"
 	"kp-management/internal/pkg/dal/rao"
@@ -32,10 +31,16 @@ func TransSaveFlowReqToMaoFlow(req *rao.SaveFlowReq) *mao.Flow {
 	}
 }
 
-func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.VariableImport, sceneVariables, variables []*model.Variable) *rao.SceneFlow {
-	var n mao.Node
-	if err := bson.Unmarshal(f.Nodes, &n); err != nil {
+func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.VariableImport,
+	sceneVariable rao.GlobalVariable, globalVariable rao.GlobalVariable) *rao.SceneFlow {
+	var nodes mao.Node
+	if err := bson.Unmarshal(f.Nodes, &nodes); err != nil {
 		proof.Errorf("flow.nodes bson unmarshal err %w", err)
+	}
+
+	var edges mao.Edge
+	if err := bson.Unmarshal(f.Edges, &edges); err != nil {
+		proof.Errorf("flow.edges bson unmarshal err %w", err)
 	}
 
 	var fileList []rao.FileList
@@ -45,36 +50,68 @@ func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.Varia
 			Path:      vi.URL,
 		})
 	}
-
-	var v []rao.KV
-	for _, variable := range sceneVariables {
-		v = append(v, rao.KV{
-			Key:   variable.Var,
-			Value: variable.Val,
-		})
-	}
-
-	var globalVariables []*rao.KVVariable
-	for _, variable := range variables {
-		globalVariables = append(globalVariables, &rao.KVVariable{
-			Key:   variable.Var,
-			Value: variable.Val,
-		})
-	}
+	nodesRound := GetNodesByLevel(nodes.Nodes, edges.Edges)
 
 	return &rao.SceneFlow{
 		SceneID:   t.TargetID,
 		SceneName: t.Name,
 		TeamID:    t.TeamID,
-		Nodes:     n.Nodes,
-		Configuration: rao.Configuration{
-			ParameterizedFile: rao.ParameterizedFile{
+		//Nodes:     nodes.Nodes,
+		Configuration: rao.SceneConfiguration{
+			ParameterizedFile: &rao.SceneVariablePath{
 				Paths: fileList,
 			},
-			Variable: v,
+			SceneVariable: sceneVariable,
 		},
-		Variable: globalVariables,
+		NodesRound:     nodesRound,
+		GlobalVariable: globalVariable,
 	}
+}
+
+func GetNodesByLevel(nodes []rao.Node, edges []rao.Edge) [][]rao.Node {
+	var arr [][]rao.Node
+	for len(nodes) > 0 {
+		var currentLayer []rao.Node
+		for _, node := range nodes {
+			isTarget := false
+			for _, edge := range edges {
+				if edge.Target == node.ID {
+					isTarget = true
+					break
+				}
+			}
+			if !isTarget {
+				currentLayer = append(currentLayer, node)
+			}
+		}
+		arr = append(arr, currentLayer)
+		for _, node := range currentLayer {
+			var filteredEdges []rao.Edge
+			for _, edge := range edges {
+				if edge.Source != node.ID {
+					filteredEdges = append(filteredEdges, edge)
+				}
+			}
+			edges = filteredEdges
+		}
+		var remainingNodes []rao.Node
+		for _, node := range nodes {
+			if !containsNode(currentLayer, node) {
+				remainingNodes = append(remainingNodes, node)
+			}
+		}
+		nodes = remainingNodes
+	}
+	return arr
+}
+
+func containsNode(nodes []rao.Node, node rao.Node) bool {
+	for _, n := range nodes {
+		if n.ID == node.ID {
+			return true
+		}
+	}
+	return false
 }
 
 func TransMaoFlowToRaoGetFowResp(f *mao.Flow) *rao.GetFlowResp {

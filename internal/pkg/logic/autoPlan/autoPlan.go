@@ -22,7 +22,9 @@ import (
 	"kp-management/internal/pkg/dal/model"
 	"kp-management/internal/pkg/dal/query"
 	"kp-management/internal/pkg/dal/rao"
+	"kp-management/internal/pkg/dal/runner"
 	"kp-management/internal/pkg/packer"
+	"kp-management/internal/pkg/public"
 	"math"
 	"strconv"
 	"strings"
@@ -381,6 +383,11 @@ func CopyAutoPlan(ctx *gin.Context, req *rao.CopyAutoPlanReq) error {
 			newPlanName = oldPlanName + fmt.Sprintf("_%d", maxNum+1)
 		}
 
+		nameLength := public.GetStringNum(newPlanName)
+		if nameLength > 30 { // 场景名称限制30个字符
+			return fmt.Errorf("名称过长！不可超出30字符")
+		}
+
 		// 查询当前团队内的计划最大
 		var rankID int64 = 1
 		autoPlanInfo, err := autoPlanTable.WithContext(ctx).Where(autoPlanTable.TeamID.Eq(req.TeamID)).Order(autoPlanTable.RankID.Desc()).Limit(1).First()
@@ -514,16 +521,19 @@ func CopyAutoPlan(ctx *gin.Context, req *rao.CopyAutoPlanReq) error {
 		}
 
 		// 克隆场景变量
-		variableTable := tx.Variable
-		variableList, err := variableTable.WithContext(ctx).Where(variableTable.SceneID.In(oldSceneIDs...)).Find()
-		if err == nil {
-			for _, variableInfo := range variableList {
-				variableInfo.ID = 0
-				variableInfo.SceneID = sceneIDOldNewMap[variableInfo.SceneID]
-				variableInfo.CreatedAt = time.Now()
-				variableInfo.UpdatedAt = time.Now()
-				if err := tx.Variable.WithContext(ctx).Create(variableInfo); err != nil {
-					return err
+		for _, oldSceneID := range oldSceneIDs {
+			collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+			cur, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}, {"scene_id", oldSceneID}})
+			var sceneParamDataArr []*mao.SceneParamData
+			if err == nil {
+				if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+					return fmt.Errorf("场景参数数据获取失败")
+				}
+				for _, sv := range sceneParamDataArr {
+					sv.SceneID = sceneIDOldNewMap[oldSceneID]
+					if _, err := collection.InsertOne(ctx, sv); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -849,7 +859,7 @@ func SaveTaskConf(ctx *gin.Context, req *rao.SaveTaskConfReq) error {
 			}
 		}
 
-		// 修改计划状态
+		// 修改计划类型
 		_, err := tx.AutoPlan.WithContext(ctx).Where(tx.AutoPlan.TeamID.Eq(req.TeamID), tx.AutoPlan.PlanID.Eq(req.PlanID)).UpdateSimple(tx.AutoPlan.TaskType.Value(req.TaskType))
 		if err != nil {
 			return err
@@ -1109,6 +1119,11 @@ func CloneAutoPlanScene(ctx *gin.Context, req *rao.CloneAutoPlanSceneReq) error 
 			newSceneName = oldSceneName + fmt.Sprintf("_%d", maxNum+1)
 		}
 
+		nameLength := public.GetStringNum(newSceneName)
+		if nameLength > 30 { // 场景名称限制30个字符
+			return fmt.Errorf("名称过长！不可超出30字符")
+		}
+
 		// 组装新场景基本信息数据
 		oldSceneInfo.ID = 0
 		oldSceneInfo.TargetID = uuid.GetUUID()
@@ -1128,14 +1143,30 @@ func CloneAutoPlanScene(ctx *gin.Context, req *rao.CloneAutoPlanSceneReq) error 
 		newSceneID := oldSceneInfo.TargetID
 
 		// 2、克隆场景变量
-		variableList, err := tx.Variable.WithContext(ctx).Where(tx.Variable.SceneID.Eq(req.SceneID)).Find()
+		//variableList, err := tx.Variable.WithContext(ctx).Where(tx.Variable.SceneID.Eq(req.SceneID)).Find()
+		//if err == nil {
+		//	for _, variable := range variableList {
+		//		variable.ID = 0
+		//		variable.SceneID = newSceneID
+		//		variable.CreatedAt = time.Now()
+		//		variable.UpdatedAt = time.Now()
+		//		if err := tx.Variable.WithContext(ctx).Create(variable); err != nil {
+		//			return err
+		//		}
+		//	}
+		//}
+
+		// 获取场景变量
+		collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+		cur, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}, {"scene_id", req.SceneID}})
+		var sceneParamDataArr []*mao.SceneParamData
 		if err == nil {
-			for _, variable := range variableList {
-				variable.ID = 0
-				variable.SceneID = newSceneID
-				variable.CreatedAt = time.Now()
-				variable.UpdatedAt = time.Now()
-				if err := tx.Variable.WithContext(ctx).Create(variable); err != nil {
+			if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+				return fmt.Errorf("场景参数数据获取失败")
+			}
+			for _, sv := range sceneParamDataArr {
+				sv.SceneID = newSceneID
+				if _, err := collection.InsertOne(ctx, sv); err != nil {
 					return err
 				}
 			}
@@ -1457,6 +1488,8 @@ type TestCaseResult struct {
 }
 type ApiList struct {
 	EventID        string         `json:"event_id" bson:"event_id"`
+	TargetID       string         `json:"target_id" bson:"target_id"`
+	CaseID         string         `json:"case_id" bson:"case_id"`
 	ApiName        string         `json:"api_name" bson:"api_name"`
 	Method         string         `json:"method" bson:"method"`
 	Url            string         `json:"url" bson:"url"`
@@ -1615,6 +1648,10 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 	caseApiTotalNumMap := make(map[string]int)   // 某个用例的接口总数
 	caseApiSucceedNumMap := make(map[string]int) // 某个用例的接口成功数
 
+	// event_id与对应用例id的映射
+	eventIDCaseIDMap := make(map[string]string, len(sceneCaseReport))
+	eventIDTargetIDMap := make(map[string]string, len(sceneCaseReport))
+
 	for _, caseReportDetail := range sceneCaseReport {
 		// 统计排除控制器
 		apiName := caseReportDetail["type"].(string)
@@ -1627,6 +1664,13 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 		caseID := caseReportDetail["case_id"].(string)
 		parentID := caseReportDetail["parent_id"].(string)
 		eventID := caseReportDetail["event_id"].(string)
+		targetID := caseReportDetail["api_id"].(string)
+
+		eventIDCaseIDMap[eventID] = caseID
+
+		// 获取target_id
+		eventIDTargetIDMap[eventID] = targetID
+
 		// 统计断言总数
 		if assertionNum, ok := caseReportDetail["assertion_num"]; ok {
 			assertionTotalNum = assertionTotalNum + assertionNum.(int32)
@@ -1709,9 +1753,15 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 				EventID: apiInfo.ID,
 			}
 
-			if apiInfo.API != nil {
-				tempData.ApiName = apiInfo.API.Name
-				tempData.Method = apiInfo.API.Method
+			tempData.ApiName = apiInfo.API.Name
+			tempData.Method = apiInfo.API.Method
+
+			if caseID, ok := eventIDCaseIDMap[apiInfo.ID]; ok {
+				tempData.CaseID = caseID
+			}
+
+			if targetID, ok := eventIDTargetIDMap[apiInfo.ID]; ok {
+				tempData.TargetID = targetID
 			}
 
 			if _, ok := eventApiMap[apiInfo.ID]; ok {
@@ -1843,4 +1893,37 @@ func TransReportDetailDataToMao(teamID string, reportID string, reportDetailData
 		ReportID:         reportID,
 		ReportDetailData: reportDetailData,
 	}
+}
+
+func GetReportApiDetail(ctx *gin.Context, req *rao.GetReportApiDetailReq) (*rao.GetReportApiDetailResp, error) {
+	var nodes mao.Node
+	var flow mao.SceneCaseFlow
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
+	err := collection.FindOne(ctx, bson.D{{"scene_case_id", req.CaseID}}).Decode(&flow)
+	if err != nil {
+		return nil, err
+	}
+	if err = bson.Unmarshal(flow.Nodes, &nodes); err != nil {
+		return nil, err
+	}
+
+	res := &rao.GetReportApiDetailResp{}
+
+	apiDetail := rao.APIDetail{}
+
+	for _, nodeInfo := range nodes.Nodes {
+		if nodeInfo.ID == req.EventID {
+			apiDetail = nodeInfo.API
+		}
+	}
+	res.APIDetail = apiDetail
+	return res, nil
+}
+
+func SendReportApi(ctx *gin.Context, req *rao.SendReportApiReq) (string, error) {
+	retID, err := runner.RunAPI(ctx, req.ApiDetail)
+	if err != nil {
+		return "", fmt.Errorf("调试接口返回非200状态")
+	}
+	return retID, err
 }

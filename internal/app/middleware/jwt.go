@@ -48,12 +48,10 @@ func JWT() gin.HandlerFunc {
 
 		// 过滤部分接口的校验条件
 		apiPath := c.Request.URL.Path
-		//  /management/api/v1/setting/get
 		if apiPath != "/management/api/v1/setting/get" {
 			// 校验用户默认团队是否正确
 			tx := dal.GetQuery().Setting
 			teamIDString := c.GetHeader("CurrentTeamID")
-			//teamIDInt, err := strconv.ParseInt(teamIDString, 10, 64)
 			if err != nil {
 				c.JSON(http.StatusOK, gin.H{"code": errno.ErrDefaultTeamFailed, "message": "default team failed--CurrentTeamID类型转换失败"})
 				c.Abort()

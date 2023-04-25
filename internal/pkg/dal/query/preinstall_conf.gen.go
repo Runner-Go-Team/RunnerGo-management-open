@@ -35,6 +35,7 @@ func newPreinstallConf(db *gorm.DB, opts ...gen.DOOption) preinstallConf {
 	_preinstallConf.TaskType = field.NewInt32(tableName, "task_type")
 	_preinstallConf.TaskMode = field.NewInt32(tableName, "task_mode")
 	_preinstallConf.ControlMode = field.NewInt32(tableName, "control_mode")
+	_preinstallConf.DebugMode = field.NewString(tableName, "debug_mode")
 	_preinstallConf.ModeConf = field.NewString(tableName, "mode_conf")
 	_preinstallConf.TimedTaskConf = field.NewString(tableName, "timed_task_conf")
 	_preinstallConf.CreatedAt = field.NewTime(tableName, "created_at")
@@ -58,6 +59,7 @@ type preinstallConf struct {
 	TaskType      field.Int32  // 任务类型
 	TaskMode      field.Int32  // 压测模式
 	ControlMode   field.Int32  // 控制模式：0-集中模式，1-单独模式
+	DebugMode     field.String // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
 	ModeConf      field.String // 压测配置详情
 	TimedTaskConf field.String // 定时任务相关配置
 	CreatedAt     field.Time   // 创建时间
@@ -87,6 +89,7 @@ func (p *preinstallConf) updateTableName(table string) *preinstallConf {
 	p.TaskType = field.NewInt32(table, "task_type")
 	p.TaskMode = field.NewInt32(table, "task_mode")
 	p.ControlMode = field.NewInt32(table, "control_mode")
+	p.DebugMode = field.NewString(table, "debug_mode")
 	p.ModeConf = field.NewString(table, "mode_conf")
 	p.TimedTaskConf = field.NewString(table, "timed_task_conf")
 	p.CreatedAt = field.NewTime(table, "created_at")
@@ -116,7 +119,7 @@ func (p *preinstallConf) GetFieldByName(fieldName string) (field.OrderExpr, bool
 }
 
 func (p *preinstallConf) fillFieldMap() {
-	p.fieldMap = make(map[string]field.Expr, 13)
+	p.fieldMap = make(map[string]field.Expr, 14)
 	p.fieldMap["id"] = p.ID
 	p.fieldMap["conf_name"] = p.ConfName
 	p.fieldMap["team_id"] = p.TeamID
@@ -125,6 +128,7 @@ func (p *preinstallConf) fillFieldMap() {
 	p.fieldMap["task_type"] = p.TaskType
 	p.fieldMap["task_mode"] = p.TaskMode
 	p.fieldMap["control_mode"] = p.ControlMode
+	p.fieldMap["debug_mode"] = p.DebugMode
 	p.fieldMap["mode_conf"] = p.ModeConf
 	p.fieldMap["timed_task_conf"] = p.TimedTaskConf
 	p.fieldMap["created_at"] = p.CreatedAt

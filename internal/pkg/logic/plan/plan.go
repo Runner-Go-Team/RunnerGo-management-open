@@ -47,12 +47,6 @@ func ListByStatus(ctx context.Context, teamID string) (int, error) {
 	return runPlanNum, nil
 }
 
-func CountByTeamID(ctx context.Context, teamID string) (int64, error) {
-	tx := query.Use(dal.DB()).StressPlan
-
-	return tx.WithContext(ctx).Where(tx.TeamID.Eq(teamID)).Count()
-}
-
 func ListByTeamID(ctx context.Context, teamID string, limit, offset int, keyword string, startTimeSec, endTimeSec int64, taskType, taskMode, status, sortTag int32) ([]*rao.StressPlan, int64, error) {
 	tx := query.Use(dal.DB()).StressPlan
 	conditions := make([]gen.Condition, 0)
@@ -236,17 +230,17 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 			}
 
 			if err == nil { // 已存在 则修改
-				updateData := model.StressPlanTaskConf{
-					TaskType:    req.TaskType,
-					TaskMode:    req.Mode,
-					ControlMode: req.ControlMode,
-					ModeConf:    string(modeConfString),
-					RunUserID:   userID,
-				}
 				_, err = tx.StressPlanTaskConf.WithContext(ctx).
 					Where(tx.StressPlanTaskConf.TeamID.Eq(req.TeamID),
 						tx.StressPlanTaskConf.PlanID.Eq(req.PlanID),
-						tx.StressPlanTaskConf.SceneID.Eq(req.SceneID)).Updates(updateData)
+						tx.StressPlanTaskConf.SceneID.Eq(req.SceneID)).UpdateSimple(
+					tx.StressPlanTaskConf.TaskType.Value(req.TaskType),
+					tx.StressPlanTaskConf.TaskMode.Value(req.Mode),
+					tx.StressPlanTaskConf.ControlMode.Value(req.ControlMode),
+					tx.StressPlanTaskConf.DebugMode.Value(req.DebugMode),
+					tx.StressPlanTaskConf.ModeConf.Value(string(modeConfString)),
+					tx.StressPlanTaskConf.RunUserID.Value(userID),
+				)
 				if err != nil {
 					return err
 				}
@@ -258,6 +252,7 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 					TaskType:    req.TaskType,
 					TaskMode:    req.Mode,
 					ControlMode: req.ControlMode,
+					DebugMode:   req.DebugMode,
 					ModeConf:    string(modeConfString),
 					RunUserID:   userID,
 				}
@@ -309,18 +304,19 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 				}
 
 				// 修改配置
-				updateData := make(map[string]interface{}, 3)
-				updateData["user_id"] = userID
-				updateData["frequency"] = req.TimedTaskConf.Frequency
-				updateData["task_exec_time"] = req.TimedTaskConf.TaskExecTime
-				updateData["task_close_time"] = req.TimedTaskConf.TaskCloseTime
-				updateData["task_mode"] = req.Mode
-				updateData["control_mode"] = req.ControlMode
-				updateData["mode_conf"] = modeConfString
-				updateData["status"] = consts.TimedTaskWaitEnable
 				_, err = tx.StressPlanTimedTaskConf.WithContext(ctx).Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID)).
 					Where(tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID)).
-					Where(tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).Updates(updateData)
+					Where(tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).UpdateSimple(
+					tx.StressPlanTimedTaskConf.UserID.Value(userID),
+					tx.StressPlanTimedTaskConf.Frequency.Value(req.TimedTaskConf.Frequency),
+					tx.StressPlanTimedTaskConf.TaskExecTime.Value(req.TimedTaskConf.TaskExecTime),
+					tx.StressPlanTimedTaskConf.TaskCloseTime.Value(req.TimedTaskConf.TaskCloseTime),
+					tx.StressPlanTimedTaskConf.TaskMode.Value(req.Mode),
+					tx.StressPlanTimedTaskConf.ControlMode.Value(req.ControlMode),
+					tx.StressPlanTimedTaskConf.DebugMode.Value(req.DebugMode),
+					tx.StressPlanTimedTaskConf.ModeConf.Value(string(modeConfString)),
+					tx.StressPlanTimedTaskConf.Status.Value(consts.TimedTaskWaitEnable),
+				)
 				if err != nil {
 					log.Logger.Info("保存配置--更新定时任务配置失败，err:", err)
 					return err
@@ -408,8 +404,8 @@ func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskRes
 				TaskType:    req.TaskType,
 				Mode:        taskConfInfo.TaskMode,
 				ControlMode: taskConfInfo.ControlMode,
+				DebugMode:   taskConfInfo.DebugMode,
 				ModeConf: rao.ModeConf{
-					ReheatTime:       taskConfDetail.ReheatTime,
 					RoundNum:         taskConfDetail.RoundNum,
 					Concurrency:      taskConfDetail.Concurrency,
 					ThresholdValue:   taskConfDetail.ThresholdValue,
@@ -439,6 +435,7 @@ func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskRes
 				TaskType:    req.TaskType,
 				Mode:        timingTaskConfigInfo.TaskMode,
 				ControlMode: timingTaskConfigInfo.ControlMode,
+				DebugMode:   timingTaskConfigInfo.DebugMode,
 				ModeConf:    modeConf,
 				TimedTaskConf: rao.TimedTaskConf{
 					Frequency:     timingTaskConfigInfo.Frequency,
@@ -648,18 +645,20 @@ func ClonePlan(ctx context.Context, req *rao.ClonePlanReq, userID string) error 
 
 		if len(sceneIDs) > 0 {
 			// 克隆场景变量
-			v, err := tx.Variable.WithContext(ctx).Where(tx.Variable.SceneID.In(sceneIDs...)).Find()
-			if err != nil {
-				return err
-			}
-
-			for _, variable := range v {
-				variable.ID = 0
-				variable.SceneID = targetMemo[variable.SceneID]
-				variable.CreatedAt = time.Now()
-				variable.UpdatedAt = time.Now()
-				if err := tx.Variable.WithContext(ctx).Create(variable); err != nil {
-					return err
+			for _, sceneID := range sceneIDs {
+				collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+				cur, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}, {"scene_id", sceneID}})
+				var sceneParamDataArr []*mao.SceneParamData
+				if err == nil {
+					if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+						return fmt.Errorf("场景参数数据获取失败")
+					}
+					for _, sv := range sceneParamDataArr {
+						sv.SceneID = targetMemo[sceneID]
+						if _, err := collection.InsertOne(ctx, sv); err != nil {
+							return err
+						}
+					}
 				}
 			}
 
@@ -740,7 +739,6 @@ func ClonePlan(ctx context.Context, req *rao.ClonePlanReq, userID string) error 
 				}
 			}
 		}
-		//return record.InsertCreate(ctx, req.TeamID, userID, record.OperationOperateClonePlan, newPlanName)
 		return nil
 	})
 }

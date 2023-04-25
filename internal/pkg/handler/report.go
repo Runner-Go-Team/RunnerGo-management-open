@@ -319,7 +319,6 @@ func ChangeTaskConfRun(ctx *gin.Context) {
 
 	// 把新编辑的任务配置保存到redis当中，供压力机执行使用
 	value := rao.ModeConf{
-		ReheatTime:       req.ModeConf.ReheatTime,
 		RoundNum:         req.ModeConf.RoundNum,
 		Concurrency:      req.ModeConf.Concurrency,
 		StartConcurrency: req.ModeConf.StartConcurrency,

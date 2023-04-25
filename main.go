@@ -39,6 +39,11 @@ func main() {
 		handler.MachineDataInsert()
 	}()
 
+	// 把上报心跳数据超时的压力机机器从数据库当中移除
+	go func() {
+		handler.DeleteLostConnectMachine()
+	}()
+
 	// 把压力机监控数据定时写入数据库
 	go func() {
 		handler.MachineMonitorInsert()

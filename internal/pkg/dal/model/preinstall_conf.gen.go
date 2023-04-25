@@ -22,6 +22,7 @@ type PreinstallConf struct {
 	TaskType      int32          `gorm:"column:task_type;not null" json:"task_type"`                             // 任务类型
 	TaskMode      int32          `gorm:"column:task_mode;not null" json:"task_mode"`                             // 压测模式
 	ControlMode   int32          `gorm:"column:control_mode;not null" json:"control_mode"`                       // 控制模式：0-集中模式，1-单独模式
+	DebugMode     string         `gorm:"column:debug_mode;not null;default:stop" json:"debug_mode"`              // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
 	ModeConf      string         `gorm:"column:mode_conf;not null" json:"mode_conf"`                             // 压测配置详情
 	TimedTaskConf string         `gorm:"column:timed_task_conf;not null" json:"timed_task_conf"`                 // 定时任务相关配置
 	CreatedAt     time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"` // 创建时间

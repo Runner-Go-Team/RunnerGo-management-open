@@ -76,3 +76,9 @@ machineConfig:
   CpuTopLimit: 65           # 可参与压测的压力机cpu使用率上限
   MemoryTopLimit: 65        # 可参与压测的压力机memory使用率上限
   DiskTopLimit: 55          # 可参与压测的压力机disk使用率上限
+
+# 默认用户登录token的失效时间（单位：小时）
+defaultTokenExpireTime: 24
+
+# 保留性能测试的debug日志时间（单位：月）
+keepStressDebugLogTime: 1

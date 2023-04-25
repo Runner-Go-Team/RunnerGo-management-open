@@ -7,6 +7,7 @@ type SavePreinstallReq struct {
 	TaskType      int32          `json:"task_type"`
 	TaskMode      int32          `json:"task_mode"`
 	ControlMode   int32          `json:"control_mode"`
+	DebugMode     string         `json:"debug_mode"`
 	ModeConf      *ModeConf      `json:"mode_conf"`
 	TimedTaskConf *TimedTaskConf `json:"timed_task_conf"`
 }
@@ -23,6 +24,7 @@ type PreinstallDetailResponse struct {
 	TaskType      int32          `json:"task_type" binding:"required"`
 	TaskMode      int32          `json:"task_mode" binding:"required"`
 	ControlMode   int32          `json:"control_mode"`
+	DebugMode     string         `json:"debug_mode"`
 	ModeConf      *ModeConf      `json:"mode_conf" binding:"required"`
 	TimedTaskConf *TimedTaskConf `json:"timed_task_conf"`
 }

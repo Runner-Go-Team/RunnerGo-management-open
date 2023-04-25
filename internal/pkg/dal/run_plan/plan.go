@@ -1,49 +1,80 @@
 package run_plan
 
-import "sync"
+import (
+	"kp-management/internal/pkg/dal/rao"
+)
 
 type Stress struct {
-	PlanID        string         `json:"plan_id"`
-	PlanName      string         `json:"plan_name"`
-	ReportID      string         `json:"report_id"`
-	MachineNum    int32          `json:"machine_num"`
-	TeamID        string         `json:"team_id"`
-	ReportName    string         `json:"report_name"`
-	ConfigTask    *ConfigTask    `json:"config_task"`
-	Variable      []*Variable    `json:"variable"`
-	Scene         *Scene         `json:"scene"`
-	Partition     int32          `json:"partition"`
-	Configuration *Configuration `json:"configuration" bson:"configuration"` // 变量
-	IsRun         int            `json:"is_run"`
-	Addr          string         `json:"addr"`
+	PlanID         string         `json:"plan_id"`
+	PlanName       string         `json:"plan_name"`
+	ReportID       string         `json:"report_id"`
+	MachineNum     int32          `json:"machine_num"`
+	TeamID         string         `json:"team_id"`
+	ReportName     string         `json:"report_name"`
+	ConfigTask     ConfigTask     `json:"config_task"`
+	Variable       []Variable     `json:"variable"`
+	Scene          Scene          `json:"scene"`
+	Partition      int32          `json:"partition"`
+	Configuration  Configuration  `json:"configuration"` // 准备弃用
+	IsRun          int            `json:"is_run"`
+	Addr           string         `json:"addr"`
+	GlobalVariable GlobalVariable `json:"global_variable"`
+}
+
+type GlobalVariable struct {
+	Cookie   Cookie          `json:"cookie"`
+	Header   Header          `json:"header"`
+	Variable []VarForm       `json:"variable"`
+	Assert   []AssertionText `json:"assert"` // 验证的方法(断言)
+}
+
+// VarForm 参数表
+type VarForm struct {
+	IsChecked   int64       `json:"is_checked" bson:"is_checked"`
+	Type        string      `json:"type" bson:"type"`
+	FileBase64  []string    `json:"fileBase64"`
+	Key         string      `json:"key" bson:"key"`
+	Value       interface{} `json:"value" bson:"value"`
+	NotNull     int64       `json:"not_null" bson:"not_null"`
+	Description string      `json:"description" bson:"description"`
+	FieldType   string      `json:"field_type" bson:"field_type"`
+}
+
+// AssertionText 文本断言 0
+type AssertionText struct {
+	IsChecked    int    `json:"is_checked"`    // 1 选中  -1 未选
+	ResponseType int8   `json:"response_type"` //  1:ResponseHeaders; 2:ResponseData; 3: ResponseCode;
+	Compare      string `json:"compare"`       // Includes、UNIncludes、Equal、UNEqual、GreaterThan、GreaterThanOrEqual、LessThan、LessThanOrEqual、Includes、UNIncludes、NULL、NotNULL、OriginatingFrom、EndIn
+	Var          string `json:"var"`
+	Val          string `json:"val"`
 }
 
 type Configuration struct {
-	ParameterizedFile *ParameterizedFile `json:"parameterizedFile" bson:"parameterizedFile"`
-	Variable          []*KV              `json:"variable" bson:"variable"`
-	Mu                sync.Mutex         `json:"mu" bson:"mu"`
+	ParameterizedFile ParameterizedFile `json:"parameterizedFile" bson:"parameterizedFile"`
+	//Mu                sync.Mutex         `json:"mu" bson:"mu"`
 }
 
 // ParameterizedFile 参数化文件
 type ParameterizedFile struct {
-	Paths         []FileList     `json:"paths"`
-	RealPaths     []string       `json:"real_paths"`
-	VariableNames *VariableNames `json:"variable_names"` // 存储变量及数据的map
+	Paths         []FileList    `json:"paths"`
+	RealPaths     []string      `json:"real_paths"`
+	VariableNames VariableNames `json:"variable_names"` // 存储变量及数据的map
 }
 
 type VariableNames struct {
 	VarMapList map[string][]string `json:"var_map_list"`
 	Index      int                 `json:"index"`
-	Mu         sync.Mutex          `json:"mu"`
+	//Mu         sync.Mutex          `json:"mu"`
 }
 
 type ConfigTask struct {
-	TaskType    int32     `json:"task_type"`
-	Mode        int32     `json:"mode"`
-	ControlMode int32     `json:"control_mode"`
-	Remark      string    `json:"remark"`
-	CronExpr    string    `json:"cron_expr"`
-	ModeConf    *ModeConf `json:"mode_conf"`
+	TaskType    int32    `json:"task_type"`
+	Mode        int32    `json:"mode"`
+	ControlMode int32    `json:"control_mode"`
+	DebugMode   string   `json:"debug_mode"`
+	Remark      string   `json:"remark"`
+	CronExpr    string   `json:"cron_expr"`
+	ModeConf    ModeConf `json:"mode_conf"`
 }
 
 type ModeConf struct {
@@ -65,17 +96,18 @@ type Variable struct {
 }
 
 type Scene struct {
-	SceneID                 string              `json:"scene_id"`
-	EnablePlanConfiguration bool                `json:"enable_plan_configuration"`
-	SceneName               string              `json:"scene_name"`
-	TeamID                  string              `json:"team_id"`
-	Nodes                   []*Node             `json:"nodes"`
-	Configuration           *SceneConfiguration `json:"configuration"`
+	SceneID                 string `json:"scene_id"`
+	EnablePlanConfiguration bool   `json:"enable_plan_configuration"`
+	SceneName               string `json:"scene_name"`
+	TeamID                  string `json:"team_id"`
+	//Nodes                   []rao.Node         `json:"nodes"`
+	Configuration SceneConfiguration `json:"configuration"`
+	NodesRound    [][]rao.Node       `json:"nodes_round"`
 }
 
 type SceneConfiguration struct {
-	ParameterizedFile *SceneVariablePath `json:"parameterizedFile"`
-	Variable          []*Variable        `json:"variable"`
+	ParameterizedFile SceneVariablePath `json:"parameterizedFile"`
+	SceneVariable     GlobalVariable    `json:"scene_variable"`
 }
 
 type SceneVariablePath struct {
@@ -116,16 +148,22 @@ type Request struct {
 }
 
 type Auth struct {
-	Type     string    `json:"type"`
-	Kv       *KV       `json:"kv"`
-	Bearer   *Bearer   `json:"bearer"`
-	Basic    *Basic    `json:"basic"`
-	Digest   *Digest   `json:"digest"`
-	Hawk     *Hawk     `json:"hawk"`
-	Awsv4    *AwsV4    `json:"awsv4"`
-	Ntlm     *Ntlm     `json:"ntlm"`
-	Edgegrid *Edgegrid `json:"edgegrid"`
-	Oauth1   *Oauth1   `json:"oauth1"`
+	Type          string    `json:"type"`
+	Kv            *KV       `json:"kv"`
+	Bearer        *Bearer   `json:"bearer"`
+	Basic         *Basic    `json:"basic"`
+	Digest        *Digest   `json:"digest"`
+	Hawk          *Hawk     `json:"hawk"`
+	Awsv4         *AwsV4    `json:"awsv4"`
+	Ntlm          *Ntlm     `json:"ntlm"`
+	Edgegrid      *Edgegrid `json:"edgegrid"`
+	Oauth1        *Oauth1   `json:"oauth1"`
+	Bidirectional TLS       `json:"bidirectional"`
+}
+
+type TLS struct {
+	CaCert     string `json:"ca_cert"`
+	CaCertName string `json:"ca_cert_name"`
 }
 
 type Bearer struct {
@@ -328,5 +366,6 @@ type Task struct {
 	TaskType    int32     `json:"task_type"`
 	TaskMode    int32     `json:"task_mode"`
 	ControlMode int32     `json:"control_mode"`
+	DebugMode   string    `json:"debug_mode"`
 	ModeConf    *ModeConf `json:"mode_conf"`
 }

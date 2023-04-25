@@ -5,13 +5,8 @@ type DashboardDefaultReq struct {
 }
 
 type DashboardDefaultResp struct {
-	User       *Member      `json:"user"`
-	Operations []*Operation `json:"operations"`
-	PlanNum    int64        `json:"plan_num"`
-	SceneNum   int64        `json:"scene_num"`
-	ReportNum  int64        `json:"report_num"`
-	APINum     int64        `json:"api_num"`
-	Mobile     string       `json:"mobile"`
+	User   *Member `json:"user"`
+	Mobile string  `json:"mobile"`
 }
 
 type HomePageReq struct {

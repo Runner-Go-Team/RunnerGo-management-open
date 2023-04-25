@@ -260,6 +260,8 @@ func RegisterRouter(r *gin.Engine) {
 	autoPlan.POST("batch_delete_report", handler.BatchDeleteAutoPlanReport)
 	autoPlan.POST("get_report_detail", handler.GetAutoPlanReportDetail)
 	autoPlan.POST("report_email_notify", handler.ReportEmailNotify)
+	autoPlan.POST("get_report_api_detail", handler.GetReportApiDetail) // 获取自动化报告里面的接口详情
+	autoPlan.POST("send_report_api", handler.SendReportApi)            // 运行自动化报告里面的接口
 
 	//环境管理
 	env := api.Group("/v1/env/")

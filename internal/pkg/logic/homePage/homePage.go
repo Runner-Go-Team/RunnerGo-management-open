@@ -72,7 +72,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" && nodeTemp.API.TargetID != "" {
+						if nodeTemp.API.TargetType == "api" && nodeTemp.API.TargetID != "" {
 							allSiteApiMap[nodeTemp.API.TargetID]++
 						}
 					}
@@ -90,7 +90,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" {
+						if nodeTemp.API.TargetType == "api" {
 							if nodeTemp.API.TargetID != "" {
 								autoPlanSiteApiMap[nodeTemp.API.TargetID]++
 							}
@@ -112,7 +112,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" {
+						if nodeTemp.API.TargetType == "api" {
 							if nodeTemp.API.TargetID != "" {
 								stressPlanSiteApiMap[nodeTemp.API.TargetID]++
 							}
@@ -132,7 +132,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err3 := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err3 == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" && nodeTemp.API.TargetID != "" {
+						if nodeTemp.API.TargetType == "api" && nodeTemp.API.TargetID != "" {
 							allSiteApiMap[nodeTemp.API.TargetID]++
 						}
 					}
@@ -148,7 +148,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err3 := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err3 == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" {
+						if nodeTemp.API.TargetType == "api" {
 							if nodeTemp.API.TargetID != "" {
 								autoPlanSiteApiMap[nodeTemp.API.TargetID]++
 							}
@@ -167,7 +167,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err3 := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err3 == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" {
+						if nodeTemp.API.TargetType == "api" {
 							if nodeTemp.API.TargetID != "" {
 								stressPlanSiteApiMap[nodeTemp.API.TargetID]++
 							}

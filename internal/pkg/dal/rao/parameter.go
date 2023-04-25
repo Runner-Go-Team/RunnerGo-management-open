@@ -8,18 +8,22 @@ package rao
 //}
 
 type Auth struct {
-	Type     string    `json:"type"`
-	Kv       *KV       `json:"kv"`
-	Bearer   *Bearer   `json:"bearer"`
-	Basic    *Basic    `json:"basic"`
-	Digest   *Digest   `json:"digest"`
-	Hawk     *Hawk     `json:"hawk"`
-	Awsv4    *AwsV4    `json:"awsv4"`
-	Ntlm     *Ntlm     `json:"ntlm"`
-	Edgegrid *Edgegrid `json:"edgegrid"`
-	Oauth1   *Oauth1   `json:"oauth1"`
+	Type          string   `json:"type"`
+	Kv            KV       `json:"kv"`
+	Bearer        Bearer   `json:"bearer"`
+	Basic         Basic    `json:"basic"`
+	Digest        Digest   `json:"digest"`
+	Hawk          Hawk     `json:"hawk"`
+	Awsv4         AwsV4    `json:"awsv4"`
+	Ntlm          Ntlm     `json:"ntlm"`
+	Edgegrid      Edgegrid `json:"edgegrid"`
+	Oauth1        Oauth1   `json:"oauth1"`
+	Bidirectional TLS      `json:"bidirectional"`
 }
-
+type TLS struct {
+	CaCert     string `json:"ca_cert"`
+	CaCertName string `json:"ca_cert_name"`
+}
 type Bearer struct {
 	Key string `json:"key"`
 }
@@ -104,17 +108,17 @@ type Oauth1 struct {
 }
 
 type Query struct {
-	Parameter []*Parameter `json:"parameter"`
+	Parameter []Parameter `json:"parameter"`
 }
 
 type Header struct {
-	Parameter []*Parameter `json:"parameter"`
+	Parameter []Parameter `json:"parameter"`
 }
 
 type Body struct {
-	Mode      string       `json:"mode"`
-	Parameter []*Parameter `json:"parameter"`
-	Raw       string       `json:"raw"`
+	Mode      string      `json:"mode"`
+	Parameter []Parameter `json:"parameter"`
+	Raw       string      `json:"raw"`
 }
 
 type Parameter struct {
@@ -142,39 +146,39 @@ type Event struct {
 }
 
 type Cookie struct {
-	Parameter []*Parameter `json:"parameter"`
+	Parameter []Parameter `json:"parameter"`
 }
 
 type Resful struct {
-	Parameter []*Parameter `json:"parameter"`
+	Parameter []Parameter `json:"parameter"`
 }
 
 type Request struct {
-	PreUrl      string  `json:"pre_url"`
-	URL         string  `json:"url"`
-	Description string  `json:"description"`
-	Auth        *Auth   `json:"auth"`
-	Body        *Body   `json:"body"`
-	Header      *Header `json:"header"`
-	Query       *Query  `json:"query"`
-	Event       *Event  `json:"event"`
-	Cookie      *Cookie `json:"cookie"`
-	Resful      *Resful `json:"resful"`
+	PreUrl      string `json:"pre_url"`
+	URL         string `json:"url"`
+	Description string `json:"description"`
+	Auth        Auth   `json:"auth"`
+	Body        Body   `json:"body"`
+	Header      Header `json:"header"`
+	Query       Query  `json:"query"`
+	Event       Event  `json:"event"`
+	Cookie      Cookie `json:"cookie"`
+	Resful      Resful `json:"resful"`
 }
 
 type Success struct {
-	Raw       string       `json:"raw"`
-	Parameter []*Parameter `json:"parameter"`
+	Raw       string      `json:"raw"`
+	Parameter []Parameter `json:"parameter"`
 }
 
 type Error struct {
-	Raw       string       `json:"raw"`
-	Parameter []*Parameter `json:"parameter"`
+	Raw       string      `json:"raw"`
+	Parameter []Parameter `json:"parameter"`
 }
 
 type Response struct {
-	Success *Success `json:"success"`
-	Error   *Error   `json:"error"`
+	Success Success `json:"success"`
+	Error   Error   `json:"error"`
 }
 
 type Assert struct {

@@ -17,24 +17,24 @@ type GetSendTargetResultResp struct {
 }
 
 type SaveTargetReq struct {
-	TargetID      string   `json:"target_id"`
-	ParentID      string   `json:"parent_id"`
-	TeamID        string   `json:"team_id" binding:"required,gt=0"`
-	Mark          string   `json:"mark"`
-	Name          string   `json:"name" binding:"required,min=1"`
-	Method        string   `json:"method" binding:"required"`
-	PreUrl        string   `json:"pre_url"`
-	URL           string   `json:"url"`
-	EnvServiceID  int64    `json:"env_service_id"`
-	EnvServiceURL string   `json:"env_service_url"`
-	Sort          int32    `json:"sort"`
-	TypeSort      int32    `json:"type_sort"`
-	Request       *Request `json:"request"`
+	TargetID      string  `json:"target_id"`
+	ParentID      string  `json:"parent_id"`
+	TeamID        string  `json:"team_id" binding:"required,gt=0"`
+	Mark          string  `json:"mark"`
+	Name          string  `json:"name" binding:"required,min=1"`
+	Method        string  `json:"method" binding:"required"`
+	PreUrl        string  `json:"pre_url"`
+	URL           string  `json:"url"`
+	EnvServiceID  int64   `json:"env_service_id"`
+	EnvServiceURL string  `json:"env_service_url"`
+	Sort          int32   `json:"sort"`
+	TypeSort      int32   `json:"type_sort"`
+	Request       Request `json:"request"`
 	//Response      *Response `json:"response"`
 	Version      int32        `json:"version"`
 	Description  string       `json:"description"`
-	Assert       []*Assert    `json:"assert"`
-	Regex        []*Regex     `json:"regex"`
+	Assert       []Assert     `json:"assert"`
+	Regex        []Regex      `json:"regex"`
 	HttpApiSetup HttpApiSetup `json:"http_api_setup" bson:"http_api_setup"`
 
 	// 为了导入接口而新增的一些字段
@@ -171,32 +171,33 @@ type BatchGetDetailReq struct {
 }
 
 type BatchGetDetailResp struct {
-	Targets []*APIDetail `json:"targets"`
+	Targets []APIDetail `json:"targets"`
 }
 
 type APIDetail struct {
-	TargetID       string        `json:"target_id"`
-	ParentID       string        `json:"parent_id"`
-	TargetType     string        `json:"target_type"`
-	TeamID         string        `json:"team_id"`
-	Name           string        `json:"name"`
-	Method         string        `json:"method"`
-	EnvServiceID   int64         `json:"env_service_id"`
-	EnvServiceURL  string        `json:"env_service_url"`
-	URL            string        `json:"url"`
-	Sort           int32         `json:"sort"`
-	TypeSort       int32         `json:"type_sort"`
-	Request        *Request      `json:"request"`
-	Response       *Response     `json:"response"`
-	Version        int32         `json:"version"`
-	Description    string        `json:"description"`
-	CreatedTimeSec int64         `json:"created_time_sec"`
-	UpdatedTimeSec int64         `json:"updated_time_sec"`
-	Assert         []*Assert     `json:"assert"`
-	Regex          []*Regex      `json:"regex"`
-	Variable       []*KVVariable `json:"variable"`      // 全局变量
-	Configuration  Configuration `json:"configuration"` // 场景配置
-	HttpApiSetup   HttpApiSetup  `json:"http_api_setup"`
+	TargetID       string         `json:"target_id"`
+	ParentID       string         `json:"parent_id"`
+	TargetType     string         `json:"target_type"`
+	TeamID         string         `json:"team_id"`
+	Name           string         `json:"name"`
+	Method         string         `json:"method"`
+	EnvServiceID   int64          `json:"env_service_id"`
+	EnvServiceURL  string         `json:"env_service_url"`
+	URL            string         `json:"url"`
+	Sort           int32          `json:"sort"`
+	TypeSort       int32          `json:"type_sort"`
+	Request        Request        `json:"request"`
+	Response       Response       `json:"response"`
+	Version        int32          `json:"version"`
+	Description    string         `json:"description"`
+	CreatedTimeSec int64          `json:"created_time_sec"`
+	UpdatedTimeSec int64          `json:"updated_time_sec"`
+	Assert         []Assert       `json:"assert"`
+	Regex          []Regex        `json:"regex"`
+	Variable       []KVVariable   `json:"variable"`      // 全局变量
+	Configuration  Configuration  `json:"configuration"` // 场景配置
+	HttpApiSetup   HttpApiSetup   `json:"http_api_setup"`
+	GlobalVariable GlobalVariable `json:"global_variable"`
 }
 
 type KVVariable struct {

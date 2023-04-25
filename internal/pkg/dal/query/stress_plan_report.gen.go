@@ -38,6 +38,7 @@ func newStressPlanReport(db *gorm.DB, opts ...gen.DOOption) stressPlanReport {
 	_stressPlanReport.TaskType = field.NewInt32(tableName, "task_type")
 	_stressPlanReport.TaskMode = field.NewInt32(tableName, "task_mode")
 	_stressPlanReport.ControlMode = field.NewInt32(tableName, "control_mode")
+	_stressPlanReport.DebugMode = field.NewString(tableName, "debug_mode")
 	_stressPlanReport.Status = field.NewInt32(tableName, "status")
 	_stressPlanReport.Remark = field.NewString(tableName, "remark")
 	_stressPlanReport.RunUserID = field.NewString(tableName, "run_user_id")
@@ -65,6 +66,7 @@ type stressPlanReport struct {
 	TaskType    field.Int32  // 任务类型
 	TaskMode    field.Int32  // 压测模式
 	ControlMode field.Int32  // 控制模式：0-集中模式，1-单独模式
+	DebugMode   field.String // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
 	Status      field.Int32  // 报告状态1:进行中，2:已完成
 	Remark      field.String // 备注
 	RunUserID   field.String // 启动人id
@@ -98,6 +100,7 @@ func (s *stressPlanReport) updateTableName(table string) *stressPlanReport {
 	s.TaskType = field.NewInt32(table, "task_type")
 	s.TaskMode = field.NewInt32(table, "task_mode")
 	s.ControlMode = field.NewInt32(table, "control_mode")
+	s.DebugMode = field.NewString(table, "debug_mode")
 	s.Status = field.NewInt32(table, "status")
 	s.Remark = field.NewString(table, "remark")
 	s.RunUserID = field.NewString(table, "run_user_id")
@@ -128,7 +131,7 @@ func (s *stressPlanReport) GetFieldByName(fieldName string) (field.OrderExpr, bo
 }
 
 func (s *stressPlanReport) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 17)
+	s.fieldMap = make(map[string]field.Expr, 18)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["report_id"] = s.ReportID
 	s.fieldMap["team_id"] = s.TeamID
@@ -140,6 +143,7 @@ func (s *stressPlanReport) fillFieldMap() {
 	s.fieldMap["task_type"] = s.TaskType
 	s.fieldMap["task_mode"] = s.TaskMode
 	s.fieldMap["control_mode"] = s.ControlMode
+	s.fieldMap["debug_mode"] = s.DebugMode
 	s.fieldMap["status"] = s.Status
 	s.fieldMap["remark"] = s.Remark
 	s.fieldMap["run_user_id"] = s.RunUserID

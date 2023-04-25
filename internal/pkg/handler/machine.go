@@ -62,8 +62,8 @@ func ChangeMachineOnOff(ctx *gin.Context) {
 
 // MachineDataInsert 把压力机上报的机器数据插入数据库
 func MachineDataInsert() {
-	ctx := context.Background()
 	for {
+		ctx := context.Background()
 		// 从Redis获取压力机列表
 		machineListRes := dal.GetRDB().HGetAll(ctx, consts.MachineListRedisKey)
 		if len(machineListRes.Val()) == 0 || machineListRes.Err() != nil {
@@ -85,6 +85,13 @@ func MachineDataInsert() {
 			err := json.Unmarshal([]byte(machineDetail), &runnerMachineInfo)
 			if err != nil {
 				log.Logger.Info("压力机数据入库--压力机详情数据解析失败，err：", err)
+				continue
+			}
+
+			// 当前时间
+			nowTime := time.Now().Unix()
+			if runnerMachineInfo.CreateTime < nowTime-60 {
+				dal.GetRDB().HDel(ctx, consts.MachineListRedisKey, machineAddr)
 				continue
 			}
 
@@ -158,9 +165,9 @@ func MachineDataInsert() {
 
 // MachineMonitorInsert 压力机监控数据入库
 func MachineMonitorInsert() {
-	ctx := context.Background()
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectMachineMonitorData)
 	for {
+		ctx := context.Background()
 		machineList, _ := dal.GetRDB().Keys(ctx, consts.MachineMonitorPrefix+"*").Result()
 
 		for _, MachineMonitorKey := range machineList {
@@ -250,4 +257,20 @@ func InitTotalKafkaPartition() {
 		log.Logger.Info("初始化压力机分区总数失败")
 	}
 	return
+}
+
+// DeleteLostConnectMachine 删除失去连接的压力机
+func DeleteLostConnectMachine() {
+	for {
+		ctx := context.Background()
+		currentTime := time.Now()
+		m, _ := time.ParseDuration("-1m")
+		oldTime := currentTime.Add(m)
+		tx := dal.GetQuery().Machine
+		_, err := tx.WithContext(ctx).Where(tx.UpdatedAt.Lt(oldTime)).Unscoped().Delete()
+		if err != nil {
+			log.Logger.Info("删除失效的压力机--删除压力机数据失败")
+		}
+		time.Sleep(60 * time.Second)
+	}
 }

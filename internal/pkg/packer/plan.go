@@ -40,7 +40,6 @@ func TransPlansToRaoPlanList(plans []*model.StressPlan, users []*model.User) []*
 
 func TransTaskToRaoPlan(p *model.StressPlan, t rao.ModeConf, u *model.User) *rao.StressPlan {
 	mc := rao.ModeConf{
-		ReheatTime:       t.ReheatTime,
 		RoundNum:         t.RoundNum,
 		Concurrency:      t.Concurrency,
 		ThresholdValue:   t.ThresholdValue,
@@ -85,6 +84,7 @@ func TransSaveTimingTaskConfigReqToModelData(req *rao.SavePlanConfReq, userID st
 		TaskType:      req.TaskType,
 		TaskMode:      req.Mode,
 		ControlMode:   req.ControlMode,
+		DebugMode:     req.DebugMode,
 		ModeConf:      string(modeConfString),
 		Status:        consts.TimedTaskWaitEnable,
 	}, nil
@@ -96,7 +96,6 @@ func TransChangeReportConfRunToMao(req rao.ChangeTaskConfReq) *mao.ChangeTaskCon
 		TeamID:   req.TeamID,
 		PlanID:   req.PlanID,
 		ModeConf: &mao.ModeConf{
-			ReheatTime:       req.ModeConf.ReheatTime,
 			RoundNum:         req.ModeConf.RoundNum,
 			Concurrency:      req.ModeConf.Concurrency,
 			ThresholdValue:   req.ModeConf.ThresholdValue,

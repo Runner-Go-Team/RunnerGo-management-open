@@ -1,7 +1,6 @@
 package packer
 
 import (
-	"github.com/satori/go.uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"kp-management/internal/pkg/biz/consts"
 	"kp-management/internal/pkg/biz/log"
@@ -76,10 +75,15 @@ func TransMaoSceneCaseFlowToRaoGetFowResp(f *mao.SceneCaseFlow) *rao.GetSceneCas
 	}
 }
 
-func TransMaoFlowToRaoSceneCaseFlow(t *model.Target, f *mao.Flow, vis []*model.VariableImport, sceneVariables, variables []*model.Variable) *rao.SceneCaseFlow {
-	var n mao.Node
-	if err := bson.Unmarshal(f.Nodes, &n); err != nil {
+func TransMaoFlowToRaoSceneCaseFlow(t *model.Target, f *mao.Flow, vis []*model.VariableImport, sceneVariable rao.GlobalVariable, globalVariable rao.GlobalVariable) *rao.SceneCaseFlow {
+	var nodes mao.Node
+	if err := bson.Unmarshal(f.Nodes, &nodes); err != nil {
 		log.Logger.Errorf("flow.nodes bson unmarshal err %w", err)
+	}
+
+	var edges mao.Edge
+	if err := bson.Unmarshal(f.Edges, &edges); err != nil {
+		log.Logger.Errorf("flow.edges bson unmarshal err %w", err)
 	}
 
 	var fileList []rao.FileList
@@ -90,35 +94,40 @@ func TransMaoFlowToRaoSceneCaseFlow(t *model.Target, f *mao.Flow, vis []*model.V
 		})
 	}
 
-	var v []rao.KV
-	for _, variable := range sceneVariables {
-		v = append(v, rao.KV{
-			Key:   variable.Var,
-			Value: variable.Val,
-		})
-	}
+	//var v []rao.KV
+	//for _, variable := range sceneVariables {
+	//	v = append(v, rao.KV{
+	//		Key:   variable.Var,
+	//		Value: variable.Val,
+	//	})
+	//}
+	//
+	//var globalVariables []*rao.KVVariable
+	//for _, variable := range variables {
+	//	globalVariables = append(globalVariables, &rao.KVVariable{
+	//		Key:   variable.Var,
+	//		Value: variable.Val,
+	//	})
+	//}
 
-	var globalVariables []*rao.KVVariable
-	for _, variable := range variables {
-		globalVariables = append(globalVariables, &rao.KVVariable{
-			Key:   variable.Var,
-			Value: variable.Val,
-		})
-	}
+	nodesRound := GetNodesByLevel(nodes.Nodes, edges.Edges)
 
 	return &rao.SceneCaseFlow{
 		SceneID:       t.ParentID,
 		SceneCaseID:   t.TargetID,
 		SceneCaseName: t.Name,
 		TeamID:        t.TeamID,
-		Nodes:         n.Nodes,
+		//Nodes:         nodes.Nodes,
 		Configuration: rao.Configuration{
 			ParameterizedFile: rao.ParameterizedFile{
 				Paths: fileList,
 			},
-			Variable: v,
+			SceneVariable: sceneVariable,
+			//Variable: v,
 		},
-		Variable: globalVariables,
+		//Variable:       globalVariables,
+		NodesRound:     nodesRound,
+		GlobalVariable: globalVariable,
 	}
 }
 
@@ -159,9 +168,4 @@ func TransMaoFlowToMaoSceneCaseFlow(flow *mao.Flow, sceneID string) *mao.SceneCa
 		log.Logger.Errorf("sceneCaseFlow change UUID err %w", err)
 	}
 	return &sceneCaseFlow
-}
-
-func GetUUID() string {
-	uuid := uuid.NewV4()
-	return uuid.String()
 }

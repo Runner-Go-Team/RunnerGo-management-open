@@ -7,22 +7,28 @@ import (
 	"kp-management/internal/pkg/dal/mao"
 	"kp-management/internal/pkg/dal/model"
 	"kp-management/internal/pkg/dal/rao"
+	"kp-management/internal/pkg/public"
 )
 
 func TransSaveTargetReqToMaoAPI(target *rao.SaveTargetReq) *mao.API {
-	if target.Request == nil {
-		proof.Error("target.request not found request")
+	reqRes := public.CheckStructIsEmpty(target.Request)
+	if reqRes {
+		log.Logger.Info("target.request not found request")
 		return nil
 	}
-
 	header, err := bson.Marshal(target.Request.Header)
 	if err != nil {
-		proof.Error("target.request.header bson marshal err", proof.WithError(err))
+		log.Logger.Info("target.request.header bson marshal err", proof.WithError(err))
 	}
 
 	query, err := bson.Marshal(target.Request.Query)
 	if err != nil {
 		log.Logger.Info("target.request.query bson marshal err", proof.WithError(err))
+	}
+
+	cookie, err := bson.Marshal(target.Request.Cookie)
+	if err != nil {
+		log.Logger.Info("target.request.cookie bson marshal err", proof.WithError(err))
 	}
 
 	body, err := bson.Marshal(target.Request.Body)
@@ -53,6 +59,7 @@ func TransSaveTargetReqToMaoAPI(target *rao.SaveTargetReq) *mao.API {
 		EnvServiceURL: target.EnvServiceURL,
 		Header:        header,
 		Query:         query,
+		Cookie:        cookie,
 		Body:          body,
 		Auth:          auth,
 		Description:   target.Description,
@@ -67,7 +74,7 @@ func TransSaveTargetReqToMaoAPI(target *rao.SaveTargetReq) *mao.API {
 	}
 }
 
-func TransTargetToRaoAPIDetail(target *model.Target, api *mao.API, vs []*model.Variable) *rao.APIDetail {
+func TransTargetToRaoAPIDetail(target *model.Target, api *mao.API, globalVariable rao.GlobalVariable) rao.APIDetail {
 	var auth rao.Auth
 	if err := bson.Unmarshal(api.Auth, &auth); err != nil {
 		log.Logger.Info("api.auth bson Unmarshal err", proof.WithError(err))
@@ -85,6 +92,11 @@ func TransTargetToRaoAPIDetail(target *model.Target, api *mao.API, vs []*model.V
 		log.Logger.Info("api.query bson Unmarshal err", proof.WithError(err))
 	}
 
+	var cookie rao.Cookie
+	if err := bson.Unmarshal(api.Cookie, &cookie); err != nil {
+		log.Logger.Info("api.cookie bson Unmarshal err", proof.WithError(err))
+	}
+
 	var assert mao.Assert
 	if err := bson.Unmarshal(api.Assert, &assert); err != nil {
 		log.Logger.Info("api.assert bson Unmarshal err", proof.WithError(err))
@@ -95,13 +107,13 @@ func TransTargetToRaoAPIDetail(target *model.Target, api *mao.API, vs []*model.V
 		log.Logger.Info("api.regex bson Unmarshal err", proof.WithError(err))
 	}
 
-	var variables []*rao.KVVariable
-	for _, v := range vs {
-		variables = append(variables, &rao.KVVariable{
-			Key:   v.Var,
-			Value: v.Val,
-		})
-	}
+	//var variables []*rao.KVVariable
+	//for _, v := range vs {
+	//	variables = append(variables, &rao.KVVariable{
+	//		Key:   v.Var,
+	//		Value: v.Val,
+	//	})
+	//}
 
 	//// 检查是否有引用环境服务URL
 	//var requestURLBuilder strings.Builder
@@ -111,7 +123,7 @@ func TransTargetToRaoAPIDetail(target *model.Target, api *mao.API, vs []*model.V
 	//requestURLBuilder.WriteString(api.URL)
 	//requestURL := requestURLBuilder.String()
 
-	return &rao.APIDetail{
+	return rao.APIDetail{
 		TargetID:      target.TargetID,
 		ParentID:      target.ParentID,
 		TeamID:        target.TeamID,
@@ -123,42 +135,42 @@ func TransTargetToRaoAPIDetail(target *model.Target, api *mao.API, vs []*model.V
 		EnvServiceURL: api.EnvServiceURL,
 		Sort:          target.Sort,
 		TypeSort:      target.TypeSort,
-		Request: &rao.Request{
+		Request: rao.Request{
 			PreUrl:      api.PreUrl,
 			URL:         api.URL,
 			Description: api.Description,
-			Auth:        &auth,
-			Body:        &body,
-			Header:      &header,
-			Query:       &query,
-			Event:       nil,
-			Cookie:      nil,
-			Resful:      nil,
+			Auth:        auth,
+			Body:        body,
+			Header:      header,
+			Query:       query,
+			Cookie:      cookie,
 		},
-		Response:       nil,
 		Version:        target.Version,
 		Description:    api.Description,
 		CreatedTimeSec: target.CreatedAt.Unix(),
 		UpdatedTimeSec: target.UpdatedAt.Unix(),
 		Assert:         assert.Assert,
 		Regex:          regex.Regex,
-		Variable:       variables,
+		//Variable:       variables,
 		HttpApiSetup: rao.HttpApiSetup{
 			IsRedirects:  api.HttpApiSetup.IsRedirects,
 			RedirectsNum: api.HttpApiSetup.RedirectsNum,
 			ReadTimeOut:  api.HttpApiSetup.ReadTimeOut,
 			WriteTimeOut: api.HttpApiSetup.WriteTimeOut,
 		},
+		GlobalVariable: globalVariable,
 	}
 }
 
-func TransTargetsToRaoAPIDetails(targets []*model.Target, apis []*mao.API) []*rao.APIDetail {
-	ret := make([]*rao.APIDetail, 0, len(targets))
+func TransTargetsToRaoAPIDetails(targets []*model.Target, apis []*mao.API) []rao.APIDetail {
+	ret := make([]rao.APIDetail, 0, len(targets))
+
+	globalVariable := rao.GlobalVariable{}
 
 	for _, target := range targets {
 		for _, api := range apis {
 			if api.TargetID == target.TargetID {
-				ret = append(ret, TransTargetToRaoAPIDetail(target, api, nil))
+				ret = append(ret, TransTargetToRaoAPIDetail(target, api, globalVariable))
 			}
 		}
 	}

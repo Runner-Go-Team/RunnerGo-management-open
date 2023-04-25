@@ -16,6 +16,8 @@ import (
 	"kp-management/internal/pkg/biz/record"
 	"kp-management/internal/pkg/biz/uuid"
 	"kp-management/internal/pkg/conf"
+	"kp-management/internal/pkg/dal/rao"
+	"kp-management/internal/pkg/packer"
 	"math"
 	"sort"
 	"strconv"
@@ -38,13 +40,15 @@ type Baton struct {
 	UserID  string
 	RunType int
 
-	SceneIDs              []string
-	plan                  *model.StressPlan
-	scenes                []*model.Target
-	task                  map[string]*run_plan.Task // sceneID 对应任务配置
-	globalVariables       []*model.Variable
-	flows                 []*mao.Flow
-	sceneVariables        []*model.Variable
+	SceneIDs []string
+	plan     *model.StressPlan
+	scenes   []*model.Target
+	task     map[string]*run_plan.Task // sceneID 对应任务配置
+	//globalVariables       []*model.Variable
+	globalVariables run_plan.GlobalVariable
+	flows           []*mao.Flow
+	//sceneVariables        []*model.Variable
+	sceneVariables        map[string]run_plan.GlobalVariable
 	importVariables       []*model.VariableImport
 	reports               []*model.StressPlanReport
 	balance               *DispatchMachineBalance
@@ -390,6 +394,7 @@ func (s *AssembleTask) Execute(baton *Baton) (int, error) {
 			TaskType:    baton.plan.TaskType,
 			TaskMode:    timedTaskConfInfo.TaskMode,
 			ControlMode: timedTaskConfInfo.ControlMode,
+			DebugMode:   timedTaskConfInfo.DebugMode,
 			ModeConf:    &modeConf,
 		}
 	} else { // 普通任务
@@ -412,6 +417,7 @@ func (s *AssembleTask) Execute(baton *Baton) (int, error) {
 				TaskType:    baton.plan.TaskType,
 				TaskMode:    taskConfInfo.TaskMode,
 				ControlMode: taskConfInfo.ControlMode,
+				DebugMode:   taskConfInfo.DebugMode,
 				ModeConf:    &mc,
 			}
 			memo[temp.SceneID] = temp
@@ -430,19 +436,96 @@ type AssembleGlobalVariables struct {
 }
 
 func (s *AssembleGlobalVariables) Execute(baton *Baton) (int, error) {
-	log.Logger.Info("运行计划--组装全局标量", baton.TeamID, baton.PlanID)
-	tx := query.Use(dal.DB()).Variable
-	variables, err := tx.WithContext(baton.Ctx).Where(
-		tx.TeamID.Eq(baton.TeamID),
-		tx.Type.Eq(consts.VariableTypeGlobal),
-		tx.Status.Eq(consts.VariableStatusOpen),
-	).Find()
-
-	if err != nil {
-		return errno.ErrMysqlFailed, err
+	log.Logger.Info("运行计划--组装全局变量", baton.TeamID, baton.PlanID)
+	globalVariable := run_plan.GlobalVariable{}
+	// 查询全局变量
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
+	cur, err := collection.Find(baton.Ctx, bson.D{{"team_id", baton.TeamID}})
+	var globalParamDataArr []*mao.GlobalParamData
+	if err == nil {
+		if err := cur.All(baton.Ctx, &globalParamDataArr); err != nil {
+			return errno.ErrMongoFailed, fmt.Errorf("全局参数数据获取失败")
+		}
 	}
 
-	baton.globalVariables = variables
+	cookieParam := make([]rao.CookieParam, 0, 100)
+	headerParam := make([]rao.HeaderParam, 0, 100)
+	variableParam := make([]rao.VariableParam, 0, 100)
+	assertParam := make([]rao.AssertParam, 0, 100)
+	for _, globalParamInfo := range globalParamDataArr {
+		if globalParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
+			if err != nil {
+				return errno.ErrUnMarshalFailed, err
+			}
+			parameter := make([]*run_plan.Parameter, 0, len(cookieParam))
+			for _, v := range cookieParam {
+				temp := &run_plan.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Cookie.Parameter = parameter
+		}
+		if globalParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
+			if err != nil {
+				return errno.ErrUnMarshalFailed, err
+			}
+
+			parameter := make([]*run_plan.Parameter, 0, len(headerParam))
+			for _, v := range headerParam {
+				temp := &run_plan.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Header.Parameter = parameter
+
+		}
+		if globalParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
+			if err != nil {
+				return errno.ErrUnMarshalFailed, err
+			}
+
+			parameter := make([]run_plan.VarForm, 0, len(variableParam))
+			for _, v := range variableParam {
+				temp := run_plan.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Variable = parameter
+
+		}
+		if globalParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
+			if err != nil {
+				return errno.ErrUnMarshalFailed, err
+			}
+
+			parameter := make([]run_plan.AssertionText, 0, len(assertParam))
+			for _, v := range assertParam {
+				temp := run_plan.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Assert = parameter
+		}
+	}
+	baton.globalVariables = globalVariable
 	return s.next.Execute(baton)
 }
 
@@ -472,9 +555,23 @@ func (s *AssembleFlows) Execute(baton *Baton) (int, error) {
 		return errno.ErrMongoFailed, err
 	}
 
+	// 判断场景flow是否为空
+	if len(flows) > 0 {
+		for _, flow := range flows {
+			var sceneFlowNodeTemp mao.Node
+			err := bson.Unmarshal(flow.Nodes, &sceneFlowNodeTemp)
+			if err != nil {
+				return errno.ErrMongoFailed, fmt.Errorf("场景flow解析失败")
+			}
+			if len(sceneFlowNodeTemp.Nodes) == 0 {
+				return errno.ErrEmptySceneFlow, fmt.Errorf("场景flow为空")
+			}
+		}
+	}
+
 	if len(flows) != len(sceneIDs) {
-		log.Logger.Info("场景不能为空")
-		return errno.ErrEmptyScene, errors.New("场景不能为空")
+		log.Logger.Info("场景flow不能为空")
+		return errno.ErrEmptySceneFlow, errors.New("场景flow不能为空")
 	}
 
 	baton.flows = flows
@@ -491,23 +588,98 @@ type AssembleSceneVariables struct {
 
 func (s *AssembleSceneVariables) Execute(baton *Baton) (int, error) {
 	log.Logger.Info("运行计划--组装场景变量", baton.TeamID, baton.PlanID)
-	var sceneIDs []string
-	for _, scene := range baton.scenes {
-		sceneIDs = append(sceneIDs, scene.TargetID)
-	}
+	sceneVariableMap := make(map[string]run_plan.GlobalVariable, len(baton.scenes))
+	// 查询全局变量
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+	for _, sceneInfo := range baton.scenes {
+		sceneVariable := run_plan.GlobalVariable{}
+		cur, err := collection.Find(baton.Ctx, bson.D{{"team_id", baton.TeamID}, {"scene_id", sceneInfo.TargetID}})
+		var sceneParamDataArr []*mao.SceneParamData
+		if err == nil {
+			if err := cur.All(baton.Ctx, &sceneParamDataArr); err != nil {
+				return errno.ErrMongoFailed, fmt.Errorf("场景参数数据获取失败")
+			}
+		}
 
-	tx := query.Use(dal.DB()).Variable
-	variables, err := tx.WithContext(baton.Ctx).Where(
-		tx.TeamID.Eq(baton.TeamID),
-		tx.SceneID.In(sceneIDs...),
-		tx.Type.Eq(consts.VariableTypeScene),
-		tx.Status.Eq(consts.VariableStatusOpen),
-	).Find()
+		cookieParam := make([]rao.CookieParam, 0, 100)
+		headerParam := make([]rao.HeaderParam, 0, 100)
+		variableParam := make([]rao.VariableParam, 0, 100)
+		assertParam := make([]rao.AssertParam, 0, 100)
+		for _, sceneParamInfo := range sceneParamDataArr {
+			if sceneParamInfo.ParamType == 1 {
+				err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &cookieParam)
+				if err != nil {
+					return errno.ErrUnMarshalFailed, err
+				}
+				parameter := make([]*run_plan.Parameter, 0, len(cookieParam))
+				for _, v := range cookieParam {
+					temp := &run_plan.Parameter{
+						IsChecked: v.IsChecked,
+						Key:       v.Key,
+						Value:     v.Value,
+					}
+					parameter = append(parameter, temp)
+				}
+				sceneVariable.Cookie.Parameter = parameter
+			}
+			if sceneParamInfo.ParamType == 2 {
+				err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &headerParam)
+				if err != nil {
+					return errno.ErrUnMarshalFailed, err
+				}
 
-	if err != nil {
-		return errno.ErrMysqlFailed, err
+				parameter := make([]*run_plan.Parameter, 0, len(headerParam))
+				for _, v := range headerParam {
+					temp := &run_plan.Parameter{
+						IsChecked: v.IsChecked,
+						Key:       v.Key,
+						Value:     v.Value,
+					}
+					parameter = append(parameter, temp)
+				}
+				sceneVariable.Header.Parameter = parameter
+
+			}
+			if sceneParamInfo.ParamType == 3 {
+				err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &variableParam)
+				if err != nil {
+					return errno.ErrUnMarshalFailed, err
+				}
+
+				parameter := make([]run_plan.VarForm, 0, len(variableParam))
+				for _, v := range variableParam {
+					temp := run_plan.VarForm{
+						IsChecked: int64(v.IsChecked),
+						Key:       v.Key,
+						Value:     v.Value,
+					}
+					parameter = append(parameter, temp)
+				}
+				sceneVariable.Variable = parameter
+			}
+			if sceneParamInfo.ParamType == 4 {
+				err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &assertParam)
+				if err != nil {
+					return errno.ErrUnMarshalFailed, err
+				}
+
+				parameter := make([]run_plan.AssertionText, 0, len(assertParam))
+				for _, v := range assertParam {
+					temp := run_plan.AssertionText{
+						IsChecked:    int(v.IsChecked),
+						ResponseType: int8(v.ResponseType),
+						Compare:      v.Compare,
+						Var:          v.Var,
+						Val:          v.Val,
+					}
+					parameter = append(parameter, temp)
+				}
+				sceneVariable.Assert = parameter
+			}
+		}
+		sceneVariableMap[sceneInfo.TargetID] = sceneVariable
 	}
-	baton.sceneVariables = variables
+	baton.sceneVariables = sceneVariableMap
 	return s.next.Execute(baton)
 }
 
@@ -563,18 +735,20 @@ func (s *MakeReport) Execute(baton *Baton) (int, error) {
 			rankID = reportInfo.RankID + 1
 		}
 		reportData := &model.StressPlanReport{
-			ReportID:  uuid.GetUUID(),
-			RankID:    rankID,
-			TeamID:    scene.TeamID,
-			PlanID:    baton.plan.PlanID,
-			PlanName:  baton.plan.PlanName,
-			SceneID:   scene.TargetID,
-			SceneName: scene.Name,
-			TaskType:  baton.plan.TaskType,
-			TaskMode:  baton.task[scene.TargetID].TaskMode,
-			Status:    consts.ReportStatusNormal,
-			CreatedAt: time.Now(),
-			RunUserID: baton.UserID,
+			ReportID:    uuid.GetUUID(),
+			RankID:      rankID,
+			TeamID:      scene.TeamID,
+			PlanID:      baton.plan.PlanID,
+			PlanName:    baton.plan.PlanName,
+			SceneID:     scene.TargetID,
+			SceneName:   scene.Name,
+			TaskType:    baton.plan.TaskType,
+			TaskMode:    baton.task[scene.TargetID].TaskMode,
+			ControlMode: baton.task[scene.TargetID].ControlMode,
+			DebugMode:   baton.task[scene.TargetID].DebugMode,
+			Status:      consts.ReportStatusNormal,
+			CreatedAt:   time.Now(),
+			RunUserID:   baton.UserID,
 		}
 		if err := tx.WithContext(baton.Ctx).Create(reportData); err != nil {
 			return errno.ErrMysqlFailed, err
@@ -582,15 +756,17 @@ func (s *MakeReport) Execute(baton *Baton) (int, error) {
 		reports = append(reports, reportData)
 	}
 
-	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectReportTask)
 	for _, report := range reports {
+		collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectReportTask)
 		temp := mao.ReportTask{
-			ReportID: report.ReportID,
-			TaskType: report.TaskType,
-			TaskMode: report.TaskMode,
-			TeamID:   baton.TeamID,
-			PlanID:   baton.plan.PlanID,
-			PlanName: baton.plan.PlanName,
+			ReportID:    report.ReportID,
+			TaskType:    report.TaskType,
+			TaskMode:    report.TaskMode,
+			ControlMode: baton.task[report.SceneID].ControlMode,
+			DebugMode:   baton.task[report.SceneID].DebugMode,
+			TeamID:      baton.TeamID,
+			PlanID:      baton.plan.PlanID,
+			PlanName:    baton.plan.PlanName,
 			ModeConf: &mao.ModeConf{
 				ReheatTime:       baton.task[report.SceneID].ModeConf.ReheatTime,
 				RoundNum:         baton.task[report.SceneID].ModeConf.RoundNum,
@@ -603,8 +779,16 @@ func (s *MakeReport) Execute(baton *Baton) (int, error) {
 				Duration:         baton.task[report.SceneID].ModeConf.Duration,
 			},
 		}
-		_, err := collection.InsertOne(baton.Ctx, temp)
 
+		_, err := collection.InsertOne(baton.Ctx, temp)
+		if err != nil {
+			return errno.ErrMongoFailed, err
+		}
+
+		// 把报告的初始化debug模式写入mg数据库
+		collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectDebugStatus)
+		debug := bson.D{{"report_id", report.ReportID}, {"team_id", baton.TeamID}, {"plan_id", baton.PlanID}, {"debug", baton.task[report.SceneID].DebugMode}}
+		_, err = collection.InsertOne(baton.Ctx, debug)
 		if err != nil {
 			return errno.ErrMongoFailed, err
 		}
@@ -635,22 +819,6 @@ func (s *MakeStress) Execute(baton *Baton) (int, error) {
 		pathArr = append(pathArr, temp)
 	}
 
-	globalVariables := make([]*run_plan.Variable, 0)
-	for _, v := range baton.globalVariables {
-		globalVariables = append(globalVariables, &run_plan.Variable{
-			Var: v.Var,
-			Val: v.Val,
-		})
-	}
-
-	sceneVariables := make([]*run_plan.Variable, 0)
-	for _, v := range baton.sceneVariables {
-		sceneVariables = append(sceneVariables, &run_plan.Variable{
-			Var: v.Var,
-			Val: v.Val,
-		})
-	}
-
 	importVariables := make([]run_plan.FileList, 0)
 	for _, v := range baton.importVariables {
 		temp := run_plan.FileList{
@@ -664,27 +832,36 @@ func (s *MakeStress) Execute(baton *Baton) (int, error) {
 		for _, scene := range baton.scenes {
 			for _, flow := range baton.flows {
 				if scene.TargetID == report.SceneID && scene.TargetID == flow.SceneID {
-					var nodes run_plan.Nodes
+					var nodes mao.Node
 					if err := bson.Unmarshal(flow.Nodes, &nodes); err != nil {
-						proof.Errorf("node bson unmarshal err:%v", err)
+						log.Logger.Errorf("node bson unmarshal err:%v", err)
 						continue
+					}
+
+					var edges mao.Edge
+					if err := bson.Unmarshal(flow.Edges, &edges); err != nil {
+						log.Logger.Errorf("edges bson unmarshal err:%v", err)
 					}
 
 					if _, ok := baton.task[scene.TargetID]; !ok {
 						return errno.ErrMustTaskInit, errors.New("请填写任务配置并保存")
 					}
+
+					nodesRound := packer.GetNodesByLevel(nodes.Nodes, edges.Edges)
+
 					req := run_plan.Stress{
 						PlanID:     baton.plan.PlanID,
 						PlanName:   baton.plan.PlanName,
 						ReportID:   report.ReportID,
 						TeamID:     baton.TeamID,
 						ReportName: baton.plan.PlanName,
-						ConfigTask: &run_plan.ConfigTask{
+						ConfigTask: run_plan.ConfigTask{
 							TaskType:    baton.plan.TaskType,
 							Mode:        baton.task[scene.TargetID].TaskMode,
 							ControlMode: baton.task[scene.TargetID].ControlMode,
+							DebugMode:   baton.task[scene.TargetID].DebugMode,
 							Remark:      baton.plan.Remark,
-							ModeConf: &run_plan.ModeConf{
+							ModeConf: run_plan.ModeConf{
 								ReheatTime:       baton.task[scene.TargetID].ModeConf.ReheatTime,
 								RoundNum:         baton.task[scene.TargetID].ModeConf.RoundNum,
 								Concurrency:      baton.task[scene.TargetID].ModeConf.Concurrency,
@@ -696,24 +873,20 @@ func (s *MakeStress) Execute(baton *Baton) (int, error) {
 								Duration:         baton.task[scene.TargetID].ModeConf.Duration,
 							},
 						},
-						Variable: globalVariables,
-						Scene: &run_plan.Scene{
+						GlobalVariable: baton.globalVariables,
+						Scene: run_plan.Scene{
 							SceneID:                 scene.TargetID,
 							EnablePlanConfiguration: false,
 							SceneName:               scene.Name,
 							TeamID:                  baton.TeamID,
-							Nodes:                   nodes.Nodes,
-							Configuration: &run_plan.SceneConfiguration{
-								ParameterizedFile: &run_plan.SceneVariablePath{
+							//Nodes:                   nodes.Nodes,
+							Configuration: run_plan.SceneConfiguration{
+								ParameterizedFile: run_plan.SceneVariablePath{
 									Paths: importVariables,
 								},
-								Variable: sceneVariables,
+								SceneVariable: baton.sceneVariables[scene.TargetID],
 							},
-						},
-						Configuration: &run_plan.Configuration{
-							ParameterizedFile: &run_plan.ParameterizedFile{
-								Paths: pathArr,
-							},
+							NodesRound: nodesRound,
 						},
 					}
 					baton.stress = append(baton.stress, &req)
@@ -721,9 +894,16 @@ func (s *MakeStress) Execute(baton *Baton) (int, error) {
 					// 统计总的并发
 					// 接口总数
 					var apiCnt int64
-					for _, node := range req.Scene.Nodes {
-						if node.Type == "api" {
-							apiCnt++
+					//for _, node := range req.Scene.Nodes {
+					//	if node.Type == "api" {
+					//		apiCnt++
+					//	}
+					//}
+					for _, nodeArr := range req.Scene.NodesRound {
+						for _, node := range nodeArr {
+							if node.Type == "api" {
+								apiCnt++
+							}
 						}
 					}
 
@@ -957,13 +1137,10 @@ func (s *SplitStress) SetNext(stress Stress) {
 // 获取单个任务总并发
 func GetOneTaskTotalGoroutines(stress *run_plan.Stress, concurrencyNum int64) int64 {
 	// 接口总数
-	var apiCnt int64
-	apiCnt = int64(len(stress.Scene.Nodes))
-	//for _, node := range stress.Scene.Nodes {
-	//	if node.Type == "api" {
-	//		apiCnt++
-	//	}
-	//}
+	var apiCnt int64 = 0
+	for _, nodeArr := range stress.Scene.NodesRound {
+		apiCnt = apiCnt + int64(len(nodeArr))
+	}
 
 	var oneSceneTotalConcurrency int64                        // 当前任务的总并发
 	if stress.ConfigTask.Mode == consts.PlanModeConcurrence { // 并发模式

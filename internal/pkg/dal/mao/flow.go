@@ -17,9 +17,9 @@ type Flow struct {
 }
 
 type Node struct {
-	Nodes []*rao.Node `bson:"nodes"`
+	Nodes []rao.Node `bson:"nodes"`
 }
 
 type Edge struct {
-	Edges []*rao.Edge `bson:"edges"`
+	Edges []rao.Edge `bson:"edges"`
 }

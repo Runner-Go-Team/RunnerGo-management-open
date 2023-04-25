@@ -18,7 +18,9 @@ import (
 	"kp-management/internal/pkg/dal"
 	"kp-management/internal/pkg/dal/mao"
 	"kp-management/internal/pkg/dal/model"
+	"kp-management/internal/pkg/dal/rao"
 	"kp-management/internal/pkg/dal/run_plan"
+	"kp-management/internal/pkg/packer"
 	"sort"
 	"strings"
 	"sync"
@@ -39,11 +41,13 @@ type Baton struct {
 	testCase    []*model.Target
 	testCaseIDs []string
 	//task            map[int64]*mao.Task // sceneID 对应任务配置
-	ConfigTask      ConfigTask // 任务配置
-	globalVariables []*model.Variable
+	ConfigTask ConfigTask // 任务配置
+	//globalVariables []*model.Variable
+	globalVariables run_plan.GlobalVariable
 	sceneFlows      map[string]*mao.Flow
 	sceneCaseFlows  map[string]*mao.SceneCaseFlow
-	sceneVariables  map[string][]*model.Variable
+	//sceneVariables  map[string][]*model.Variable
+	sceneVariables  map[string]run_plan.GlobalVariable
 	importVariables map[string][]*model.VariableImport
 	reports         []*model.Report
 	balance         *DispatchMachineBalance
@@ -53,16 +57,17 @@ type Baton struct {
 }
 
 type RealRunParam struct {
-	PlanId        string        `json:"plan_id" bson:"plan_id"`             // 计划id
-	PlanName      string        `json:"plan_name" bson:"plan_name"`         // 计划名称
-	ReportId      string        `json:"report_id" bson:"report_id"`         // 报告名称
-	TeamId        string        `json:"team_id" bson:"team_id"`             // 团队id
-	ReportName    string        `json:"report_name" bson:"report_name"`     // 报告名称
-	MachineNum    int64         `json:"machine_num" bson:"machine_num"`     // 使用的机器数量
-	ConfigTask    ConfigTask    `json:"config_task" bson:"config_task"`     // 任务配置
-	Variable      []PlanKv      `json:"variable" bson:"variable"`           // 全局变量
-	Scenes        []Scene       `json:"scenes" bson:"scenes"`               // 场景
-	Configuration Configuration `json:"configuration" bson:"configuration"` // 场景配置
+	PlanId         string                  `json:"plan_id" bson:"plan_id"`             // 计划id
+	PlanName       string                  `json:"plan_name" bson:"plan_name"`         // 计划名称
+	ReportId       string                  `json:"report_id" bson:"report_id"`         // 报告名称
+	TeamId         string                  `json:"team_id" bson:"team_id"`             // 团队id
+	ReportName     string                  `json:"report_name" bson:"report_name"`     // 报告名称
+	MachineNum     int64                   `json:"machine_num" bson:"machine_num"`     // 使用的机器数量
+	ConfigTask     ConfigTask              `json:"config_task" bson:"config_task"`     // 任务配置
+	Variable       []PlanKv                `json:"variable" bson:"variable"`           // 全局变量
+	Scenes         []Scene                 `json:"scenes" bson:"scenes"`               // 场景
+	Configuration  Configuration           `json:"configuration" bson:"configuration"` // 场景配置
+	GlobalVariable run_plan.GlobalVariable `json:"global_variable" bson:"global_variable"`
 }
 
 // ConfigTask 任务配置
@@ -80,30 +85,49 @@ type PlanKv struct {
 }
 
 type Scene struct {
-	PlanId                  string           `json:"plan_id" bson:"plan_id"`
-	SceneId                 string           `json:"scene_id" bson:"scene_id"`     // 场景Id
-	IsChecked               int32            `json:"is_checked" bson:"is_checked"` // 是否启用
-	ParentId                string           `json:"parentId" bson:"parent_id"`
-	CaseId                  string           `json:"case_id" bson:"case_id"`
-	Partition               int32            `json:"partition"`
-	MachineNum              int64            `json:"machine_num" bson:"machine_num"` // 使用的机器数量
-	ReportId                string           `json:"report_id" bson:"report_id"`
-	TeamId                  string           `json:"team_id" bson:"team_id"`
-	SceneName               string           `json:"scene_name" bson:"scene_name"` // 场景名称
-	Version                 int64            `json:"version" bson:"version"`
-	Debug                   string           `json:"debug" bson:"debug"`
-	EnablePlanConfiguration bool             `json:"enable_plan_configuration" bson:"enable_plan_configuration"` // 是否启用计划的任务配置，默认为true，
-	Nodes                   []*run_plan.Node `json:"nodes" bson:"nodes"`                                         // 事件列表
-	ConfigTask              ConfigTask       `json:"config_task" bson:"config_task"`                             // 任务配置
-	Configuration           Configuration    `json:"configuration" bson:"configuration"`                         // 场景配置
-	Variable                []KV             `json:"variable" bson:"variable"`                                   // 场景配置
-	Cases                   []Scene          `json:"cases" bson:"cases"`
+	PlanId                  string `json:"plan_id" bson:"plan_id"`
+	SceneId                 string `json:"scene_id" bson:"scene_id"`     // 场景Id
+	IsChecked               int32  `json:"is_checked" bson:"is_checked"` // 是否启用
+	ParentId                string `json:"parentId" bson:"parent_id"`
+	CaseId                  string `json:"case_id" bson:"case_id"`
+	Partition               int32  `json:"partition"`
+	MachineNum              int64  `json:"machine_num" bson:"machine_num"` // 使用的机器数量
+	ReportId                string `json:"report_id" bson:"report_id"`
+	TeamId                  string `json:"team_id" bson:"team_id"`
+	SceneName               string `json:"scene_name" bson:"scene_name"` // 场景名称
+	Version                 int64  `json:"version" bson:"version"`
+	Debug                   string `json:"debug" bson:"debug"`
+	EnablePlanConfiguration bool   `json:"enable_plan_configuration" bson:"enable_plan_configuration"` // 是否启用计划的任务配置，默认为true，
+	//Nodes                   []rao.Node              `json:"nodes" bson:"nodes"`                                         // 事件列表
+	ConfigTask     ConfigTask              `json:"config_task" bson:"config_task"`     // 任务配置
+	Configuration  Configuration           `json:"configuration" bson:"configuration"` // 场景配置
+	Variable       []KV                    `json:"variable" bson:"variable"`           // 场景配置
+	Cases          []Scene                 `json:"cases" bson:"cases"`
+	NodesRound     [][]rao.Node            `json:"nodes_round" bson:"nodes_round"`
+	GlobalVariable run_plan.GlobalVariable `json:"global_variable"` // 全局变量
 }
 
+//type GlobalVariable struct {
+//	Cookie   Cookie          `json:"cookie"`
+//	Header   Header          `json:"header"`
+//	Variable []VarForm       `json:"variable"`
+//	Assert   []AssertionText `json:"assert"` // 验证的方法(断言)
+//}
+
 type Configuration struct {
-	ParameterizedFile ParameterizedFile `json:"parameterizedFile" bson:"parameterizedFile"`
-	Variable          []KV              `json:"variable" bson:"variable"`
+	ParameterizedFile ParameterizedFile       `json:"parameterizedFile" bson:"parameterizedFile"`
+	SceneVariable     run_plan.GlobalVariable `json:"scene_variable"`
+	//Variable          []KV              `json:"variable" bson:"variable"` // todo 弃用
 }
+
+//type Parameter struct {
+//	IsChecked   int32  `json:"is_checked"`
+//	Type        string `json:"type"`
+//	Key         string `json:"key"`
+//	Value       string `json:"value"`
+//	NotNull     int32  `json:"not_null"`
+//	Description string `json:"description"`
+//}
 
 // ParameterizedFile 参数化文件
 type ParameterizedFile struct {
@@ -200,16 +224,22 @@ type Cookie struct {
 }
 
 type Auth struct {
-	Type     string    `json:"type" bson:"type"`
-	KV       *KV       `json:"kv" bson:"kv"`
-	Bearer   *Bearer   `json:"bearer" bson:"bearer"`
-	Basic    *Basic    `json:"basic" bson:"basic"`
-	Digest   *Digest   `json:"digest"`
-	Hawk     *Hawk     `json:"hawk"`
-	Awsv4    *AwsV4    `json:"awsv4"`
-	Ntlm     *Ntlm     `json:"ntlm"`
-	Edgegrid *Edgegrid `json:"edgegrid"`
-	Oauth1   *Oauth1   `json:"oauth1"`
+	Type          string    `json:"type" bson:"type"`
+	KV            *KV       `json:"kv" bson:"kv"`
+	Bearer        *Bearer   `json:"bearer" bson:"bearer"`
+	Basic         *Basic    `json:"basic" bson:"basic"`
+	Digest        *Digest   `json:"digest"`
+	Hawk          *Hawk     `json:"hawk"`
+	Awsv4         *AwsV4    `json:"awsv4"`
+	Ntlm          *Ntlm     `json:"ntlm"`
+	Edgegrid      *Edgegrid `json:"edgegrid"`
+	Oauth1        *Oauth1   `json:"oauth1"`
+	Bidirectional TLS       `json:"bidirectional"`
+}
+
+type TLS struct {
+	CaCert     string `json:"ca_cert"`
+	CaCertName string `json:"ca_cert_name"`
 }
 
 type Bearer struct {
@@ -643,7 +673,7 @@ func AssembleSceneFlows(baton *Baton) (int, error) {
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
 	cur, err := collection.Find(baton.Ctx, bson.D{{"scene_id", bson.D{{"$in", baton.SceneIDs}}}})
 	if err != nil {
-		return errno.ErrMongoFailed, fmt.Errorf("场景flow为空")
+		return errno.ErrMongoFailed, fmt.Errorf("场景flow查询失败")
 	}
 
 	var flows []*mao.Flow
@@ -652,7 +682,7 @@ func AssembleSceneFlows(baton *Baton) (int, error) {
 	}
 	if len(flows) != len(baton.SceneIDs) {
 		log.Logger.Info("场景flow不能为空")
-		return errno.ErrEmptyScene, fmt.Errorf("场景不能为空")
+		return errno.ErrEmptySceneFlow, fmt.Errorf("场景flow不能为空")
 	}
 
 	sceneFlowsMap := make(map[string]*mao.Flow)
@@ -668,15 +698,30 @@ func AssembleTestCaseFlows(baton *Baton) (int, error) {
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
 	cur, err := collection.Find(baton.Ctx, bson.D{{"scene_case_id", bson.D{{"$in", baton.testCaseIDs}}}})
 	if err != nil {
-		return errno.ErrMongoFailed, fmt.Errorf("测试用例flow为空")
+		return errno.ErrMongoFailed, fmt.Errorf("测试用例flow查询失败")
 	}
 	var sceneCaseFlows []*mao.SceneCaseFlow
 	if err := cur.All(baton.Ctx, &sceneCaseFlows); err != nil {
 		return errno.ErrMongoFailed, fmt.Errorf("测试用例flow获取失败")
 	}
+
+	// 判断用例flow是否为空
+	if len(sceneCaseFlows) > 0 {
+		for _, caseFlow := range sceneCaseFlows {
+			var sceneCaseFlowNodeTemp mao.SceneCaseFlowNode
+			err := bson.Unmarshal(caseFlow.Nodes, &sceneCaseFlowNodeTemp)
+			if err != nil {
+				return errno.ErrMongoFailed, fmt.Errorf("测试用例flow解析失败")
+			}
+			if len(sceneCaseFlowNodeTemp.Nodes) == 0 {
+				return errno.ErrEmptyTestCaseFlow, fmt.Errorf("测试用例flow为空")
+			}
+		}
+	}
+
 	if len(sceneCaseFlows) != len(baton.testCaseIDs) {
 		log.Logger.Info("测试用例flow不能为空")
-		return errno.ErrEmptyTestCase, fmt.Errorf("测试用例flow不能为空")
+		return errno.ErrEmptyTestCaseFlow, fmt.Errorf("测试用例flow不能为空")
 	}
 
 	sceneCaseFlowsMap := make(map[string]*mao.SceneCaseFlow)
@@ -689,37 +734,220 @@ func AssembleTestCaseFlows(baton *Baton) (int, error) {
 
 // AssembleGlobalVariables 组装全局变量数据
 func AssembleGlobalVariables(baton *Baton) (int, error) {
-	tx := dal.GetQuery().Variable
-	variables, err := tx.WithContext(baton.Ctx).Where(
-		tx.TeamID.Eq(baton.TeamID),
-		tx.Type.Eq(consts.VariableTypeGlobal),
-		tx.Status.Eq(consts.VariableStatusOpen),
-	).Find()
+	//tx := dal.GetQuery().Variable
+	//variables, err := tx.WithContext(baton.Ctx).Where(
+	//	tx.TeamID.Eq(baton.TeamID),
+	//	tx.Type.Eq(consts.VariableTypeGlobal),
+	//	tx.Status.Eq(consts.VariableStatusOpen),
+	//).Find()
+	//
+	//if err == nil {
+	//	baton.globalVariables = variables
+	//}
 
+	globalVariable := run_plan.GlobalVariable{}
+	// 查询全局变量
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
+	cur, err := collection.Find(baton.Ctx, bson.D{{"team_id", baton.TeamID}})
+	var globalParamDataArr []*mao.GlobalParamData
 	if err == nil {
-		baton.globalVariables = variables
+		if err := cur.All(baton.Ctx, &globalParamDataArr); err != nil {
+			return errno.ErrMongoFailed, fmt.Errorf("全局参数数据获取失败")
+		}
 	}
+
+	cookieParam := make([]rao.CookieParam, 0, 100)
+	headerParam := make([]rao.HeaderParam, 0, 100)
+	variableParam := make([]rao.VariableParam, 0, 100)
+	assertParam := make([]rao.AssertParam, 0, 100)
+	for _, globalParamInfo := range globalParamDataArr {
+		if globalParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
+			if err != nil {
+				return errno.ErrUnMarshalFailed, err
+			}
+			parameter := make([]*run_plan.Parameter, 0, len(cookieParam))
+			for _, v := range cookieParam {
+				temp := &run_plan.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Cookie.Parameter = parameter
+		}
+		if globalParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
+			if err != nil {
+				return errno.ErrUnMarshalFailed, err
+			}
+
+			parameter := make([]*run_plan.Parameter, 0, len(headerParam))
+			for _, v := range headerParam {
+				temp := &run_plan.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Header.Parameter = parameter
+
+		}
+		if globalParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
+			if err != nil {
+				return errno.ErrUnMarshalFailed, err
+			}
+
+			parameter := make([]run_plan.VarForm, 0, len(variableParam))
+			for _, v := range variableParam {
+				temp := run_plan.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Variable = parameter
+
+		}
+		if globalParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
+			if err != nil {
+				return errno.ErrUnMarshalFailed, err
+			}
+
+			parameter := make([]run_plan.AssertionText, 0, len(assertParam))
+			for _, v := range assertParam {
+				temp := run_plan.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Assert = parameter
+		}
+	}
+	baton.globalVariables = globalVariable
 	return errno.Ok, nil
 }
 
 // AssembleVariable 组装场景变量数据
 func AssembleVariable(baton *Baton) (int, error) {
 	//查询当前计划下所有场景的所有变量
-	tx := dal.GetQuery().Variable
-	variables, err := tx.WithContext(baton.Ctx).Where(
-		tx.TeamID.Eq(baton.TeamID),
-		tx.SceneID.In(baton.SceneIDs...),
-		tx.Type.Eq(consts.VariableTypeScene),
-		tx.Status.Eq(consts.VariableStatusOpen),
-	).Find()
+	//tx := dal.GetQuery().Variable
+	//variables, err := tx.WithContext(baton.Ctx).Where(
+	//	tx.TeamID.Eq(baton.TeamID),
+	//	tx.SceneID.In(baton.SceneIDs...),
+	//	tx.Type.Eq(consts.VariableTypeScene),
+	//	tx.Status.Eq(consts.VariableStatusOpen),
+	//).Find()
+	//
+	//tempData := make(map[string][]*model.Variable)
+	//if err == nil {
+	//	for _, variablesInfo := range variables {
+	//		tempData[variablesInfo.SceneID] = append(tempData[variablesInfo.SceneID], variablesInfo)
+	//	}
+	//}
+	//baton.sceneVariables = tempData
 
-	tempData := make(map[string][]*model.Variable)
-	if err == nil {
-		for _, variablesInfo := range variables {
-			tempData[variablesInfo.SceneID] = append(tempData[variablesInfo.SceneID], variablesInfo)
+	sceneVariableMap := make(map[string]run_plan.GlobalVariable, len(baton.scenes))
+	// 查询全局变量
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+	for _, sceneInfo := range baton.scenes {
+		sceneVariable := run_plan.GlobalVariable{}
+		cur, err := collection.Find(baton.Ctx, bson.D{{"team_id", baton.TeamID}, {"scene_id", sceneInfo.TargetID}})
+		var sceneParamDataArr []*mao.SceneParamData
+		if err == nil {
+			if err := cur.All(baton.Ctx, &sceneParamDataArr); err != nil {
+				return errno.ErrMongoFailed, fmt.Errorf("场景参数数据获取失败")
+			}
 		}
+
+		cookieParam := make([]rao.CookieParam, 0, 100)
+		headerParam := make([]rao.HeaderParam, 0, 100)
+		variableParam := make([]rao.VariableParam, 0, 100)
+		assertParam := make([]rao.AssertParam, 0, 100)
+		for _, sceneParamInfo := range sceneParamDataArr {
+			if sceneParamInfo.ParamType == 1 {
+				err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &cookieParam)
+				if err != nil {
+					return errno.ErrUnMarshalFailed, err
+				}
+				parameter := make([]*run_plan.Parameter, 0, len(cookieParam))
+				for _, v := range cookieParam {
+					temp := &run_plan.Parameter{
+						IsChecked: v.IsChecked,
+						Key:       v.Key,
+						Value:     v.Value,
+					}
+					parameter = append(parameter, temp)
+				}
+				sceneVariable.Cookie.Parameter = parameter
+			}
+			if sceneParamInfo.ParamType == 2 {
+				err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &headerParam)
+				if err != nil {
+					return errno.ErrUnMarshalFailed, err
+				}
+
+				parameter := make([]*run_plan.Parameter, 0, len(headerParam))
+				for _, v := range headerParam {
+					temp := &run_plan.Parameter{
+						IsChecked: v.IsChecked,
+						Key:       v.Key,
+						Value:     v.Value,
+					}
+					parameter = append(parameter, temp)
+				}
+				sceneVariable.Header.Parameter = parameter
+
+			}
+			if sceneParamInfo.ParamType == 3 {
+				err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &variableParam)
+				if err != nil {
+					return errno.ErrUnMarshalFailed, err
+				}
+
+				parameter := make([]run_plan.VarForm, 0, len(variableParam))
+				for _, v := range variableParam {
+					temp := run_plan.VarForm{
+						IsChecked: int64(v.IsChecked),
+						Key:       v.Key,
+						Value:     v.Value,
+					}
+					parameter = append(parameter, temp)
+				}
+				sceneVariable.Variable = parameter
+			}
+			if sceneParamInfo.ParamType == 4 {
+				err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &assertParam)
+				if err != nil {
+					return errno.ErrUnMarshalFailed, err
+				}
+
+				parameter := make([]run_plan.AssertionText, 0, len(assertParam))
+				for _, v := range assertParam {
+					temp := run_plan.AssertionText{
+						IsChecked:    int(v.IsChecked),
+						ResponseType: int8(v.ResponseType),
+						Compare:      v.Compare,
+						Var:          v.Var,
+						Val:          v.Val,
+					}
+					parameter = append(parameter, temp)
+				}
+				sceneVariable.Assert = parameter
+			}
+		}
+		sceneVariableMap[sceneInfo.TargetID] = sceneVariable
 	}
-	baton.sceneVariables = tempData
+	baton.sceneVariables = sceneVariableMap
 	return errno.Ok, nil
 }
 
@@ -786,14 +1014,17 @@ func AssembleRunPlanRealParams(baton *Baton) (int, error) {
 	baton.RealRunParam.MachineNum = 1
 	baton.RealRunParam.ConfigTask = baton.ConfigTask
 
+	////组装全局变量
+	//for _, gvInfo := range baton.globalVariables {
+	//	tempData := PlanKv{
+	//		Var: gvInfo.Var,
+	//		Val: gvInfo.Val,
+	//	}
+	//	baton.RealRunParam.Variable = append(baton.RealRunParam.Variable, tempData)
+	//}
+
 	//组装全局变量
-	for _, gvInfo := range baton.globalVariables {
-		tempData := PlanKv{
-			Var: gvInfo.Var,
-			Val: gvInfo.Val,
-		}
-		baton.RealRunParam.Variable = append(baton.RealRunParam.Variable, tempData)
-	}
+	baton.RealRunParam.GlobalVariable = baton.globalVariables
 
 	// 组装场景
 	for _, sceneInfo := range baton.scenes {
@@ -809,14 +1040,6 @@ func AssembleRunPlanRealParams(baton *Baton) (int, error) {
 			ConfigTask: baton.ConfigTask, // 任务配置
 		}
 
-		// 拼装场景flow
-		//var nodes run_plan.Nodes
-		//if err := bson.Unmarshal(baton.sceneFlows[sceneInfo.ID].Nodes, &nodes); err != nil {
-		//	log.Logger.Info("场景的flow node bson unmarshal err:%v", err)
-		//	return errno.ErrUnMarshalFailed, err
-		//}
-		//tempData.Nodes = nodes.Nodes
-
 		// 场景导入变量
 		for _, iv := range baton.importVariables[sceneInfo.TargetID] {
 			temp := FileList{
@@ -827,22 +1050,24 @@ func AssembleRunPlanRealParams(baton *Baton) (int, error) {
 		}
 
 		// 全局变量
-		for _, gv := range baton.globalVariables {
-			temp := KV{
-				Key:   gv.Var,
-				Value: gv.Val,
-			}
-			tempData.Variable = append(tempData.Variable, temp)
-		}
+		//for _, gv := range baton.globalVariables {
+		//	temp := KV{
+		//		Key:   gv.Var,
+		//		Value: gv.Val,
+		//	}
+		//	tempData.Variable = append(tempData.Variable, temp)
+		//}
+		tempData.GlobalVariable = baton.globalVariables
 
 		// 场景变量
-		for _, sv := range baton.sceneVariables[sceneInfo.TargetID] {
-			temp := KV{
-				Key:   sv.Var,
-				Value: sv.Val,
-			}
-			tempData.Configuration.Variable = append(tempData.Configuration.Variable, temp)
-		}
+		//for _, sv := range baton.sceneVariables[sceneInfo.TargetID] {
+		//	temp := KV{
+		//		Key:   sv.Var,
+		//		Value: sv.Val,
+		//	}
+		//	tempData.Configuration.Variable = append(tempData.Configuration.Variable, temp)
+		//}
+		tempData.Configuration.SceneVariable = baton.sceneVariables[sceneInfo.TargetID]
 
 		// 拼装场景下所有测试用例
 		for _, tc := range baton.testCase {
@@ -873,19 +1098,26 @@ func getTestCase(tc *model.Target, baton *Baton) (Scene, error) {
 	}
 
 	// 拼装场景flow
-	var nodes run_plan.Nodes
+	var nodes mao.Node
 	if err := bson.Unmarshal(baton.sceneCaseFlows[tc.TargetID].Nodes, &nodes); err != nil {
 		log.Logger.Info("测试用例的flow node bson unmarshal err:%v", err)
 		return Scene{}, err
 	}
-	res.Nodes = nodes.Nodes
+
+	var edges mao.Edge
+	if err := bson.Unmarshal(baton.sceneCaseFlows[tc.TargetID].Edges, &edges); err != nil {
+		log.Logger.Errorf("测试用例的flow edges bson unmarshal err:%v", err)
+	}
+
+	nodesRound := packer.GetNodesByLevel(nodes.Nodes, edges.Edges)
+	//res.Nodes = nodes.Nodes
+	res.NodesRound = nodesRound
 	return res, nil
 }
 
 // RunAutoPlan 运行自动化计划
 func RunAutoPlan(baton *Baton) (int, error) {
 	addr := baton.balance.GetMachine(0)
-	fmt.Println(111, baton.RealRunParam)
 	response, err := resty.New().R().SetBody(baton.RealRunParam).Post(fmt.Sprintf("http://%s/runner/run_auto_plan", addr))
 	log.Logger.Info("自动化测试运行情况，req：%+v， response:%+v。 err： %+v。", proof.Render("req", baton.RealRunParam), response, err)
 	if err != nil {

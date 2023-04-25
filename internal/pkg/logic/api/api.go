@@ -190,7 +190,7 @@ func SaveImportApi(ctx *gin.Context, req *rao.SaveImportApiReq, userID string) e
 	return err
 }
 
-func DetailByTargetIDs(ctx context.Context, teamID string, targetIDs []string) ([]*rao.APIDetail, error) {
+func DetailByTargetIDs(ctx context.Context, teamID string, targetIDs []string) ([]rao.APIDetail, error) {
 	tx := query.Use(dal.DB()).Target
 	targets, err := tx.WithContext(ctx).Where(
 		tx.TargetID.In(targetIDs...),

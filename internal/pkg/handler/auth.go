@@ -3,6 +3,7 @@ package handler
 import (
 	"kp-management/internal/pkg/biz/consts"
 	"kp-management/internal/pkg/biz/log"
+	"kp-management/internal/pkg/conf"
 	"time"
 
 	"github.com/go-omnibus/omnibus"
@@ -60,7 +61,8 @@ func AuthLogin(ctx *gin.Context) {
 	}
 
 	// 开始生成token
-	d := 1 * 24 * time.Hour
+	expireTime := conf.Conf.DefaultTokenExpireTime
+	d := expireTime * time.Hour
 	if req.IsAutoLogin {
 		d = 30 * 24 * time.Hour
 	}

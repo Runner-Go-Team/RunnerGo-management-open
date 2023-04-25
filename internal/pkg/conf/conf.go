@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"strconv"
+	"time"
 )
 
 var Conf Config
@@ -33,6 +34,8 @@ type Config struct {
 	CanUsePartitionTotalNum     int           `yaml:"canUsePartitionTotalNum"`
 	OneMachineCanConcurrenceNum int           `yaml:"oneMachineCanConcurrenceNum"`
 	MachineConfig               MachineConfig `yaml:"machineConfig"`
+	DefaultTokenExpireTime      time.Duration `yaml:"defaultTokenExpireTime"`
+	KeepStressDebugLogTime      int           `yaml:"keepStressDebugLogTime"`
 }
 
 type MachineConfig struct {
@@ -197,6 +200,8 @@ func MustInitConfByEnv() {
 	initCanUsePartitionTotalNum()
 	initOneMachineCanConcurrenceNum()
 	initMachineConfig()
+	initDefaultTokenExpireTime()
+	initKeepStressDebugLogTime()
 }
 
 func initBase() {
@@ -426,5 +431,24 @@ func initMachineConfig() {
 		Conf.MachineConfig.DiskTopLimit = 55
 	} else {
 		Conf.MachineConfig.DiskTopLimit = diskTopLimit
+	}
+}
+
+func initDefaultTokenExpireTime() {
+	defaultTokenExpireTime, err := strconv.ParseInt(os.Getenv("RG_DEFAULT_TOKEN_EXPIRE_TIME"), 10, 64)
+	if err != nil {
+		Conf.DefaultTokenExpireTime = 24
+	} else {
+		defaultTokenExpireTimeTemp := time.Duration(defaultTokenExpireTime)
+		Conf.DefaultTokenExpireTime = defaultTokenExpireTimeTemp
+	}
+}
+
+func initKeepStressDebugLogTime() {
+	keepStressDebugLogTime, err := strconv.ParseInt(os.Getenv("RG_KEEP_STRESS_DEBUG_LOG_TIME"), 10, 64)
+	if err != nil {
+		Conf.KeepStressDebugLogTime = 1
+	} else {
+		Conf.KeepStressDebugLogTime = int(keepStressDebugLogTime)
 	}
 }

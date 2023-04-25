@@ -222,3 +222,22 @@ type ReportEmailNotifyReq struct {
 	ReportID string   `json:"report_id"`
 	Emails   []string `json:"emails"`
 }
+
+type GetReportApiDetailReq struct {
+	TeamID  string `json:"team_id"`
+	CaseID  string `json:"case_id"`
+	EventID string `json:"event_id"`
+}
+
+type GetReportApiDetailResp struct {
+	APIDetail APIDetail `json:"api_detail"`
+}
+
+type SendReportApiReq struct {
+	TeamID    string    `json:"team_id"`
+	ApiDetail APIDetail `json:"api_detail"`
+}
+
+type SendReportApiResp struct {
+	RetID string `json:"ret_id"`
+}
