@@ -1,25 +1,27 @@
 package plan
 
 import (
-	"context"
 	"fmt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
+	"github.com/gin-gonic/gin"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
 )
 
-func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([]*model.Target, error) {
+func ImportScene(ctx *gin.Context, req *rao.ImportSceneReq) ([]*model.Target, error) {
+	userID := jwt.GetUserIDByCtx(ctx)
 	targetList := make([]*model.Target, 0)
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
 
@@ -39,51 +41,39 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 		}
 
 		// 查询要导入的场景基本信息
-		groupNames := make([]string, 0, len(targets))
-		oldGroupsIDs := make([]string, 0, len(targets))
-
-		sceneNames := make([]string, 0, len(targets))
 		oldSceneIDs := make([]string, 0, len(targets))
 
 		groupIDOldToNewMap := make(map[string]string, len(targets))
 		for _, targetInfo := range targets {
 			// 分组名称
-			if targetInfo.TargetType == consts.TargetTypeGroup {
-				groupNames = append(groupNames, targetInfo.Name)
-				oldGroupsIDs = append(oldGroupsIDs, targetInfo.TargetID)
-
+			if targetInfo.TargetType == consts.TargetTypeFolder {
 				newGroupID := uuid.GetUUID()
 				groupIDOldToNewMap[targetInfo.TargetID] = newGroupID
+
+				if targetInfo.ParentID == "0" {
+					// 查询当前目录名称在当前目录下是否存在
+					_, err = tx.Target.WithContext(ctx).Where(tx.Target.PlanID.Eq(req.PlanID),
+						tx.Target.ParentID.Eq("0"), tx.Target.Source.Eq(req.Source), tx.Target.Name.Eq(targetInfo.Name)).First()
+					if err == nil {
+						return fmt.Errorf("计划内目录不可重名")
+					}
+				}
 			}
 			// 场景名称
 			if targetInfo.TargetType == consts.TargetTypeScene {
-				sceneNames = append(sceneNames, targetInfo.Name)
 				oldSceneIDs = append(oldSceneIDs, targetInfo.TargetID)
-			}
 
-		}
-
-		// 检测分组排重
-		if len(groupNames) > 0 {
-			isExistCount, _ := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID),
-				tx.Target.PlanID.Eq(req.PlanID), tx.Target.Source.Eq(req.Source),
-				tx.Target.TargetType.Eq(consts.TargetTypeGroup),
-				tx.Target.Name.In(groupNames...)).Count()
-			if isExistCount > 0 {
-				return fmt.Errorf("计划内分组不可重名")
+				if targetInfo.ParentID == "0" {
+					// 查询当前场景名称在当前目录下是否存在
+					_, err = tx.Target.WithContext(ctx).Where(tx.Target.PlanID.Eq(req.PlanID),
+						tx.Target.ParentID.Eq("0"), tx.Target.Source.Eq(req.Source), tx.Target.Name.Eq(targetInfo.Name)).First()
+					if err == nil {
+						return fmt.Errorf("计划内场景不可重名")
+					}
+				}
 			}
 		}
 
-		// 检查场景名称排重
-		if len(sceneNames) > 0 {
-			isExistCount, _ := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID),
-				tx.Target.PlanID.Eq(req.PlanID), tx.Target.Source.Eq(req.Source),
-				tx.Target.TargetType.Eq(consts.TargetTypeScene),
-				tx.Target.Name.In(sceneNames...)).Count()
-			if isExistCount > 0 {
-				return fmt.Errorf("计划内场景不可重名")
-			}
-		}
 		// 根据source 判断来源
 		dataFrom := ""
 		if req.Source == 2 {
@@ -92,10 +82,9 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 			dataFrom = "auto_plan"
 		}
 
-		//// 开始导入
-		//// 先导入顶层分组
+		// 先导入顶层分组
 		for _, targetInfo := range targets {
-			if targetInfo.TargetType == consts.TargetTypeGroup {
+			if targetInfo.TargetType == consts.TargetTypeFolder {
 				oldGroupID := targetInfo.TargetID
 				oldParentID := targetInfo.ParentID
 				targetInfo.ID = 0

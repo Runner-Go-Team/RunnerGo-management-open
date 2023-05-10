@@ -2,10 +2,10 @@ package mail
 
 import (
 	"fmt"
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 	"net/smtp"
 
-	"kp-management/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 )
 
 const (

@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-omnibus/proof"
 
-	"kp-management/internal/app/middleware"
-	"kp-management/internal/pkg/handler"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/app/middleware"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/handler"
 )
 
 func RegisterRouter(r *gin.Engine) {
@@ -180,6 +180,7 @@ func RegisterRouter(r *gin.Engine) {
 	caseAssemble.POST("/send", handler.SendSceneCase)                     //调试用例
 	caseAssemble.POST("/stop", handler.StopSceneCase)                     //停止调试用例
 	caseAssemble.POST("/change/check", handler.ChangeCaseAssembleCheck)   //用例启用/关闭
+	caseAssemble.POST("change_case_sort", handler.ChangeCaseSort)         //修改用例的排序
 
 	// 测试计划
 	plan := api.Group("/v1/plan/")
@@ -214,6 +215,7 @@ func RegisterRouter(r *gin.Engine) {
 	report.POST("compare_report", handler.CompareReport)           // 对比报告
 	report.POST("update/description", handler.UpdateDescription)   // 保存或更新测试结果描述
 	report.POST("batch_delete", handler.BatchDeleteReport)         // 批量删除性能计划报告
+	report.POST("update_report_name", handler.UpdateReportName)    // 修改计划报告名称
 
 	// 操作日志
 	operation := api.Group("/v1/operation")
@@ -260,8 +262,9 @@ func RegisterRouter(r *gin.Engine) {
 	autoPlan.POST("batch_delete_report", handler.BatchDeleteAutoPlanReport)
 	autoPlan.POST("get_report_detail", handler.GetAutoPlanReportDetail)
 	autoPlan.POST("report_email_notify", handler.ReportEmailNotify)
-	autoPlan.POST("get_report_api_detail", handler.GetReportApiDetail) // 获取自动化报告里面的接口详情
-	autoPlan.POST("send_report_api", handler.SendReportApi)            // 运行自动化报告里面的接口
+	autoPlan.POST("get_report_api_detail", handler.GetReportApiDetail)    // 获取自动化报告里面的接口详情
+	autoPlan.POST("send_report_api", handler.SendReportApi)               // 运行自动化报告里面的接口
+	autoPlan.POST("update_report_name", handler.UpdateAutoPlanReportName) // 修改自动化计划报告名称
 
 	//环境管理
 	env := api.Group("/v1/env/")
@@ -270,6 +273,4 @@ func RegisterRouter(r *gin.Engine) {
 	env.POST("copy", handler.CopyEnv)           //复制环境信息
 	env.POST("del", handler.DelEnv)             //删除环境
 	env.POST("del_service", handler.DelService) //删除环境下服务
-	//env.POST("get_service_list", handler.ServiceList) //获取环境下服务列表
-	//env.POST("save_service", handler.SaveService)     //保存/编辑环境下服务信息
 }

@@ -24,7 +24,6 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		AutoPlanTaskConf:        newAutoPlanTaskConf(db, opts...),
 		AutoPlanTimedTaskConf:   newAutoPlanTimedTaskConf(db, opts...),
 		Machine:                 newMachine(db, opts...),
-		Operation:               newOperation(db, opts...),
 		PreinstallConf:          newPreinstallConf(db, opts...),
 		PublicFunction:          newPublicFunction(db, opts...),
 		ReportMachine:           newReportMachine(db, opts...),
@@ -58,7 +57,6 @@ type Query struct {
 	AutoPlanTaskConf        autoPlanTaskConf
 	AutoPlanTimedTaskConf   autoPlanTimedTaskConf
 	Machine                 machine
-	Operation               operation
 	PreinstallConf          preinstallConf
 	PublicFunction          publicFunction
 	ReportMachine           reportMachine
@@ -93,7 +91,6 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.clone(db),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.clone(db),
 		Machine:                 q.Machine.clone(db),
-		Operation:               q.Operation.clone(db),
 		PreinstallConf:          q.PreinstallConf.clone(db),
 		PublicFunction:          q.PublicFunction.clone(db),
 		ReportMachine:           q.ReportMachine.clone(db),
@@ -135,7 +132,6 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.replaceDB(db),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.replaceDB(db),
 		Machine:                 q.Machine.replaceDB(db),
-		Operation:               q.Operation.replaceDB(db),
 		PreinstallConf:          q.PreinstallConf.replaceDB(db),
 		PublicFunction:          q.PublicFunction.replaceDB(db),
 		ReportMachine:           q.ReportMachine.replaceDB(db),
@@ -167,7 +163,6 @@ type queryCtx struct {
 	AutoPlanTaskConf        *autoPlanTaskConfDo
 	AutoPlanTimedTaskConf   *autoPlanTimedTaskConfDo
 	Machine                 *machineDo
-	Operation               *operationDo
 	PreinstallConf          *preinstallConfDo
 	PublicFunction          *publicFunctionDo
 	ReportMachine           *reportMachineDo
@@ -199,7 +194,6 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.WithContext(ctx),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.WithContext(ctx),
 		Machine:                 q.Machine.WithContext(ctx),
-		Operation:               q.Operation.WithContext(ctx),
 		PreinstallConf:          q.PreinstallConf.WithContext(ctx),
 		PublicFunction:          q.PublicFunction.WithContext(ctx),
 		ReportMachine:           q.ReportMachine.WithContext(ctx),

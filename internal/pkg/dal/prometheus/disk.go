@@ -8,7 +8,7 @@ import (
 
 	"github.com/valyala/fasthttp"
 
-	"kp-management/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 )
 
 func GetDiskRangeUsage(ip string, s, e int64) ([][]interface{}, error) {

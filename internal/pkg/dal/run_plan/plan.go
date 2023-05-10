@@ -1,7 +1,7 @@
 package run_plan
 
 import (
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 type Stress struct {
@@ -346,10 +346,16 @@ type APIDetail struct {
 }
 
 type HttpApiSetup struct {
-	IsRedirects  int `json:"is_redirects"`  // 是否跟随重定向 0: 是   1：否
-	RedirectsNum int `json:"redirects_num"` // 重定向次数>= 1; 默认为3
-	ReadTimeOut  int `json:"read_time_out"` // 请求超时时间
-	WriteTimeOut int `json:"write_time_out"`
+	IsRedirects         int    `json:"is_redirects"`  // 是否跟随重定向 0: 是   1：否
+	RedirectsNum        int    `json:"redirects_num"` // 重定向次数>= 1; 默认为3
+	ReadTimeOut         int    `json:"read_time_out"` // 请求超时时间
+	WriteTimeOut        int    `json:"write_time_out"`
+	ClientName          string `json:"client_name"`
+	KeepAlive           bool   `json:"keep_alive"`
+	MaxIdleConnDuration int32  `json:"max_idle_conn_duration"`
+	MaxConnPerHost      int32  `json:"max_conn_per_host"`
+	UserAgent           bool   `json:"user_agent"`
+	MaxConnWaitTimeout  int64  `json:"max_conn_wait_timeout"`
 }
 
 type Controller struct {

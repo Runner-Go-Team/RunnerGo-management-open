@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newVariable(db *gorm.DB, opts ...gen.DOOption) variable {

@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/app/router"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/crontab"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/handler"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/script"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal"
-	"kp-management/internal/app/router"
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/crontab"
-	"kp-management/internal/pkg/handler"
 )
 
 var readConfMode int
@@ -59,6 +60,31 @@ func main() {
 		crontab.DeleteOperationLogBeforeSevenDay()
 		crontab.DeleteMongodbData()
 	}()
+
+	// 数据库迁移任务】
+	go func() {
+		script.DataMigrations()
+	}()
+
+	//// 性能分析
+	//go func() {
+	//	_, err := pyroscope.Start(
+	//		pyroscope.Config{
+	//			ApplicationName: "RunnerGo-management-open",
+	//			ServerAddress:   "http://192.168.1.205:4040/",
+	//			//Logger:          pyroscope.StandardLogger,
+	//			ProfileTypes: []pyroscope.ProfileType{
+	//				pyroscope.ProfileCPU,
+	//				pyroscope.ProfileAllocObjects,
+	//				pyroscope.ProfileAllocSpace,
+	//				pyroscope.ProfileInuseObjects,
+	//				pyroscope.ProfileInuseSpace,
+	//			},
+	//		})
+	//	if err != nil {
+	//		log.Logger.Errorf("性能统计设置失败")
+	//	}
+	//}()
 
 	if err := r.Run(fmt.Sprintf(":%d", conf.Conf.Http.Port)); err != nil {
 		panic(err)

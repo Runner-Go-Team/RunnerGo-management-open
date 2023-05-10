@@ -3,20 +3,20 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/log"
 	"strconv"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 )
 
 func Save(ctx context.Context, req *rao.SaveTargetReq, userID string) (string, error) {
@@ -29,7 +29,8 @@ func Save(ctx context.Context, req *rao.SaveTargetReq, userID string) (string, e
 		// 接口名排重
 		_, err := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID), tx.Target.Name.Eq(req.Name),
 			tx.Target.TargetType.Eq(consts.TargetTypeAPI), tx.Target.TargetID.Neq(req.TargetID),
-			tx.Target.Status.Eq(consts.TargetStatusNormal)).First()
+			tx.Target.Status.Eq(consts.TargetStatusNormal), tx.Target.ParentID.Eq(req.ParentID),
+			tx.Target.Source.Eq(req.Source)).First()
 		if err == nil {
 			return fmt.Errorf("名称已存在")
 		}
@@ -85,7 +86,8 @@ func SaveImportApi(ctx *gin.Context, req *rao.SaveImportApiReq, userID string) e
 				newFolderName := insertTargetInfo.Name
 				// 文件夹名排重
 				_, err := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID), tx.Target.Name.Eq(insertTargetInfo.Name),
-					tx.Target.TargetType.Eq(consts.TargetTypeFolder), tx.Target.Status.Eq(consts.TargetStatusNormal)).First()
+					tx.Target.TargetType.Eq(consts.TargetTypeFolder), tx.Target.Status.Eq(consts.TargetStatusNormal),
+					tx.Target.ParentID.Eq(folderInfo.ParentID)).First()
 				if err == nil {
 					newFolderName = newFolderName + "_1"
 					// 查询老配置相关的
@@ -134,7 +136,8 @@ func SaveImportApi(ctx *gin.Context, req *rao.SaveImportApiReq, userID string) e
 				newApiName := insertTargetInfo.Name
 				// 接口名排重
 				_, err := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID), tx.Target.Name.Eq(insertTargetInfo.Name),
-					tx.Target.TargetType.Eq(consts.TargetTypeAPI), tx.Target.Status.Eq(consts.TargetStatusNormal)).First()
+					tx.Target.TargetType.Eq(consts.TargetTypeAPI), tx.Target.Status.Eq(consts.TargetStatusNormal),
+					tx.Target.ParentID.Eq(apiInfo.ParentID)).First()
 				if err == nil {
 					newApiName = newApiName + "_1"
 					// 查询老配置相关的
@@ -197,7 +200,6 @@ func DetailByTargetIDs(ctx context.Context, teamID string, targetIDs []string) (
 		tx.TeamID.Eq(teamID),
 		tx.TargetType.Eq(consts.TargetTypeAPI),
 		tx.Status.Eq(consts.TargetStatusNormal),
-		tx.Source.Eq(consts.TargetSourceNormal),
 	).Order(tx.Sort.Desc(), tx.CreatedAt.Desc()).Find()
 
 	if err != nil {

@@ -3,28 +3,28 @@ package autoPlan
 import (
 	"context"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/mail"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/public"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/mail"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/dal/runner"
-	"kp-management/internal/pkg/packer"
-	"kp-management/internal/pkg/public"
 	"math"
 	"strconv"
 	"strings"
@@ -419,7 +419,7 @@ func CopyAutoPlan(ctx *gin.Context, req *rao.CopyAutoPlanReq) error {
 		targetTable := tx.Target
 		oldTargetList, err := targetTable.WithContext(ctx).Where(targetTable.TeamID.Eq(req.TeamID),
 			targetTable.PlanID.Eq(req.PlanID), targetTable.Source.Eq(consts.TargetSourceAutoPlan),
-			targetTable.Status.Eq(consts.TargetStatusNormal), targetTable.TargetType.In(consts.TargetTypeScene, consts.TargetTypeGroup),
+			targetTable.Status.Eq(consts.TargetStatusNormal), targetTable.TargetType.In(consts.TargetTypeScene, consts.TargetTypeFolder),
 		).Order(targetTable.ParentID).Find()
 
 		oldSceneIDs := make([]string, 0, len(oldTargetList))
@@ -1013,6 +1013,7 @@ func GetAutoPlanReportList(ctx *gin.Context, req *rao.GetAutoPlanReportListReq) 
 		detailTmp := &rao.GetAutoPlanReportList{
 			RankID:           detail.RankID,
 			ReportID:         detail.ReportID,
+			ReportName:       detail.ReportName,
 			PlanID:           detail.PlanID,
 			TeamID:           detail.TeamID,
 			PlanName:         detail.PlanName,
@@ -1204,7 +1205,7 @@ func CloneAutoPlanScene(ctx *gin.Context, req *rao.CloneAutoPlanSceneReq) error 
 		}
 
 		// 场景管理和自动化测试复制测试用例
-		if req.Source == consts.TargetSourceNormal || req.Source == consts.TargetSourceAutoPlan {
+		if req.Source == consts.TargetSourceScene || req.Source == consts.TargetSourceAutoPlan {
 			// 7、克隆测试用例
 			testCaseList, err := targetTable.WithContext(ctx).Where(targetTable.ParentID.Eq(req.SceneID), targetTable.TargetType.Eq(consts.TargetTypeTestCase)).Find()
 			if err == nil && len(testCaseList) > 0 {
@@ -1477,6 +1478,7 @@ func GetAutoPlanReportDetail(ctx *gin.Context, req *rao.GetAutoPlanReportDetailR
 	if err != nil {
 		return nil, err
 	}
+	res.ReportName = reportInfo.ReportName
 	return &res, nil
 }
 
@@ -1523,6 +1525,7 @@ type SceneResult struct {
 // GetReportDetailResp 获取报告详情返回值
 type GetReportDetailResp struct {
 	PlanName             string                      `json:"plan_name" bson:"plan_name"`
+	ReportName           string                      `json:"report_name" bson:"report_name"`
 	Avatar               string                      `json:"avatar" bson:"avatar"`
 	Nickname             string                      `json:"nickname" bson:"nickname"`
 	Remark               string                      `json:"remark" bson:"remark"`
@@ -1840,6 +1843,7 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 
 	res := &GetReportDetailResp{
 		PlanName:         reportInfo.PlanName,
+		ReportName:       reportInfo.ReportName,
 		Avatar:           userInfo.Avatar,
 		Remark:           reportInfo.Remark,
 		Nickname:         userInfo.Nickname,
@@ -1926,4 +1930,15 @@ func SendReportApi(ctx *gin.Context, req *rao.SendReportApiReq) (string, error) 
 		return "", fmt.Errorf("调试接口返回非200状态")
 	}
 	return retID, err
+}
+
+func UpdateAutoPlanReportName(ctx *gin.Context, req *rao.UpdateAutoPlanReportNameReq) error {
+	allErr := dal.GetQuery().Transaction(func(tx *query.Query) error {
+		_, err := tx.AutoPlanReport.WithContext(ctx).Where(tx.AutoPlanReport.ReportID.Eq(req.ReportID)).UpdateSimple(tx.AutoPlanReport.ReportName.Value(req.ReportName))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return allErr
 }

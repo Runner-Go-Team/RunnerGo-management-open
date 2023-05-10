@@ -3,15 +3,15 @@ package report
 import (
 	"context"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
 	"go.mongodb.org/mongo-driver/bson"
-	"kp-management/internal/pkg/dal/mao"
 	"strconv"
 	"time"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func ListMachines(ctx context.Context, req *rao.ListMachineReq) (*rao.ListMachineResp, error) {

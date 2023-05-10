@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newUserTeam(db *gorm.DB, opts ...gen.DOOption) userTeam {
@@ -31,7 +31,9 @@ func newUserTeam(db *gorm.DB, opts ...gen.DOOption) userTeam {
 	_userTeam.UserID = field.NewString(tableName, "user_id")
 	_userTeam.TeamID = field.NewString(tableName, "team_id")
 	_userTeam.RoleID = field.NewInt64(tableName, "role_id")
+	_userTeam.TeamRoleID = field.NewString(tableName, "team_role_id")
 	_userTeam.InviteUserID = field.NewString(tableName, "invite_user_id")
+	_userTeam.InviteTime = field.NewTime(tableName, "invite_time")
 	_userTeam.Sort = field.NewInt32(tableName, "sort")
 	_userTeam.CreatedAt = field.NewTime(tableName, "created_at")
 	_userTeam.UpdatedAt = field.NewTime(tableName, "updated_at")
@@ -50,7 +52,9 @@ type userTeam struct {
 	UserID       field.String // 用户ID
 	TeamID       field.String // 团队id
 	RoleID       field.Int64  // 角色id1:超级管理员，2成员，3管理员
+	TeamRoleID   field.String // 角色id (角色表对应)
 	InviteUserID field.String // 邀请人id
+	InviteTime   field.Time   // 邀请时间
 	Sort         field.Int32
 	CreatedAt    field.Time
 	UpdatedAt    field.Time
@@ -75,7 +79,9 @@ func (u *userTeam) updateTableName(table string) *userTeam {
 	u.UserID = field.NewString(table, "user_id")
 	u.TeamID = field.NewString(table, "team_id")
 	u.RoleID = field.NewInt64(table, "role_id")
+	u.TeamRoleID = field.NewString(table, "team_role_id")
 	u.InviteUserID = field.NewString(table, "invite_user_id")
+	u.InviteTime = field.NewTime(table, "invite_time")
 	u.Sort = field.NewInt32(table, "sort")
 	u.CreatedAt = field.NewTime(table, "created_at")
 	u.UpdatedAt = field.NewTime(table, "updated_at")
@@ -102,12 +108,14 @@ func (u *userTeam) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *userTeam) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 9)
+	u.fieldMap = make(map[string]field.Expr, 11)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["user_id"] = u.UserID
 	u.fieldMap["team_id"] = u.TeamID
 	u.fieldMap["role_id"] = u.RoleID
+	u.fieldMap["team_role_id"] = u.TeamRoleID
 	u.fieldMap["invite_user_id"] = u.InviteUserID
+	u.fieldMap["invite_time"] = u.InviteTime
 	u.fieldMap["sort"] = u.Sort
 	u.fieldMap["created_at"] = u.CreatedAt
 	u.fieldMap["updated_at"] = u.UpdatedAt

@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
 	"github.com/gin-gonic/gin"
 	"github.com/go-resty/resty/v2"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal"
 	"time"
 
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 type RunAPIResp struct {
@@ -30,21 +30,10 @@ type StopRunnerReq struct {
 }
 
 func RunAPI(ctx context.Context, body rao.APIDetail) (string, error) {
-
-	//// 检查是否有引用环境服务URL
-	//var requestURLBuilder strings.Builder
-	//if body.EnvServiceURL != "" {
-	//	requestURLBuilder.WriteString(body.EnvServiceURL)
-	//}
-	//requestURLBuilder.WriteString(body.URL)
-	//requestURL := requestURLBuilder.String()
-	//body.URL = requestURL
-
 	bodyByte, err := json.Marshal(body)
 	if err != nil {
 		return "", err
 	}
-
 	log.Logger.Infof("body %s", bodyByte)
 
 	var ret RunAPIResp
@@ -169,5 +158,17 @@ func StopSceneCase(ctx *gin.Context, req *rao.StopSceneCaseReq) error {
 	//	return fmt.Errorf("ret code not 200")
 	//}
 
+	return nil
+}
+
+func ChangeCaseSort(ctx *gin.Context, req *rao.ChangeCaseSortReq) error {
+	tx := dal.GetQuery().Target
+	for _, target := range req.CaseList {
+		_, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(target.TeamID),
+			tx.TargetID.Eq(target.CaseID)).UpdateSimple(tx.Sort.Value(target.Sort), tx.ParentID.Value(target.SceneID))
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

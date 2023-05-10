@@ -10,6 +10,7 @@ type SaveFolderReq struct {
 	TypeSort    int32  `json:"type_sort"`
 	Version     int32  `json:"version" binding:"required,gt=0"`
 	Description string `json:"description"`
+	Source      int32  `json:"source"`
 	//Request  *Request `json:"request"`
 	//Script   *Script  `json:"script"`
 }

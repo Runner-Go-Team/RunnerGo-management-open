@@ -30,6 +30,7 @@ type SaveTargetReq struct {
 	Sort          int32   `json:"sort"`
 	TypeSort      int32   `json:"type_sort"`
 	Request       Request `json:"request"`
+	Source        int32   `json:"source"`
 	//Response      *Response `json:"response"`
 	Version      int32        `json:"version"`
 	Description  string       `json:"description"`
@@ -44,10 +45,16 @@ type SaveTargetReq struct {
 }
 
 type HttpApiSetup struct {
-	IsRedirects  int `json:"is_redirects"`  // 是否跟随重定向 0: 是   1：否
-	RedirectsNum int `json:"redirects_num"` // 重定向次数>= 1; 默认为3
-	ReadTimeOut  int `json:"read_time_out"` // 请求超时时间
-	WriteTimeOut int `json:"write_time_out"`
+	IsRedirects         int    `json:"is_redirects"`  // 是否跟随重定向 0: 是   1：否
+	RedirectsNum        int    `json:"redirects_num"` // 重定向次数>= 1; 默认为3
+	ReadTimeOut         int    `json:"read_time_out"` // 请求超时时间
+	WriteTimeOut        int    `json:"write_time_out"`
+	ClientName          string `json:"client_name"`
+	KeepAlive           bool   `json:"keep_alive"`
+	MaxIdleConnDuration int32  `json:"max_idle_conn_duration"`
+	MaxConnPerHost      int32  `json:"max_conn_per_host"`
+	UserAgent           bool   `json:"user_agent"`
+	MaxConnWaitTimeout  int64  `json:"max_conn_wait_timeout"`
 }
 
 type SaveImportApiReq struct {
@@ -74,6 +81,7 @@ type SortTarget struct {
 	TargetID string `json:"target_id"`
 	Sort     int32  `json:"sort"`
 	ParentID string `json:"parent_id"`
+	Name     string `json:"name"`
 }
 
 type SortTargetResp struct {
@@ -115,8 +123,6 @@ type ListFolderAPIReq struct {
 	TeamID string `form:"team_id" binding:"required,gt=0"`
 	PlanID int64  `json:"plan_id" form:"plan_id"`
 	Source int32  `json:"source" form:"source"`
-	//Page   int   `form:"page,default=1"`
-	//Size   int   `form:"size,default=10"`
 }
 
 type ListFolderAPIResp struct {
@@ -135,6 +141,7 @@ type FolderAPI struct {
 	Sort          int32  `json:"sort"`
 	TypeSort      int32  `json:"type_sort"`
 	Version       int32  `json:"version"`
+	Source        int32  `json:"source"`
 	CreatedUserID string `json:"created_user_id"`
 	RecentUserID  string `json:"recent_user_id"`
 }
@@ -163,6 +170,7 @@ type GroupScene struct {
 	CreatedUserID string `json:"created_user_id"`
 	RecentUserID  string `json:"recent_user_id"`
 	Description   string `json:"description"`
+	Source        int32  `json:"source"`
 }
 
 type BatchGetDetailReq struct {

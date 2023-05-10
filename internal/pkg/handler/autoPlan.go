@@ -2,16 +2,16 @@ package handler
 
 import (
 	"context"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/mail"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/autoPlan"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/mail"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/autoPlan"
 	"strings"
 )
 
@@ -665,5 +665,20 @@ func SendReportApi(ctx *gin.Context) {
 	}
 
 	response.SuccessWithData(ctx, rao.SendReportApiResp{RetID: retID})
+	return
+}
+
+func UpdateAutoPlanReportName(ctx *gin.Context) {
+	var req rao.UpdateAutoPlanReportNameReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	err := autoPlan.UpdateAutoPlanReportName(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+	response.Success(ctx)
 	return
 }

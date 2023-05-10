@@ -32,6 +32,7 @@ type ListReportsResp struct {
 
 type StressPlanReport struct {
 	ReportID    string `json:"report_id"`
+	ReportName  string `json:"report_name"`
 	RankID      int64  `json:"rank_id"`
 	TeamID      string `json:"team_id"`
 	TaskMode    int32  `json:"task_mode"`
@@ -114,6 +115,7 @@ type ReportTask struct {
 	SceneID        string      `json:"scene_id"`
 	SceneName      string      `json:"scene_name"`
 	ReportID       string      `json:"report_id"`
+	ReportName     string      `json:"report_name"`
 	CreatedTimeSec int64       `json:"created_time_sec"`
 	TaskType       int32       `json:"task_type"`
 	TaskMode       int32       `json:"task_mode"`
@@ -161,4 +163,9 @@ type UpdateDescriptionReq struct {
 type BatchDeleteReportReq struct {
 	ReportIDs []string `json:"report_ids"`
 	TeamID    string   `json:"team_id"`
+}
+
+type UpdateReportNameReq struct {
+	ReportID   string `json:"report_id"`
+	ReportName string `json:"report_name"`
 }

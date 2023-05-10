@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"gorm.io/gen"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 )
 
 func Save(ctx context.Context, req *rao.SaveSceneReq, userID string) (string, string, error) {
@@ -23,6 +23,8 @@ func Save(ctx context.Context, req *rao.SaveSceneReq, userID string) (string, st
 		conditions = append(conditions, tx.Target.TargetID.Neq(req.TargetID))
 		conditions = append(conditions, tx.Target.Source.Eq(req.Source))
 		conditions = append(conditions, tx.Target.Name.Eq(req.Name))
+		conditions = append(conditions, tx.Target.ParentID.Eq(req.ParentID))
+		conditions = append(conditions, tx.Target.Status.Eq(consts.TargetStatusNormal))
 		if req.Source == consts.TargetSourcePlan || req.Source == consts.TargetSourceAutoPlan {
 			conditions = append(conditions, tx.Target.PlanID.Eq(req.PlanID))
 		}
@@ -42,7 +44,8 @@ func Save(ctx context.Context, req *rao.SaveSceneReq, userID string) (string, st
 		}
 
 		// 修改场景数据
-		if _, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.TargetID)).Updates(target); err != nil {
+		if _, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.TargetID)).UpdateSimple(tx.Target.Name.Value(req.Name),
+			tx.Target.Description.Value(req.Description)); err != nil {
 			return err
 		}
 		return record.InsertUpdate(ctx, target.TeamID, userID, record.OperationOperateUpdateScene, target.Name)

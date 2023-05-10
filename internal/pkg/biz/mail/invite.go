@@ -2,12 +2,12 @@ package mail
 
 import (
 	"fmt"
-	"kp-management/internal/pkg/biz/encrypt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/encrypt"
 	"math/rand"
 	"net/smtp"
 	"time"
 
-	"kp-management/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 )
 
 const (

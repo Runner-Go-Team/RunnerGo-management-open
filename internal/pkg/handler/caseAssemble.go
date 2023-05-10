@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/caseAssemble"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/dal/runner"
-	"kp-management/internal/pkg/logic/caseAssemble"
 )
 
 // GetCaseAssembleList 获取用例集列表
@@ -192,6 +192,23 @@ func StopSceneCase(ctx *gin.Context) {
 	}
 
 	err := runner.StopSceneCase(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+		return
+	}
+
+	response.Success(ctx)
+	return
+}
+
+func ChangeCaseSort(ctx *gin.Context) {
+	var req rao.ChangeCaseSortReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := runner.ChangeCaseSort(ctx, &req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
 		return

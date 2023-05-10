@@ -3,13 +3,13 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/dal/runner"
-	"kp-management/internal/pkg/logic/scene"
-	"kp-management/internal/pkg/logic/target"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/scene"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/target"
 )
 
 // SendScene 调试场景

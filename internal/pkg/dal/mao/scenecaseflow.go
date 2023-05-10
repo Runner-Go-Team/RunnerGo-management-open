@@ -3,7 +3,7 @@ package mao
 import (
 	"go.mongodb.org/mongo-driver/bson"
 
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 type SceneCaseFlow struct {

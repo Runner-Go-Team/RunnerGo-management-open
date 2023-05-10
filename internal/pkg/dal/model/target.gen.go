@@ -28,7 +28,7 @@ type Target struct {
 	CreatedUserID string         `gorm:"column:created_user_id;not null" json:"created_user_id"`                 // 创建人ID
 	RecentUserID  string         `gorm:"column:recent_user_id;not null" json:"recent_user_id"`                   // 最近修改人ID
 	Description   string         `gorm:"column:description;not null" json:"description"`                         // 备注
-	Source        int32          `gorm:"column:source;not null;default:1" json:"source"`                         // 数据来源：1-正常来源，2-性能，3-自动化测试
+	Source        int32          `gorm:"column:source;not null" json:"source"`                                   // 数据来源：0-接口管理，1-场景管理，2-性能，3-自动化测试
 	PlanID        string         `gorm:"column:plan_id;not null;default:0" json:"plan_id"`                       // 计划id
 	SourceID      string         `gorm:"column:source_id;not null" json:"source_id"`                             // 引用来源ID
 	IsChecked     int32          `gorm:"column:is_checked;not null;default:1" json:"is_checked"`                 // 是否开启：1-开启，2-关闭

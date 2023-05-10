@@ -6,15 +6,17 @@ type DispatchMachineBalance struct {
 }
 
 type WeightNode struct {
-	addr             string // 服务器addr(IP+PORT)
-	usableGoroutines int64
+	addr string // 服务器addr(IP+PORT)
+	//usableGoroutines int64
+	maxGoroutines int64
 }
 
-func (r *DispatchMachineBalance) AddMachine(addr string, usableGoroutines int64) error {
+func (r *DispatchMachineBalance) AddMachine(addr string, maxGoroutines int64) error {
 	if addr != "" {
 		r.rss = append(r.rss, WeightNode{
-			addr:             addr,
-			usableGoroutines: usableGoroutines,
+			addr: addr,
+			//usableGoroutines: usableGoroutines,
+			maxGoroutines: maxGoroutines,
 		})
 	}
 	return nil

@@ -16,6 +16,7 @@ const TableNameAutoPlanReport = "auto_plan_report"
 type AutoPlanReport struct {
 	ID               int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`
 	ReportID         string         `gorm:"column:report_id;not null" json:"report_id"`                               // 报告ID
+	ReportName       string         `gorm:"column:report_name;not null" json:"report_name"`                           // 报告名称
 	PlanID           string         `gorm:"column:plan_id;not null" json:"plan_id"`                                   // 计划ID
 	RankID           int64          `gorm:"column:rank_id;not null" json:"rank_id"`                                   // 序号ID
 	PlanName         string         `gorm:"column:plan_name;not null" json:"plan_name"`                               // 计划名称

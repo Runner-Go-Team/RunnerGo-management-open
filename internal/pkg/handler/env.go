@@ -1,11 +1,11 @@
 package handler
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/env"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/env"
 	"strings"
 )
 
@@ -100,28 +100,6 @@ func DelEnv(ctx *gin.Context) {
 	response.Success(ctx)
 	return
 }
-
-//// ServiceList 获取服务列表
-//func ServiceList(ctx *gin.Context) {
-//	var req rao.ServiceListReq
-//
-//	if err := ctx.ShouldBindJSON(&req); err != nil {
-//		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
-//		return
-//	}
-//
-//}
-
-//// SaveService 保存/编辑服务
-//func SaveService(ctx *gin.Context) {
-//	var req rao.SaveServiceReq
-//
-//	if err := ctx.ShouldBindJSON(&req); err != nil {
-//		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
-//		return
-//	}
-//
-//}
 
 // DelService 删除环境
 func DelService(ctx *gin.Context) {

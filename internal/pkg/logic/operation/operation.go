@@ -1,15 +1,15 @@
 package operation
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
 )
 
 func List(ctx *gin.Context, teamID string, limit, offset int) ([]*rao.Operation, int64, error) {

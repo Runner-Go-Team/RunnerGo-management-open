@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/api"
-	"kp-management/internal/pkg/logic/target"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/api"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/target"
 
 	"github.com/gin-gonic/gin"
 )
@@ -99,8 +99,13 @@ func SortTarget(ctx *gin.Context) {
 		return
 	}
 
-	if err := target.SortTarget(ctx, &req); err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+	err := target.SortTarget(ctx, &req)
+	if err != nil {
+		if err.Error() == "存在重名，无法操作" {
+			response.ErrorWithMsg(ctx, errno.ErrTargetSortNameAlreadyExist, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
 		return
 	}
 
@@ -195,7 +200,7 @@ func ListFolderAPI(ctx *gin.Context) {
 		return
 	}
 
-	targets, err := target.ListFolderAPI(ctx, req.TeamID)
+	targets, err := target.ListFolderAPI(ctx, &req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return

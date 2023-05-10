@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newTeam(db *gorm.DB, opts ...gen.DOOption) team {
@@ -30,6 +30,8 @@ func newTeam(db *gorm.DB, opts ...gen.DOOption) team {
 	_team.ID = field.NewInt64(tableName, "id")
 	_team.TeamID = field.NewString(tableName, "team_id")
 	_team.Name = field.NewString(tableName, "name")
+	_team.Description = field.NewString(tableName, "description")
+	_team.CompanyID = field.NewString(tableName, "company_id")
 	_team.Type = field.NewInt32(tableName, "type")
 	_team.TrialExpirationDate = field.NewTime(tableName, "trial_expiration_date")
 	_team.IsVip = field.NewInt32(tableName, "is_vip")
@@ -54,6 +56,8 @@ type team struct {
 	ID                  field.Int64  // 主键ID
 	TeamID              field.String // 团队ID
 	Name                field.String // 团队名称
+	Description         field.String // 团队描述
+	CompanyID           field.String // 所属企业id
 	Type                field.Int32  // 团队类型 1: 私有团队；2: 普通团队
 	TrialExpirationDate field.Time   // 试用有效期
 	IsVip               field.Int32  // 是否为付费团队 1-否 2-是
@@ -84,6 +88,8 @@ func (t *team) updateTableName(table string) *team {
 	t.ID = field.NewInt64(table, "id")
 	t.TeamID = field.NewString(table, "team_id")
 	t.Name = field.NewString(table, "name")
+	t.Description = field.NewString(table, "description")
+	t.CompanyID = field.NewString(table, "company_id")
 	t.Type = field.NewInt32(table, "type")
 	t.TrialExpirationDate = field.NewTime(table, "trial_expiration_date")
 	t.IsVip = field.NewInt32(table, "is_vip")
@@ -117,10 +123,12 @@ func (t *team) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (t *team) fillFieldMap() {
-	t.fieldMap = make(map[string]field.Expr, 14)
+	t.fieldMap = make(map[string]field.Expr, 16)
 	t.fieldMap["id"] = t.ID
 	t.fieldMap["team_id"] = t.TeamID
 	t.fieldMap["name"] = t.Name
+	t.fieldMap["description"] = t.Description
+	t.fieldMap["company_id"] = t.CompanyID
 	t.fieldMap["type"] = t.Type
 	t.fieldMap["trial_expiration_date"] = t.TrialExpirationDate
 	t.fieldMap["is_vip"] = t.IsVip

@@ -118,3 +118,14 @@ type SceneCaseFlow struct {
 	NodesRound     [][]Node       `json:"nodes_round"`
 	GlobalVariable GlobalVariable `json:"global_variable"`
 }
+
+type ChangeCaseSortReq struct {
+	CaseList []SortCase `json:"case_list"`
+}
+
+type SortCase struct {
+	TeamID  string `json:"team_id"`
+	CaseID  string `json:"case_id"`
+	Sort    int32  `json:"sort"`
+	SceneID string `json:"scene_id"`
+}

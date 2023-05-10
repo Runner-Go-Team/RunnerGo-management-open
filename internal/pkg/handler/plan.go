@@ -3,24 +3,24 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/mail"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/plan"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/stress"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/mail"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/plan"
-	"kp-management/internal/pkg/logic/stress"
 	"strings"
 	"sync"
 	"time"
 
-	"kp-management/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
 )
 
 type RunStressReq struct {
@@ -391,10 +391,10 @@ func ImportScene(ctx *gin.Context) {
 		return
 	}
 
-	scenes, err := plan.ImportScene(ctx, jwt.GetUserIDByCtx(ctx), &req)
+	scenes, err := plan.ImportScene(ctx, &req)
 	if err != nil {
-		if err.Error() == "计划内分组不可重名" {
-			response.ErrorWithMsg(ctx, errno.ErrInPlanGroupNameAlreadyExist, err.Error())
+		if err.Error() == "计划内目录不可重名" {
+			response.ErrorWithMsg(ctx, errno.ErrInPlanFolderNameAlreadyExist, err.Error())
 		} else if err.Error() == "计划内场景不可重名" {
 			response.ErrorWithMsg(ctx, errno.ErrInPlanSceneNameAlreadyExist, err.Error())
 		} else {
@@ -497,9 +497,6 @@ func PlanDeleteEmail(ctx *gin.Context) {
 // RunStress 调度压力测试机进行压测的方法
 func RunStress(ctx context.Context, req RunStressReq) (int, error) {
 	rms := &stress.RunMachineStress{}
-
-	//siv := &stress.SplitImportVariable{}
-	//siv.SetNext(rms)
 
 	ss := &stress.SplitStress{}
 	ss.SetNext(rms)

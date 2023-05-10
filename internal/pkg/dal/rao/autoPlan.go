@@ -166,6 +166,7 @@ type GetAutoPlanReportListReq struct {
 
 type GetAutoPlanReportList struct {
 	RankID           int64  `json:"rank_id"`
+	ReportName       string `json:"report_name"`
 	ReportID         string `json:"report_id"`
 	PlanID           string `json:"plan_id"`
 	TeamID           string `json:"team_id"`
@@ -240,4 +241,9 @@ type SendReportApiReq struct {
 
 type SendReportApiResp struct {
 	RetID string `json:"ret_id"`
+}
+
+type UpdateAutoPlanReportNameReq struct {
+	ReportID   string `json:"report_id"`
+	ReportName string `json:"report_name"`
 }

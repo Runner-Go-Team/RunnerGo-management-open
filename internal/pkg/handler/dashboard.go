@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/homePage"
-	"kp-management/internal/pkg/logic/user"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/homePage"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/user"
 
 	"github.com/gin-gonic/gin"
 )

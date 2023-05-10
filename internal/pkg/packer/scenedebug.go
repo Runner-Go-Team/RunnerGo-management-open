@@ -1,8 +1,8 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func TransMaoSceneDebugsToRaoSceneDebugs(ms []*mao.SceneDebug) []*rao.SceneDebug {

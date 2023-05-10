@@ -1,8 +1,8 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func TransUserSettingsToRaoUserSettings(s *model.Setting, utInfo *model.UserTeam, userInfo *model.User) *rao.GetUserSettingsResp {

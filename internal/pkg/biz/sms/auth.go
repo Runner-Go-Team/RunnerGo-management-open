@@ -1,12 +1,12 @@
 package sms
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	dysmsapi20170525 "github.com/alibabacloud-go/dysmsapi-20170525/v3/client"
 	util "github.com/alibabacloud-go/tea-utils/v2/service"
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/goccy/go-json"
-	"kp-management/internal/pkg/conf"
 )
 
 type TemplateParam struct {

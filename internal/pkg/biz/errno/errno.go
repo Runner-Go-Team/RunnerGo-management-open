@@ -53,7 +53,7 @@ const (
 	ErrMachineMonitorDataPastDue              = 20047
 	ErrInPlanSceneNameAlreadyExist            = 20048
 	ErrPlanNameNotEmpty                       = 20049
-	ErrInPlanGroupNameAlreadyExist            = 20050
+	ErrInPlanFolderNameAlreadyExist           = 20050
 	ErrVerifyFail                             = 20051
 	ErrTimedTaskOverdue                       = 20052
 	ErrWechatLoginQrCodeOverdue               = 20054
@@ -64,6 +64,7 @@ const (
 	ErrEmptySceneFlow                         = 20061
 	ErrEmptyTestCaseFlow                      = 20062
 	ErrNameOverLength                         = 20063
+	ErrTargetSortNameAlreadyExist             = 20064
 )
 
 // CodeAlertMap 错图码映射错误提示，展示给用户
@@ -119,7 +120,7 @@ var CodeAlertMap = map[int]string{
 	ErrMachineMonitorDataPastDue:    "只能查询15天以内的压力机监控数据",
 	ErrInPlanSceneNameAlreadyExist:  "计划内场景不可重名",
 	ErrPlanNameNotEmpty:             "计划名称不能为空",
-	ErrInPlanGroupNameAlreadyExist:  "计划内分组不可重名",
+	ErrInPlanFolderNameAlreadyExist: "计划内目录不可重名",
 	ErrVerifyFail:                   "验证失败",
 	ErrTimedTaskOverdue:             "开始或结束时间不能早于当前时间",
 	ErrWechatLoginQrCodeOverdue:     "当前微信二维码过期",
@@ -130,6 +131,7 @@ var CodeAlertMap = map[int]string{
 	ErrEmptySceneFlow:                         "场景flow不能为空",
 	ErrEmptyTestCaseFlow:                      "场景用例flow不能为空",
 	ErrNameOverLength:                         "名称过长！不可超出30字符",
+	ErrTargetSortNameAlreadyExist:             "存在重名，无法操作",
 }
 
 // CodeMsgMap 错误码映射错误信息，不展示给用户
@@ -185,7 +187,7 @@ var CodeMsgMap = map[int]string{
 	ErrMachineMonitorDataPastDue:    "ErrMachineMonitorDataPastDue",
 	ErrInPlanSceneNameAlreadyExist:  "ErrInPlanSceneNameAlreadyExist",
 	ErrPlanNameNotEmpty:             "ErrPlanNameNotEmpty",
-	ErrInPlanGroupNameAlreadyExist:  "ErrInPlanGroupNameAlreadyExist",
+	ErrInPlanFolderNameAlreadyExist: "ErrInPlanFolderNameAlreadyExist",
 	ErrVerifyFail:                   "ErrVerifyFail",
 	ErrTimedTaskOverdue:             "ErrTimedTaskOverdue",
 	ErrWechatLoginQrCodeOverdue:     "ErrWechatLoginQrCodeOverdue",
@@ -196,4 +198,5 @@ var CodeMsgMap = map[int]string{
 	ErrEmptySceneFlow:                         "ErrEmptySceneFlow",
 	ErrEmptyTestCaseFlow:                      "ErrEmptyTestCaseFlow",
 	ErrNameOverLength:                         "ErrNameOverLength",
+	ErrTargetSortNameAlreadyExist:             "ErrTargetSortNameAlreadyExist",
 }

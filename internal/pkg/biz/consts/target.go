@@ -1,16 +1,17 @@
 package consts
 
 const (
-	TargetTypeFolder   = "folder"
-	TargetTypeAPI      = "api"
-	TargetTypeGroup    = "group"
+	TargetTypeFolder = "folder"
+	TargetTypeAPI    = "api"
+	//TargetTypeGroup    = "group"
 	TargetTypeScene    = "scene"
 	TargetTypeTestCase = "test_case"
 
 	TargetStatusNormal = 1 // 正常状态
 	TargetStatusTrash  = 2 // 回收站
 
-	TargetSourceNormal   = 1 // 正常来源
+	TargetSourceApi      = 0 // 场景管理
+	TargetSourceScene    = 1 // 场景管理
 	TargetSourcePlan     = 2 // 性能计划来源
 	TargetSourceAutoPlan = 3 // 自动化计划来源
 

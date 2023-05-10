@@ -2,11 +2,11 @@ package auth
 
 import (
 	"context"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 )
 
 func SetUserSettings(ctx context.Context, userID string, settings *rao.UserSettings) error {

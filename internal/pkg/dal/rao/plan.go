@@ -1,7 +1,7 @@
 package rao
 
 import (
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 type StressPlan struct {

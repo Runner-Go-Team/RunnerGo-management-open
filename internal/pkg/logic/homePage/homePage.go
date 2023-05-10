@@ -2,14 +2,14 @@ package homePage
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
 	"time"
 )
 
@@ -291,7 +291,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 			targetDataTime := targetInfo.CreatedAt.Unix()
 
 			if targetInfo.TargetType == "api" {
-				if targetInfo.Source == consts.TargetSourceNormal {
+				if targetInfo.Source == consts.TargetSourceApi {
 					apiTotalCount++
 					if targetDataTime >= startTime && targetDataTime <= endTime {
 						apiStartTime := startTime
@@ -315,7 +315,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 			}
 
 			if targetInfo.TargetType == "scene" {
-				if targetInfo.Source == consts.TargetSourceNormal {
+				if targetInfo.Source == consts.TargetSourceScene {
 					scentTotalCount++
 					// 获取最近7日内数据
 					if targetDataTime >= startTime && targetDataTime <= endTime {
@@ -333,7 +333,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 					}
 				}
 
-				if targetInfo.Source != consts.TargetSourceNormal {
+				if targetInfo.Source != consts.TargetSourceScene {
 					sceneCiteMap[targetInfo.SourceID]++
 				}
 
@@ -354,7 +354,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 			}
 
 			if targetInfo.TargetType == "test_case" { // 用例统计
-				if targetInfo.Source == consts.TargetSourceNormal || targetInfo.Source == consts.TargetSourceAutoPlan {
+				if targetInfo.Source == consts.TargetSourceScene || targetInfo.Source == consts.TargetSourceAutoPlan {
 					if targetDataTime >= startTime && targetDataTime <= endTime {
 						caseStartTime := startTime
 						for i := 1; i <= 7; i++ {

@@ -5,32 +5,32 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 	"github.com/go-omnibus/omnibus"
 	"github.com/go-omnibus/proof"
 	"github.com/go-resty/resty/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"gorm.io/gen"
 	"gorm.io/gorm"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/run_plan"
 	"github.com/shirou/gopsutil/load"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/run_plan"
 )
 
 type Baton struct {
@@ -59,10 +59,11 @@ type Baton struct {
 }
 
 type UsableMachineMap struct {
-	IP               string // IP地址(包含端口号)
-	Region           string // 机器所属区域
-	Weight           int64  // 权重
-	UsableGoroutines int64  // 可用协程数
+	IP     string // IP地址(包含端口号)
+	Region string // 机器所属区域
+	Weight int64  // 权重
+	//UsableGoroutines int64  // 可用协程数
+	MaxGoroutines int64 // 可用并发数
 }
 
 // 压力机心跳上报数据
@@ -248,18 +249,19 @@ func (s *CheckIdleMachine) Execute(baton *Baton) (int, error) {
 		}
 
 		// 当前机器可用协程数
-		usableGoroutines := runnerMachineInfo.MaxGoroutines - runnerMachineInfo.CurrentGoroutines
+		//usableGoroutines := runnerMachineInfo.MaxGoroutines - runnerMachineInfo.CurrentGoroutines
 
 		// 组装可用机器结构化数据
 		usableMachineMap.IP = machineAddrSlice[0] + ":" + machineAddrSlice[1]
-		usableMachineMap.UsableGoroutines = usableGoroutines
-		usableMachineMap.Weight = usableGoroutines
+		//usableMachineMap.UsableGoroutines = usableGoroutines
+		usableMachineMap.Weight = runnerMachineInfo.MaxGoroutines
+		usableMachineMap.MaxGoroutines = runnerMachineInfo.MaxGoroutines
 		log.Logger.Info("插入可用列表的机器：", usableMachineMap)
 		usableMachineSlice = append(usableMachineSlice, usableMachineMap)
 
 		// 获取当前压力机当中最小的权重值
-		if minWeight == 0 || minWeight > usableGoroutines {
-			minWeight = usableGoroutines
+		if minWeight == 0 || minWeight > runnerMachineInfo.MaxGoroutines {
+			minWeight = runnerMachineInfo.MaxGoroutines
 		}
 
 		// 获取当前机器是否使用当中
@@ -297,8 +299,8 @@ func (s *CheckIdleMachine) Execute(baton *Baton) (int, error) {
 
 	// 按当前顺序把机器放到备用列表
 	for k, machineInfo := range usableMachineSlice {
-		log.Logger.Info("序号：", k, " 可用压力机IP:", machineInfo.IP, " 可用协程数为：", machineInfo.UsableGoroutines)
-		addErr := baton.balance.AddMachine(machineInfo.IP, machineInfo.UsableGoroutines)
+		log.Logger.Info("序号：", k, " 可用压力机IP:", machineInfo.IP, " 最大可用并发数为：", machineInfo.MaxGoroutines)
+		addErr := baton.balance.AddMachine(machineInfo.IP, machineInfo.MaxGoroutines)
 		if addErr != nil {
 			continue
 		}
@@ -736,6 +738,7 @@ func (s *MakeReport) Execute(baton *Baton) (int, error) {
 		}
 		reportData := &model.StressPlanReport{
 			ReportID:    uuid.GetUUID(),
+			ReportName:  baton.plan.PlanName + "-" + scene.Name,
 			RankID:      rankID,
 			TeamID:      scene.TeamID,
 			PlanID:      baton.plan.PlanID,
@@ -909,9 +912,9 @@ func (s *MakeStress) Execute(baton *Baton) (int, error) {
 
 					var oneSceneTotalConcurrency int64                         // 当前任务的总并发
 					if req.ConfigTask.TaskType == consts.PlanModeConcurrence { // 并发模式
-						oneSceneTotalConcurrency = apiCnt * req.ConfigTask.ModeConf.Concurrency
+						oneSceneTotalConcurrency = req.ConfigTask.ModeConf.Concurrency
 					} else { // 其他模式
-						oneSceneTotalConcurrency = apiCnt * req.ConfigTask.ModeConf.MaxConcurrency
+						oneSceneTotalConcurrency = req.ConfigTask.ModeConf.MaxConcurrency
 					}
 					allSceneTotalConcurrency = allSceneTotalConcurrency + oneSceneTotalConcurrency
 				}
@@ -922,8 +925,8 @@ func (s *MakeStress) Execute(baton *Baton) (int, error) {
 	// 统计压力机最大的并发能力
 	var machineTotalConcurrency int64
 	for _, machineInfo := range baton.balance.rss {
-		log.Logger.Info("当前压力机IP：", machineInfo.addr, " 可用并发数为：", machineInfo.usableGoroutines)
-		machineTotalConcurrency = machineTotalConcurrency + machineInfo.usableGoroutines
+		log.Logger.Info("当前压力机IP：", machineInfo.addr, " 可用并发数为：", machineInfo.maxGoroutines)
+		machineTotalConcurrency = machineTotalConcurrency + machineInfo.maxGoroutines
 	}
 	log.Logger.Info("当前全部压力机总的并发数和当前计划总并发数分别为：", machineTotalConcurrency, " ", allSceneTotalConcurrency)
 	if allSceneTotalConcurrency > machineTotalConcurrency {
@@ -952,7 +955,7 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 	machineUsableGoroutines := make(map[string]int64)
 	// 获取当前机器对应可用协程数
 	for _, machineInfo := range baton.balance.rss {
-		machineUsableGoroutines[machineInfo.addr] = machineInfo.usableGoroutines
+		machineUsableGoroutines[machineInfo.addr] = machineInfo.maxGoroutines
 	}
 	curIndex := 0 // 当前使用的压力机数组下标
 	usableMachineNum := len(baton.balance.rss)
@@ -968,7 +971,15 @@ func (s *SplitStress) Execute(baton *Baton) (int, error) {
 		memo[trString] = 1
 
 		// 获取当前任务的总并发数
-		oneSceneTotalConcurrency := GetOneTaskTotalGoroutines(stress, 0)
+		//oneSceneTotalConcurrency := GetOneTaskTotalGoroutines(stress, 0)
+
+		var oneSceneTotalConcurrency int64 = 0
+		if stress.ConfigTask.Mode == consts.PlanModeConcurrence {
+			oneSceneTotalConcurrency = stress.ConfigTask.ModeConf.Concurrency
+		} else {
+			oneSceneTotalConcurrency = stress.ConfigTask.ModeConf.MaxConcurrency
+		}
+
 		if oneSceneTotalConcurrency > baton.MachineMaxConcurrence { // 当前任务的总并发数大于机器可用的总并发数
 			log.Logger.Info("当前任务超出资源能力，不予执行，report_id为：", stress.ReportID, " 当前任务所需并发数：", oneSceneTotalConcurrency, " 当前所有机器可用并发数：", baton.MachineMaxConcurrence)
 			stress.IsRun = 2
@@ -1159,125 +1170,6 @@ func GetOneTaskTotalGoroutines(stress *run_plan.Stress, concurrencyNum int64) in
 
 	}
 	return oneSceneTotalConcurrency
-}
-
-type SplitImportVariable struct {
-	next Stress
-}
-
-func (s *SplitImportVariable) Execute(baton *Baton) (int, error) {
-
-	//reportMemo := make(map[string]int)
-	//pathMemo := make(map[string]string)
-	//for _, stress := range baton.stress {
-	//	for _, pathString := range stress.Scene.Configuration.ParameterizedFile.Path {
-	//		pathMemo[stress.ReportID] = pathString
-	//		reportMemo[stress.ReportID] += 1
-	//	}
-	//}
-	//
-	//var reportPathMut sync.Mutex
-	//reportPathMemo := make(map[string][]string)
-	//for reportID, p := range pathMemo {
-	//	fileExt := path.Ext(p)
-	//	if fileExt != ".txt" && fileExt != ".csv" {
-	//		continue
-	//	}
-	//
-	//	resp, err := http.Get(p)
-	//	if err != nil {
-	//		return errno.ErrHttpFailed, err
-	//	}
-	//	defer resp.Body.Close()
-	//
-	//	data, err := ioutil.ReadAll(resp.Body)
-	//	if err != nil {
-	//		return errno.ErrHttpFailed, err
-	//	}
-	//
-	//	files := omnibus.Explode("/", p)
-	//	localFilePath := fmt.Sprintf("/tmp/%s", files[len(files)-1])
-	//	if err := ioutil.WriteFile(localFilePath, data, 0644); err != nil {
-	//		return errno.ErrHttpFailed, err
-	//	}
-	//
-	//	file, _ := os.Open(localFilePath)
-	//	defer file.Close()
-	//
-	//	var wg sync.WaitGroup
-	//	ch := make(chan string)
-	//
-	//	for i := 0; i < reportMemo[reportID]; i++ {
-	//		wg.Add(1)
-	//
-	//		/*协程任务：从管道中拉取数据并写入到文件中*/
-	//		go func(indx int) {
-	//			f, err := os.OpenFile(localFilePath+strconv.Itoa(indx)+fileExt, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
-	//			if err != nil {
-	//
-	//			}
-	//			defer f.Close()
-	//
-	//			for lineStr := range ch {
-	//				//向文件中写出UTF-8字符串
-	//				f.WriteString(lineStr)
-	//			}
-	//
-	//			//todo oss
-	//			reportPathMut.Lock()
-	//			defer reportPathMut.Unlock()
-	//			reportPathMemo[reportID] = append(reportPathMemo[reportID], localFilePath+strconv.Itoa(indx)+fileExt)
-	//			wg.Done()
-	//		}(i)
-	//	}
-	//
-	//	//创建缓冲读取器
-	//	reader := bufio.NewReader(file)
-	//	for {
-	//		//读取一行字符串（编码为UTF-8）
-	//		lineStr, err := reader.ReadString('\n')
-	//
-	//		//读取完毕时，关闭所有数据管道，并退出读取
-	//		if err == io.EOF {
-	//			close(ch)
-	//			break
-	//		}
-	//
-	//		ch <- lineStr
-	//	}
-	//
-	//	//阻塞等待所有协程结束任务
-	//	wg.Wait()
-	//}
-	//
-	//for _, stress := range baton.stress {
-	//	if len(stress.Scene.Configuration.ParameterizedFile.Path) > 0 {
-	//		stress.Scene.Configuration.ParameterizedFile.Path[0] = reportPathMemo[stress.ReportID][0]
-	//		reportPathMemo[stress.ReportID] = reportPathMemo[stress.ReportID][1:]
-	//	}
-	//
-	//}
-
-	pathArr := make([]run_plan.FileList, 0, len(baton.importVariables))
-	for _, importVariableInfo := range baton.importVariables {
-		temp := run_plan.FileList{
-			IsChecked: int64(importVariableInfo.Status),
-			Path:      importVariableInfo.URL,
-		}
-		pathArr = append(pathArr, temp)
-	}
-
-	if len(baton.stress) > 0 {
-		for _, stressInfo := range baton.stress {
-			stressInfo.Configuration.ParameterizedFile.Paths = pathArr
-		}
-	}
-
-	return s.next.Execute(baton)
-}
-
-func (s *SplitImportVariable) SetNext(stress Stress) {
-	s.next = stress
 }
 
 type RunMachineStress struct {

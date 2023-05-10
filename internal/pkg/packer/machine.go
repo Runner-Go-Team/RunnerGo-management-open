@@ -1,7 +1,7 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
 )
 
 func TransMachineMonitorToMao(machineIP string, monitorData mao.HeartBeat, createdAt int64) *mao.MachineMonitorData {

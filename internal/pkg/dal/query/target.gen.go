@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newTarget(db *gorm.DB, opts ...gen.DOOption) target {
@@ -72,7 +72,7 @@ type target struct {
 	CreatedUserID field.String // 创建人ID
 	RecentUserID  field.String // 最近修改人ID
 	Description   field.String // 备注
-	Source        field.Int32  // 数据来源：1-正常来源，2-性能，3-自动化测试
+	Source        field.Int32  // 数据来源：0-接口管理，1-场景管理，2-性能，3-自动化测试
 	PlanID        field.String // 计划id
 	SourceID      field.String // 引用来源ID
 	IsChecked     field.Int32  // 是否开启：1-开启，2-关闭

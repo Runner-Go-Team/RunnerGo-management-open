@@ -2,21 +2,21 @@ package handler
 
 import (
 	"encoding/json"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/mail"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 	"github.com/gin-gonic/gin"
 	"github.com/go-omnibus/proof"
 	"go.mongodb.org/mongo-driver/bson"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/mail"
-	"kp-management/internal/pkg/packer"
 	"strings"
 
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/report"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/report"
 )
 
 // ListReports 测试报告列表
@@ -413,6 +413,21 @@ func BatchDeleteReport(ctx *gin.Context) {
 		} else {
 			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		}
+		return
+	}
+	response.Success(ctx)
+	return
+}
+
+func UpdateReportName(ctx *gin.Context) {
+	var req rao.UpdateReportNameReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	err := report.UpdateReportName(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return
 	}
 	response.Success(ctx)

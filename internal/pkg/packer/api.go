@@ -1,13 +1,13 @@
 package packer
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/public"
 	"github.com/go-omnibus/proof"
 	"go.mongodb.org/mongo-driver/bson"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/public"
 )
 
 func TransSaveTargetReqToMaoAPI(target *rao.SaveTargetReq) *mao.API {
@@ -66,10 +66,16 @@ func TransSaveTargetReqToMaoAPI(target *rao.SaveTargetReq) *mao.API {
 		Assert:        assert,
 		Regex:         regex,
 		HttpApiSetup: mao.HttpApiSetup{
-			IsRedirects:  target.HttpApiSetup.IsRedirects,
-			RedirectsNum: target.HttpApiSetup.RedirectsNum,
-			ReadTimeOut:  target.HttpApiSetup.ReadTimeOut,
-			WriteTimeOut: target.HttpApiSetup.WriteTimeOut,
+			IsRedirects:         target.HttpApiSetup.IsRedirects,
+			RedirectsNum:        target.HttpApiSetup.RedirectsNum,
+			ReadTimeOut:         target.HttpApiSetup.ReadTimeOut,
+			WriteTimeOut:        target.HttpApiSetup.WriteTimeOut,
+			ClientName:          target.HttpApiSetup.ClientName,
+			KeepAlive:           target.HttpApiSetup.KeepAlive,
+			MaxIdleConnDuration: target.HttpApiSetup.MaxIdleConnDuration,
+			MaxConnPerHost:      target.HttpApiSetup.MaxConnPerHost,
+			UserAgent:           target.HttpApiSetup.UserAgent,
+			MaxConnWaitTimeout:  target.HttpApiSetup.MaxConnWaitTimeout,
 		},
 	}
 }
@@ -153,10 +159,16 @@ func TransTargetToRaoAPIDetail(target *model.Target, api *mao.API, globalVariabl
 		Regex:          regex.Regex,
 		//Variable:       variables,
 		HttpApiSetup: rao.HttpApiSetup{
-			IsRedirects:  api.HttpApiSetup.IsRedirects,
-			RedirectsNum: api.HttpApiSetup.RedirectsNum,
-			ReadTimeOut:  api.HttpApiSetup.ReadTimeOut,
-			WriteTimeOut: api.HttpApiSetup.WriteTimeOut,
+			IsRedirects:         api.HttpApiSetup.IsRedirects,
+			RedirectsNum:        api.HttpApiSetup.RedirectsNum,
+			ReadTimeOut:         api.HttpApiSetup.ReadTimeOut,
+			WriteTimeOut:        api.HttpApiSetup.WriteTimeOut,
+			ClientName:          api.HttpApiSetup.ClientName,
+			KeepAlive:           api.HttpApiSetup.KeepAlive,
+			MaxIdleConnDuration: api.HttpApiSetup.MaxIdleConnDuration,
+			MaxConnPerHost:      api.HttpApiSetup.MaxConnPerHost,
+			UserAgent:           api.HttpApiSetup.UserAgent,
+			MaxConnWaitTimeout:  api.HttpApiSetup.MaxConnWaitTimeout,
 		},
 		GlobalVariable: globalVariable,
 	}

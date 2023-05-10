@@ -3,7 +3,7 @@ package response
 import (
 	"net/http"
 
-	"kp-management/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
 
 	"github.com/gin-gonic/gin"
 )

@@ -2,18 +2,18 @@ package scene
 
 import (
 	"context"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/record"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 )
 
 func SaveFlow(ctx context.Context, req *rao.SaveFlowReq) (int, error) {
@@ -73,7 +73,7 @@ func DeleteScene(ctx *gin.Context, req *rao.DeleteSceneReq, userID string) error
 		}
 
 		// 判断
-		if targetInfo.TargetType == consts.TargetTypeGroup { // 分组目录
+		if targetInfo.TargetType == consts.TargetTypeFolder { // 分组目录
 			targetList, err := tx.Target.WithContext(ctx).Where(tx.Target.ParentID.Eq(req.TargetID)).Find()
 			if err != nil {
 				return err
@@ -162,34 +162,34 @@ func DeleteScene(ctx *gin.Context, req *rao.DeleteSceneReq, userID string) error
 				}
 			}
 
-			// 删除自动化场景对应的数据
-			if targetInfo.Source == consts.TargetSourceAutoPlan { // 自动化下的场景
-				// 查询计划信息
-				planInfo, err := tx.AutoPlan.WithContext(ctx).Where(tx.AutoPlan.PlanID.Eq(req.PlanID)).First()
-				if err != nil {
-					return err
-				}
-
-				if planInfo.TaskType == consts.PlanTaskTypeNormal { // 普通任务
-					_, err = tx.AutoPlanTaskConf.WithContext(ctx).Where(tx.AutoPlanTaskConf.PlanID.Eq(req.PlanID)).Delete()
-					if err != nil {
-						return err
-					}
-				} else {
-					_, err = tx.AutoPlanTimedTaskConf.WithContext(ctx).Where(tx.AutoPlanTimedTaskConf.PlanID.Eq(req.PlanID)).Delete()
-					if err != nil {
-						return err
-					}
-				}
-			}
+			//// 删除自动化场景对应的任务配置
+			//if targetInfo.Source == consts.TargetSourceAutoPlan { // 自动化下的场景
+			//	// 查询计划信息
+			//	planInfo, err := tx.AutoPlan.WithContext(ctx).Where(tx.AutoPlan.PlanID.Eq(req.PlanID)).First()
+			//	if err != nil {
+			//		return err
+			//	}
+			//
+			//	if planInfo.TaskType == consts.PlanTaskTypeNormal { // 普通任务
+			//		_, err = tx.AutoPlanTaskConf.WithContext(ctx).Where(tx.AutoPlanTaskConf.PlanID.Eq(req.PlanID)).Delete()
+			//		if err != nil {
+			//			return err
+			//		}
+			//	} else {
+			//		_, err = tx.AutoPlanTimedTaskConf.WithContext(ctx).Where(tx.AutoPlanTimedTaskConf.PlanID.Eq(req.PlanID)).Delete()
+			//		if err != nil {
+			//			return err
+			//		}
+			//	}
+			//}
 		}
 
 		// 记录操作日志
 		var operate int32 = 0
 		if targetInfo.TargetType == consts.TargetTypeScene {
 			operate = record.OperationOperateDeleteScene
-		} else if targetInfo.TargetType == consts.TargetTypeGroup {
-			operate = record.OperationOperateDeleteGroup
+		} else if targetInfo.TargetType == consts.TargetTypeFolder {
+			operate = record.OperationOperateDeleteFolder
 		}
 		if err := record.InsertDelete(ctx, targetInfo.TeamID, userID, operate, targetInfo.Name); err != nil {
 			return err

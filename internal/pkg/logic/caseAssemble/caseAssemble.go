@@ -2,46 +2,38 @@ package caseAssemble
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/public"
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gen"
-	"gorm.io/gen/field"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/dal/runner"
-	"kp-management/internal/pkg/packer"
-	"kp-management/internal/pkg/public"
 	"strconv"
 	"strings"
 )
 
 func GetCaseAssembleList(ctx *gin.Context, req *rao.GetCaseAssembleListReq) ([]*rao.CaseAssembleDetailResp, error) {
-
 	// target表
 	targetTB := dal.GetQuery().Target
-
-	sort := make([]field.Expr, 0, 6)
 	conditions := make([]gen.Condition, 0)
 	if req.CaseName != "" {
 		conditions = append(conditions, targetTB.Name.Like(fmt.Sprintf("%%%s%%", req.CaseName)))
 	}
 	conditions = append(conditions, targetTB.TargetType.Eq(consts.TargetTypeTestCase))
 	conditions = append(conditions, targetTB.ParentID.Eq(req.SceneID))
-	//conditions = append(conditions, targetTB.Status.Eq(consts.TargetStatusNormal))
-
-	//list, total, err := targetTB.WithContext(ctx).Where(conditions...).Order(sort...).FindByPage(offset, limit)
-	list, err := targetTB.WithContext(ctx).Where(conditions...).Order(sort...).Find()
-
+	list, err := targetTB.WithContext(ctx).Where(conditions...).Order(targetTB.Sort).Find()
 	if err != nil {
 		log.Logger.Info("用例集列表--获取列表失败，err:", err)
 		return nil, err
@@ -50,13 +42,12 @@ func GetCaseAssembleList(ctx *gin.Context, req *rao.GetCaseAssembleListReq) ([]*
 	res := make([]*rao.CaseAssembleDetailResp, 0, len(list))
 	for _, detail := range list {
 		detailTmp := &rao.CaseAssembleDetailResp{
-			CaseID:    detail.TargetID,
-			TeamID:    detail.TeamID,
-			SceneID:   detail.ParentID,
-			CaseName:  detail.Name,
-			Sort:      detail.Sort,
-			IsChecked: detail.IsChecked,
-			//TypeSort: detail.TypeSort,
+			CaseID:      detail.TargetID,
+			TeamID:      detail.TeamID,
+			SceneID:     detail.ParentID,
+			CaseName:    detail.Name,
+			Sort:        detail.Sort,
+			IsChecked:   detail.IsChecked,
 			CreatedAt:   detail.CreatedAt.Unix(),
 			UpdatedAt:   detail.UpdatedAt.Unix(),
 			Status:      detail.Status,
@@ -64,7 +55,6 @@ func GetCaseAssembleList(ctx *gin.Context, req *rao.GetCaseAssembleListReq) ([]*
 		}
 		res = append(res, detailTmp)
 	}
-
 	return res, nil
 }
 
@@ -75,7 +65,6 @@ func GetCaseAssembleDetail(ctx *gin.Context, req *rao.CopyAssembleReq) (*rao.Cas
 	conditions := make([]gen.Condition, 0)
 	conditions = append(conditions, targetTB.TargetID.Eq(req.CaseID))
 	conditions = append(conditions, targetTB.TargetType.Eq(consts.TargetTypeTestCase))
-	//conditions = append(conditions, targetTB.Status.Eq(consts.TargetStatusNormal))
 
 	detail, err := targetTB.WithContext(ctx).Where(conditions...).First()
 	if err != nil {

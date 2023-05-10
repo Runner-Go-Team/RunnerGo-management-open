@@ -3,21 +3,21 @@ package target
 import (
 	"context"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gen"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/dal/runner"
-	"kp-management/internal/pkg/packer"
 )
 
 func SendSceneAPI(ctx context.Context, teamID string, sceneID string, nodeID string, sceneCaseID string) (string, error) {
@@ -634,13 +634,13 @@ func GetSendAPIResult(ctx context.Context, retID string) (*rao.APIDebug, error) 
 	return packer.TransMaoAPIDebugToRaoAPIDebug(&ad), nil
 }
 
-func ListFolderAPI(ctx context.Context, teamID string) ([]*rao.FolderAPI, error) {
+func ListFolderAPI(ctx context.Context, req *rao.ListFolderAPIReq) ([]*rao.FolderAPI, error) {
 	tx := query.Use(dal.DB()).Target
 	targets, err := tx.WithContext(ctx).Where(
-		tx.TeamID.Eq(teamID),
+		tx.TeamID.Eq(req.TeamID),
 		tx.TargetType.In(consts.TargetTypeFolder, consts.TargetTypeAPI),
 		tx.Status.Eq(consts.TargetStatusNormal),
-		tx.Source.Eq(consts.TargetSourceNormal)).Order(tx.Sort, tx.CreatedAt.Desc()).Find()
+		tx.Source.Eq(req.Source)).Order(tx.Sort, tx.CreatedAt.Desc()).Find()
 
 	if err != nil {
 		return nil, err
@@ -650,16 +650,26 @@ func ListFolderAPI(ctx context.Context, teamID string) ([]*rao.FolderAPI, error)
 }
 
 func SortTarget(ctx context.Context, req *rao.SortTargetReq) error {
-	tx := dal.GetQuery().Target
-
-	for _, target := range req.Targets {
-		_, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(target.TeamID), tx.TargetID.Eq(target.TargetID)).UpdateSimple(tx.Sort.Value(target.Sort), tx.ParentID.Value(target.ParentID))
-		if err != nil {
-			return err
+	err := query.Use(dal.DB()).Transaction(func(tx *query.Query) error {
+		targetNameMap := make(map[string]int, len(req.Targets))
+		for _, target := range req.Targets {
+			if _, ok := targetNameMap[target.Name]; ok {
+				return fmt.Errorf("存在重名，无法操作")
+			} else {
+				targetNameMap[target.Name] = 1
+			}
 		}
-	}
 
-	return nil
+		for _, target := range req.Targets {
+			_, err := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(target.TeamID),
+				tx.Target.TargetID.Eq(target.TargetID)).UpdateSimple(tx.Target.Sort.Value(target.Sort), tx.Target.ParentID.Value(target.ParentID))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return err
 }
 
 func ListGroupScene(ctx context.Context, req *rao.ListGroupSceneReq) ([]*rao.GroupScene, error) {
@@ -667,7 +677,7 @@ func ListGroupScene(ctx context.Context, req *rao.ListGroupSceneReq) ([]*rao.Gro
 
 	condition := make([]gen.Condition, 0)
 	condition = append(condition, tx.TeamID.Eq(req.TeamID))
-	condition = append(condition, tx.TargetType.In(consts.TargetTypeGroup, consts.TargetTypeScene))
+	condition = append(condition, tx.TargetType.In(consts.TargetTypeFolder, consts.TargetTypeScene))
 	condition = append(condition, tx.Status.Eq(consts.TargetStatusNormal))
 	condition = append(condition, tx.Source.Eq(req.Source))
 
@@ -730,20 +740,15 @@ func ListTrashFolderAPI(ctx context.Context, teamID string, limit, offset int) (
 	return packer.TransTargetToRaoTrashFolderAPIList(targets, apiIDUrlMap), cnt, nil
 }
 
-func Trash(ctx context.Context, targetID string, userID string) error {
+func Trash(ctx *gin.Context, targetID string, userID string) error {
 	return dal.GetQuery().Transaction(func(tx *query.Query) error {
 		t, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(targetID)).First()
 		if err != nil {
 			return err
 		}
 
-		if _, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(targetID)).UpdateColumn(tx.Target.Status, consts.TargetStatusTrash); err != nil {
-			return err
-		}
-
-		if _, err = tx.Target.WithContext(ctx).Where(tx.Target.ParentID.Eq(targetID)).UpdateColumn(tx.Target.Status, consts.TargetStatusTrash); err != nil {
-			return err
-		}
+		// 删除
+		_ = getAllSonTargetID(ctx, targetID, t.TargetType)
 
 		var operate int32 = 0
 		if t.TargetType == consts.TargetTypeFolder {
@@ -756,6 +761,34 @@ func Trash(ctx context.Context, targetID string, userID string) error {
 		}
 		return nil
 	})
+}
+
+func getAllSonTargetID(ctx *gin.Context, targetID string, targetType string) error {
+	tx := dal.GetQuery().Target
+	if targetType == consts.TargetTypeAPI {
+		_, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(targetID)).UpdateSimple(tx.Status.Value(consts.TargetStatusTrash))
+		if err != nil {
+			return err
+		}
+	} else {
+		// 查询这个目录下是否还有别的目录或文件
+		targetList, err := tx.WithContext(ctx).Where(tx.ParentID.Eq(targetID)).Find()
+		if err != nil {
+			return err
+		}
+		if len(targetList) > 0 {
+			for _, tInfo := range targetList {
+				_ = getAllSonTargetID(ctx, tInfo.TargetID, tInfo.TargetType)
+			}
+		}
+		// 删除目录本身
+		_, err = tx.WithContext(ctx).Where(tx.TargetID.Eq(targetID)).UpdateSimple(tx.Status.Value(consts.TargetStatusTrash))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func Recall(ctx context.Context, targetID string) error {

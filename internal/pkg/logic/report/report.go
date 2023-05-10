@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
 	"strconv"
 	"time"
 
@@ -19,14 +19,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"gorm.io/gen"
 
-	"kp-management/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 )
 
 func ListByTeamID2(ctx context.Context, teamID string, limit, offset int, keyword string, startTimeSec, endTimeSec int64, taskType, taskMode, status, sortTag int32) ([]*rao.StressPlanReport, int64, error) {
@@ -320,6 +320,7 @@ func GetTaskDetail(ctx context.Context, req rao.GetReportTaskDetailReq) (*rao.Re
 		PlanID:         detail.PlanID,
 		PlanName:       detail.PlanName,
 		ReportID:       detail.ReportID,
+		ReportName:     reportInfo.ReportName,
 		SceneID:        ru.SceneID,
 		SceneName:      ru.SceneName,
 		CreatedTimeSec: ru.CreatedAt.Unix(),
@@ -1035,4 +1036,15 @@ func BatchDeleteReport(ctx *gin.Context, req *rao.BatchDeleteReportReq) error {
 		return allErr
 	}
 	return nil
+}
+
+func UpdateReportName(ctx *gin.Context, req *rao.UpdateReportNameReq) error {
+	allErr := dal.GetQuery().Transaction(func(tx *query.Query) error {
+		_, err := tx.StressPlanReport.WithContext(ctx).Where(tx.StressPlanReport.ReportID.Eq(req.ReportID)).UpdateSimple(tx.StressPlanReport.ReportName.Value(req.ReportName))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return allErr
 }

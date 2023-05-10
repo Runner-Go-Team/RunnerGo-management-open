@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/smtp"
 
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 const (

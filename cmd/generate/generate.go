@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
 	"gorm.io/gen"
 	"gorm.io/gorm"
-	"kp-management/internal/pkg/conf"
 )
 
 func MustInitConf() {
@@ -35,7 +35,6 @@ func main() {
 	}
 
 	g := gen.NewGenerator(gen.Config{
-		//OutPath: "./internal/pkg/dal/query",
 		OutPath: "../../internal/pkg/dal/query",
 	})
 
@@ -43,7 +42,6 @@ func main() {
 
 	g.ApplyBasic(
 		g.GenerateModel("target"),
-		g.GenerateModel("operation"),
 		g.GenerateModel("user"),
 		g.GenerateModel("team"),
 		g.GenerateModel("team_env"),

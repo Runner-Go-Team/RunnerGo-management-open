@@ -1,26 +1,14 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func TransSaveFolderReqToMaoFolder(folder *rao.SaveFolderReq) *mao.Folder {
-	//request, err := bson.Marshal(folder.Request)
-	//if err != nil {
-	//	fmt.Println(fmt.Errorf("folder.request json marshal err %w", err))
-	//}
-	//
-	//script, err := bson.Marshal(folder.Script)
-	//if err != nil {
-	//	fmt.Println(fmt.Errorf("folder.script json marshal err %w", err))
-	//}
-
 	return &mao.Folder{
 		TargetID: folder.TargetID,
-		//Request:  request,
-		//Script:   script,
 	}
 }
 
