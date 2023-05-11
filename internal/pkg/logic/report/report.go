@@ -380,9 +380,8 @@ func GetReportDebugStatus(ctx context.Context, req rao.GetReportReq) string {
 func GetReportDebugLog(ctx context.Context, report rao.GetReportReq) (err error, debugMsgList []map[string]interface{}) {
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectStressDebug)
 	filter := bson.D{{"team_id", report.TeamID}, {"report_id", report.ReportID}}
-	findOptions := options.Find().SetSort(bson.M{"response_time": -1}).SetLimit(1000)
+	findOptions := options.Find().SetSort(bson.M{"response_time": -1}).SetLimit(500)
 	cur, err := collection.Find(ctx, filter, findOptions)
-	//cur, err := collection.Find(ctx, filter)
 	if err != nil {
 		log.Logger.Info("debug日志查询失败", proof.WithError(err))
 		return
@@ -401,7 +400,6 @@ func GetReportDebugLog(ctx context.Context, report rao.GetReportReq) (err error,
 			delete(debugMsg, "assertion_failed_num")
 			delete(debugMsg, "assertion_num")
 			delete(debugMsg, "case_id")
-			//delete(debugMsg, "event_id")
 			delete(debugMsg, "next_list")
 			delete(debugMsg, "parent_id")
 			delete(debugMsg, "plan_id")
@@ -415,8 +413,8 @@ func GetReportDebugLog(ctx context.Context, report rao.GetReportReq) (err error,
 	}
 
 	// 限制debug日志数量
-	if len(debugMsgList) > 1000 {
-		startIndex := len(debugMsgList) - 1000
+	if len(debugMsgList) > 500 {
+		startIndex := len(debugMsgList) - 500
 		debugMsgList = debugMsgList[startIndex:]
 	}
 	return
