@@ -8,7 +8,7 @@ type SaveFolderReq struct {
 	Method      string `json:"method"`
 	Sort        int32  `json:"sort"`
 	TypeSort    int32  `json:"type_sort"`
-	Version     int32  `json:"version" binding:"required,gt=0"`
+	Version     int32  `json:"version"`
 	Description string `json:"description"`
 	Source      int32  `json:"source"`
 	//Request  *Request `json:"request"`
