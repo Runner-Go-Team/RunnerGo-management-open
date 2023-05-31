@@ -682,7 +682,7 @@ func AssembleSceneFlows(baton *Baton) (int, error) {
 		return errno.ErrMongoFailed, fmt.Errorf("场景flow查询失败")
 	}
 
-	var flows []*mao.Flow
+	flows := make([]*mao.Flow, 0, 1)
 	if err := cur.All(baton.Ctx, &flows); err != nil {
 		return errno.ErrMongoFailed, fmt.Errorf("场景flow获取失败")
 	}
@@ -706,7 +706,7 @@ func AssembleTestCaseFlows(baton *Baton) (int, error) {
 	if err != nil {
 		return errno.ErrMongoFailed, fmt.Errorf("测试用例flow查询失败")
 	}
-	var sceneCaseFlows []*mao.SceneCaseFlow
+	sceneCaseFlows := make([]*mao.SceneCaseFlow, 0, 1)
 	if err := cur.All(baton.Ctx, &sceneCaseFlows); err != nil {
 		return errno.ErrMongoFailed, fmt.Errorf("测试用例flow获取失败")
 	}
@@ -714,7 +714,7 @@ func AssembleTestCaseFlows(baton *Baton) (int, error) {
 	// 判断用例flow是否为空
 	if len(sceneCaseFlows) > 0 {
 		for _, caseFlow := range sceneCaseFlows {
-			var sceneCaseFlowNodeTemp mao.SceneCaseFlowNode
+			sceneCaseFlowNodeTemp := mao.SceneCaseFlowNode{}
 			err := bson.Unmarshal(caseFlow.Nodes, &sceneCaseFlowNodeTemp)
 			if err != nil {
 				return errno.ErrMongoFailed, fmt.Errorf("测试用例flow解析失败")
@@ -1105,13 +1105,13 @@ func getTestCase(tc *model.Target, baton *Baton) (Scene, error) {
 	}
 
 	// 拼装场景flow
-	var nodes mao.Node
+	nodes := mao.Node{}
 	if err := bson.Unmarshal(baton.sceneCaseFlows[tc.TargetID].Nodes, &nodes); err != nil {
 		log.Logger.Info("测试用例的flow node bson unmarshal err:%v", err)
 		return Scene{}, err
 	}
 
-	var edges mao.Edge
+	edges := mao.Edge{}
 	if err := bson.Unmarshal(baton.sceneCaseFlows[tc.TargetID].Edges, &edges); err != nil {
 		log.Logger.Errorf("测试用例的flow edges bson unmarshal err:%v", err)
 	}

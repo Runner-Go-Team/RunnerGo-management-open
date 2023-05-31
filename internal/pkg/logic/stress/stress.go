@@ -835,13 +835,13 @@ func (s *MakeStress) Execute(baton *Baton) (int, error) {
 		for _, scene := range baton.scenes {
 			for _, flow := range baton.flows {
 				if scene.TargetID == report.SceneID && scene.TargetID == flow.SceneID {
-					var nodes mao.Node
+					nodes := mao.Node{}
 					if err := bson.Unmarshal(flow.Nodes, &nodes); err != nil {
 						log.Logger.Errorf("node bson unmarshal err:%v", err)
 						continue
 					}
 
-					var edges mao.Edge
+					edges := mao.Edge{}
 					if err := bson.Unmarshal(flow.Edges, &edges); err != nil {
 						log.Logger.Errorf("edges bson unmarshal err:%v", err)
 					}

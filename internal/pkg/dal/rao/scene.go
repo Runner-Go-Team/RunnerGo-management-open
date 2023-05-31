@@ -216,8 +216,8 @@ type SceneFlow struct {
 }
 
 type SceneConfiguration struct {
-	ParameterizedFile *SceneVariablePath `json:"parameterizedFile"`
-	SceneVariable     GlobalVariable     `json:"scene_variable"`
+	ParameterizedFile SceneVariablePath `json:"parameterizedFile"`
+	SceneVariable     GlobalVariable    `json:"scene_variable"`
 	//Variable          []*Variable        `json:"variable"` // todo 已废弃
 }
 

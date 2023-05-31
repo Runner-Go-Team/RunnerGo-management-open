@@ -76,17 +76,17 @@ func TransMaoSceneCaseFlowToRaoGetFowResp(f *mao.SceneCaseFlow) *rao.GetSceneCas
 }
 
 func TransMaoFlowToRaoSceneCaseFlow(t *model.Target, f *mao.Flow, vis []*model.VariableImport, sceneVariable rao.GlobalVariable, globalVariable rao.GlobalVariable) *rao.SceneCaseFlow {
-	var nodes mao.Node
+	nodes := mao.Node{}
 	if err := bson.Unmarshal(f.Nodes, &nodes); err != nil {
 		log.Logger.Errorf("flow.nodes bson unmarshal err %w", err)
 	}
 
-	var edges mao.Edge
+	edges := mao.Edge{}
 	if err := bson.Unmarshal(f.Edges, &edges); err != nil {
 		log.Logger.Errorf("flow.edges bson unmarshal err %w", err)
 	}
 
-	var fileList []rao.FileList
+	fileList := make([]rao.FileList, 0, len(vis))
 	for _, vi := range vis {
 		fileList = append(fileList, rao.FileList{
 			IsChecked: int64(vi.Status),

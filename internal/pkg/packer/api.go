@@ -81,34 +81,34 @@ func TransSaveTargetReqToMaoAPI(target *rao.SaveTargetReq) *mao.API {
 }
 
 func TransTargetToRaoAPIDetail(target *model.Target, api *mao.API, globalVariable rao.GlobalVariable) rao.APIDetail {
-	var auth rao.Auth
+	auth := rao.Auth{}
 	if err := bson.Unmarshal(api.Auth, &auth); err != nil {
 		log.Logger.Info("api.auth bson Unmarshal err", proof.WithError(err))
 	}
-	var body rao.Body
+	body := rao.Body{}
 	if err := bson.Unmarshal(api.Body, &body); err != nil {
 		log.Logger.Info("api.body bson Unmarshal err", proof.WithError(err))
 	}
-	var header rao.Header
+	header := rao.Header{}
 	if err := bson.Unmarshal(api.Header, &header); err != nil {
 		log.Logger.Info("api.header bson Unmarshal err", proof.WithError(err))
 	}
-	var query rao.Query
+	query := rao.Query{}
 	if err := bson.Unmarshal(api.Query, &query); err != nil {
 		log.Logger.Info("api.query bson Unmarshal err", proof.WithError(err))
 	}
 
-	var cookie rao.Cookie
+	cookie := rao.Cookie{}
 	if err := bson.Unmarshal(api.Cookie, &cookie); err != nil {
 		log.Logger.Info("api.cookie bson Unmarshal err", proof.WithError(err))
 	}
 
-	var assert mao.Assert
+	assert := mao.Assert{}
 	if err := bson.Unmarshal(api.Assert, &assert); err != nil {
 		log.Logger.Info("api.assert bson Unmarshal err", proof.WithError(err))
 	}
 
-	var regex mao.Regex
+	regex := mao.Regex{}
 	if err := bson.Unmarshal(api.Regex, &regex); err != nil {
 		log.Logger.Info("api.regex bson Unmarshal err", proof.WithError(err))
 	}

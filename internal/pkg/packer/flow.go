@@ -33,17 +33,17 @@ func TransSaveFlowReqToMaoFlow(req *rao.SaveFlowReq) *mao.Flow {
 
 func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.VariableImport,
 	sceneVariable rao.GlobalVariable, globalVariable rao.GlobalVariable) *rao.SceneFlow {
-	var nodes mao.Node
+	nodes := mao.Node{}
 	if err := bson.Unmarshal(f.Nodes, &nodes); err != nil {
 		proof.Errorf("flow.nodes bson unmarshal err %w", err)
 	}
 
-	var edges mao.Edge
+	edges := mao.Edge{}
 	if err := bson.Unmarshal(f.Edges, &edges); err != nil {
 		proof.Errorf("flow.edges bson unmarshal err %w", err)
 	}
 
-	var fileList []rao.FileList
+	fileList := make([]rao.FileList, 0, len(vis))
 	for _, vi := range vis {
 		fileList = append(fileList, rao.FileList{
 			IsChecked: int64(vi.Status),
@@ -58,7 +58,7 @@ func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.Varia
 		TeamID:    t.TeamID,
 		//Nodes:     nodes.Nodes,
 		Configuration: rao.SceneConfiguration{
-			ParameterizedFile: &rao.SceneVariablePath{
+			ParameterizedFile: rao.SceneVariablePath{
 				Paths: fileList,
 			},
 			SceneVariable: sceneVariable,
@@ -69,7 +69,7 @@ func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.Varia
 }
 
 func GetNodesByLevel(nodes []rao.Node, edges []rao.Edge) [][]rao.Node {
-	var arr [][]rao.Node
+	arr := make([][]rao.Node, 0, len(nodes))
 	for len(nodes) > 0 {
 		var currentLayer []rao.Node
 		for _, node := range nodes {
