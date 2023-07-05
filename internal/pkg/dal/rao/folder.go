@@ -11,6 +11,7 @@ type SaveFolderReq struct {
 	Version     int32  `json:"version"`
 	Description string `json:"description"`
 	Source      int32  `json:"source"`
+	SourceID    string `json:"source_id"`
 	//Request  *Request `json:"request"`
 	//Script   *Script  `json:"script"`
 }

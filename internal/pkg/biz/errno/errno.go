@@ -11,6 +11,7 @@ const (
 	ErrInvalidToken                           = 10006
 	ErrMarshalFailed                          = 10007
 	ErrUnMarshalFailed                        = 10008
+	ErrOperationFail                          = 10009
 	ErrMustDID                                = 10011
 	ErrMustSN                                 = 10012
 	ErrHttpFailed                             = 10013
@@ -65,6 +66,17 @@ const (
 	ErrEmptyTestCaseFlow                      = 20062
 	ErrNameOverLength                         = 20063
 	ErrTargetSortNameAlreadyExist             = 20064
+	ErrEnvNameAlreadyExist                    = 20065
+	ErrServiceNameAlreadyExist                = 20066
+	ErrExecSqlErr                             = 20067
+	ErrCannotDeleteRunningReport              = 20068
+	ErrCannotBatchDeleteRunningReport         = 20069
+	ErrMockPathExists                         = 20070
+	ErrYetAccountRegister                     = 20071
+	ErrAccountDel                             = 20072
+	ErrNoticeBatchReportLimit                 = 20073
+	ErrNoticeConfigError                      = 20074
+	ErrMockPathNotNull                        = 20080
 )
 
 // CodeAlertMap 错图码映射错误提示，展示给用户
@@ -81,6 +93,7 @@ var CodeAlertMap = map[int]string{
 	ErrInvalidToken:                 "无效的token",
 	ErrMarshalFailed:                "序列化失败",
 	ErrUnMarshalFailed:              "反序列化失败",
+	ErrOperationFail:                "操作失败",
 	ErrRedisFailed:                  "redis操作失败",
 	ErrMongoFailed:                  "mongo操作失败",
 	ErrMysqlFailed:                  "mysql操作失败",
@@ -102,7 +115,7 @@ var CodeAlertMap = map[int]string{
 	ErrRecordExists:                 "数据库记录已存在",
 	ErrEmptyTestCase:                "场景用例不能为空",
 	ErrSceneCaseNameIsExist:         "同一场景下用例名称不能重复",
-	ErrApiNameAlreadyExist:          "接口名称已存在",
+	ErrApiNameAlreadyExist:          "名称已存在",
 	ErrGroupNameAlreadyExist:        "分组名称已存在",
 	ErrFolderNameAlreadyExist:       "文件夹名称已存在",
 	ErrSceneNameAlreadyExist:        "场景名称已存在",
@@ -132,6 +145,17 @@ var CodeAlertMap = map[int]string{
 	ErrEmptyTestCaseFlow:                      "场景用例flow不能为空",
 	ErrNameOverLength:                         "名称过长！不可超出30字符",
 	ErrTargetSortNameAlreadyExist:             "存在重名，无法操作",
+	ErrEnvNameAlreadyExist:                    "环境名称已存在",
+	ErrServiceNameAlreadyExist:                "服务名称已存在",
+	ErrExecSqlErr:                             "执行sql语句失败",
+	ErrCannotDeleteRunningReport:              "运行中的报告不能删除",
+	ErrCannotBatchDeleteRunningReport:         "存在运行中的报告，无法删除",
+	ErrMockPathExists:                         "mock 路径已存在，不能重复",
+	ErrYetAccountRegister:                     "用户账户已注册",
+	ErrAccountDel:                             "用户不存在或已删除",
+	ErrMockPathNotNull:                        "路径不能为空",
+	ErrNoticeBatchReportLimit:                 "批量操作最多支持选择10条数据",
+	ErrNoticeConfigError:                      "三方配置有误，请检查",
 }
 
 // CodeMsgMap 错误码映射错误信息，不展示给用户
@@ -148,6 +172,7 @@ var CodeMsgMap = map[int]string{
 	ErrInvalidToken:                 "invalid token",
 	ErrMarshalFailed:                "marshal failed",
 	ErrUnMarshalFailed:              "unmarshal failed",
+	ErrOperationFail:                "ErrOperationFail",
 	ErrRedisFailed:                  "redis operate failed",
 	ErrMongoFailed:                  "mongo operate failed",
 	ErrMysqlFailed:                  "mysql operate failed",
@@ -169,7 +194,7 @@ var CodeMsgMap = map[int]string{
 	ErrRecordExists:                 "record exists",
 	ErrEmptyTestCase:                "scenario cases cannot be empty",
 	ErrSceneCaseNameIsExist:         "scene case name is exist",
-	ErrApiNameAlreadyExist:          "api name already exist",
+	ErrApiNameAlreadyExist:          "ErrApiNameAlreadyExist",
 	ErrGroupNameAlreadyExist:        "group name already exist",
 	ErrFolderNameAlreadyExist:       "folder name already exist",
 	ErrSceneNameAlreadyExist:        "scene name already exist",
@@ -199,4 +224,15 @@ var CodeMsgMap = map[int]string{
 	ErrEmptyTestCaseFlow:                      "ErrEmptyTestCaseFlow",
 	ErrNameOverLength:                         "ErrNameOverLength",
 	ErrTargetSortNameAlreadyExist:             "ErrTargetSortNameAlreadyExist",
+	ErrEnvNameAlreadyExist:                    "ErrEnvNameAlreadyExist",
+	ErrServiceNameAlreadyExist:                "ErrServiceNameAlreadyExist",
+	ErrExecSqlErr:                             "ErrExecSqlErr",
+	ErrCannotDeleteRunningReport:              "ErrCannotDeleteRunningReport",
+	ErrCannotBatchDeleteRunningReport:         "ErrCannotBatchDeleteRunningReport",
+	ErrMockPathExists:                         "ErrMockPathExists",
+	ErrYetAccountRegister:                     "ErrYetAccountRegister",
+	ErrAccountDel:                             "ErrAccountDel",
+	ErrMockPathNotNull:                        "ErrMockPathNotNull",
+	ErrNoticeBatchReportLimit:                 "ErrNoticeBatchReportLimit",
+	ErrNoticeConfigError:                      "ErrNoticeConfigError",
 }

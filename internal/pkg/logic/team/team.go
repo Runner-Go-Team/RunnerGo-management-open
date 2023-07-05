@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-omnibus/omnibus"
 	"github.com/go-omnibus/proof"
+	"gorm.io/gen"
 	"gorm.io/gorm"
 	"strconv"
 	"strings"
@@ -122,11 +123,49 @@ func ListByUserID(ctx context.Context, userID string) ([]*rao.Team, error) {
 	return packer.TransTeamsModelToRaoTeam(teams, userTeamsNew, teamCnt, users), nil
 }
 
-func ListMembersByTeamID(ctx context.Context, teamID string) ([]*rao.Member, error) {
+func ListMembersByTeamID(ctx context.Context, req rao.ListMembersReq) ([]*rao.Member, int64, error) {
+	teamID := req.TeamID
+	limit := req.Size
+	offset := (req.Page - 1) * req.Size
+	keyword := strings.TrimSpace(req.Keyword)
+
+	// 查询可用的用户团队数据
 	ut := query.Use(dal.DB()).UserTeam
-	userTeams, err := ut.WithContext(ctx).Where(ut.TeamID.Eq(teamID)).Order(ut.RoleID).Find()
+	userTeams, err := ut.WithContext(ctx).Where(ut.TeamID.Eq(teamID), ut.IsShow.Eq(consts.TeamIsShow)).Find()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	var kUserIDs []string
+	for _, teamInfo := range userTeams {
+		kUserIDs = append(kUserIDs, teamInfo.UserID)
+	}
+	// keyword 搜索昵称/账号
+	u := dal.GetQuery().User
+	conditions := make([]gen.Condition, 0)
+	conditions = append(conditions, u.UserID.In(kUserIDs...))
+	conditionsAccount := conditions
+	keyword = strings.TrimSpace(keyword)
+	if len(keyword) > 0 {
+		conditions = append(conditions, u.Nickname.Like(fmt.Sprintf("%%%s%%", keyword)))
+		conditionsAccount = append(conditionsAccount, u.Account.Like(fmt.Sprintf("%%%s%%", keyword)))
+	}
+	users, err := u.WithContext(ctx).Where(conditions...).Or(conditionsAccount...).Find()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	showUserIDs := make([]string, 0, len(users))
+	for _, user := range users {
+		showUserIDs = append(showUserIDs, user.UserID)
+	}
+
+	userTeams, total, err := ut.WithContext(ctx).Where(
+		ut.TeamID.Eq(teamID),
+		ut.IsShow.Eq(consts.TeamIsShow),
+		ut.UserID.In(showUserIDs...),
+	).Order(ut.ID).FindByPage(offset, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	var userIDs []string
@@ -135,13 +174,29 @@ func ListMembersByTeamID(ctx context.Context, teamID string) ([]*rao.Member, err
 		userIDs = append(userIDs, team.InviteUserID)
 	}
 
-	u := query.Use(dal.DB()).User
-	users, err := u.WithContext(ctx).Where(u.UserID.In(userIDs...)).Find()
+	users, err = u.WithContext(ctx).Where(u.UserID.In(userIDs...)).Find()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return packer.TransUsersToRaoMembers(users, userTeams), nil
+	ur := dal.GetQuery().UserRole
+	urList, err := ur.WithContext(ctx).Where(ur.TeamID.Eq(teamID), ur.UserID.In(userIDs...)).Find()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	roleIDs := make([]string, 0, len(urList))
+	for _, urInfo := range urList {
+		roleIDs = append(roleIDs, urInfo.RoleID)
+	}
+
+	roleTable := dal.GetQuery().Role
+	roleList, err := roleTable.WithContext(ctx).Where(roleTable.RoleID.In(roleIDs...)).Find()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return packer.TransUsersToRaoMembers(users, userTeams, urList, roleList), total, nil
 }
 
 func InviteMember(ctx context.Context, inviteUserID string, teamID string, members []*rao.InviteMember) (*rao.InviteMemberResp, error) {

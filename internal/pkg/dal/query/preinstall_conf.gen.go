@@ -38,6 +38,8 @@ func newPreinstallConf(db *gorm.DB, opts ...gen.DOOption) preinstallConf {
 	_preinstallConf.DebugMode = field.NewString(tableName, "debug_mode")
 	_preinstallConf.ModeConf = field.NewString(tableName, "mode_conf")
 	_preinstallConf.TimedTaskConf = field.NewString(tableName, "timed_task_conf")
+	_preinstallConf.IsOpenDistributed = field.NewInt32(tableName, "is_open_distributed")
+	_preinstallConf.MachineDispatchModeConf = field.NewString(tableName, "machine_dispatch_mode_conf")
 	_preinstallConf.CreatedAt = field.NewTime(tableName, "created_at")
 	_preinstallConf.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_preinstallConf.DeletedAt = field.NewField(tableName, "deleted_at")
@@ -50,21 +52,23 @@ func newPreinstallConf(db *gorm.DB, opts ...gen.DOOption) preinstallConf {
 type preinstallConf struct {
 	preinstallConfDo preinstallConfDo
 
-	ALL           field.Asterisk
-	ID            field.Int32  // 主键id
-	ConfName      field.String // 配置名称
-	TeamID        field.String // 团队ID
-	UserID        field.String // 用户ID
-	UserName      field.String // 用户名称
-	TaskType      field.Int32  // 任务类型
-	TaskMode      field.Int32  // 压测模式
-	ControlMode   field.Int32  // 控制模式：0-集中模式，1-单独模式
-	DebugMode     field.String // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
-	ModeConf      field.String // 压测配置详情
-	TimedTaskConf field.String // 定时任务相关配置
-	CreatedAt     field.Time   // 创建时间
-	UpdatedAt     field.Time   // 更新时间
-	DeletedAt     field.Field  // 删除时间
+	ALL                     field.Asterisk
+	ID                      field.Int32  // 主键id
+	ConfName                field.String // 配置名称
+	TeamID                  field.String // 团队ID
+	UserID                  field.String // 用户ID
+	UserName                field.String // 用户名称
+	TaskType                field.Int32  // 任务类型
+	TaskMode                field.Int32  // 压测模式
+	ControlMode             field.Int32  // 控制模式：0-集中模式，1-单独模式
+	DebugMode               field.String // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
+	ModeConf                field.String // 压测配置详情
+	TimedTaskConf           field.String // 定时任务相关配置
+	IsOpenDistributed       field.Int32  // 是否开启分布式调度：0-关闭，1-开启
+	MachineDispatchModeConf field.String // 分布式压力机配置
+	CreatedAt               field.Time   // 创建时间
+	UpdatedAt               field.Time   // 更新时间
+	DeletedAt               field.Field  // 删除时间
 
 	fieldMap map[string]field.Expr
 }
@@ -92,6 +96,8 @@ func (p *preinstallConf) updateTableName(table string) *preinstallConf {
 	p.DebugMode = field.NewString(table, "debug_mode")
 	p.ModeConf = field.NewString(table, "mode_conf")
 	p.TimedTaskConf = field.NewString(table, "timed_task_conf")
+	p.IsOpenDistributed = field.NewInt32(table, "is_open_distributed")
+	p.MachineDispatchModeConf = field.NewString(table, "machine_dispatch_mode_conf")
 	p.CreatedAt = field.NewTime(table, "created_at")
 	p.UpdatedAt = field.NewTime(table, "updated_at")
 	p.DeletedAt = field.NewField(table, "deleted_at")
@@ -119,7 +125,7 @@ func (p *preinstallConf) GetFieldByName(fieldName string) (field.OrderExpr, bool
 }
 
 func (p *preinstallConf) fillFieldMap() {
-	p.fieldMap = make(map[string]field.Expr, 14)
+	p.fieldMap = make(map[string]field.Expr, 16)
 	p.fieldMap["id"] = p.ID
 	p.fieldMap["conf_name"] = p.ConfName
 	p.fieldMap["team_id"] = p.TeamID
@@ -131,6 +137,8 @@ func (p *preinstallConf) fillFieldMap() {
 	p.fieldMap["debug_mode"] = p.DebugMode
 	p.fieldMap["mode_conf"] = p.ModeConf
 	p.fieldMap["timed_task_conf"] = p.TimedTaskConf
+	p.fieldMap["is_open_distributed"] = p.IsOpenDistributed
+	p.fieldMap["machine_dispatch_mode_conf"] = p.MachineDispatchModeConf
 	p.fieldMap["created_at"] = p.CreatedAt
 	p.fieldMap["updated_at"] = p.UpdatedAt
 	p.fieldMap["deleted_at"] = p.DeletedAt

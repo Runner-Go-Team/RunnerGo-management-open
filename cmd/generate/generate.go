@@ -69,6 +69,22 @@ func main() {
 		g.GenerateModel("target_debug_log"),
 		g.GenerateModel("user_collect_info"),
 		g.GenerateModel("public_function"),
+		g.GenerateModel("team_env_database"),
+		g.GenerateModel("company"),
+		g.GenerateModel("permission"),
+		g.GenerateModel("role_permission"),
+		g.GenerateModel("role_type_permission"),
+		g.GenerateModel("user_company"),
+		g.GenerateModel("role"),
+		g.GenerateModel("user_role"),
+		g.GenerateModel("user_team_collection"),
+		g.GenerateModel("mock_target"),
+		g.GenerateModel("mock_target_debug_log"),
+		g.GenerateModel("third_notice"),
+		g.GenerateModel("third_notice_channel"),
+		g.GenerateModel("third_notice_group"),
+		g.GenerateModel("third_notice_group_relate"),
+		g.GenerateModel("third_notice_group_event"),
 	)
 
 	g.Execute()

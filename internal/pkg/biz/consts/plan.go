@@ -13,7 +13,7 @@ const (
 	PlanModeErrorRate    = 3 // 错误率模式
 	PlanModeResponseTime = 4 // 响应时间模式
 	PlanModeRPS          = 5 //每秒请求数模式
-	PlanModeTPS          = 6 //每秒事务数模式
+	PlanModeRound        = 6 //轮次模式
 	PlanModeMix          = 7 // 混合模式
 
 	// 定时任务的几个状态
@@ -38,4 +38,7 @@ const (
 	// 用例运行模式
 	AutoPlanTestCaseRunModeOrder    = 1 // 顺讯执行
 	AutoPlanTestCaseRunModeMeantime = 2 // 同时执行
+
+	PlanStress = 1 // 性能计划
+	PlanAuto   = 2 // 自动化测试-计划
 )

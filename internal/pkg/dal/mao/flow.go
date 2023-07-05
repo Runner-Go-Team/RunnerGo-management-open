@@ -7,13 +7,17 @@ import (
 )
 
 type Flow struct {
-	SceneID string `bson:"scene_id"`
-	TeamID  string `bson:"team_id"`
-	Version int32  `bson:"version"`
-	//Flows   string `bson:"flows"`
-	Nodes bson.Raw `bson:"nodes"`
-	Edges bson.Raw `bson:"edges"`
-	//MultiLevelNodes bson.Raw `bson:"multi_level_nodes"`
+	SceneID      string   `bson:"scene_id"`
+	TeamID       string   `bson:"team_id"`
+	Version      int32    `bson:"version"`
+	Nodes        bson.Raw `bson:"nodes"`
+	Edges        bson.Raw `bson:"edges"`
+	EnvID        int64    `bson:"env_id"`
+	Prepositions bson.Raw `bson:"prepositions,omitempty"`
+}
+
+type Preposition struct {
+	Prepositions []rao.Node `bson:"prepositions"`
 }
 
 type Node struct {

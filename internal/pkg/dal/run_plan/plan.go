@@ -5,20 +5,21 @@ import (
 )
 
 type Stress struct {
-	PlanID         string         `json:"plan_id"`
-	PlanName       string         `json:"plan_name"`
-	ReportID       string         `json:"report_id"`
-	MachineNum     int32          `json:"machine_num"`
-	TeamID         string         `json:"team_id"`
-	ReportName     string         `json:"report_name"`
-	ConfigTask     ConfigTask     `json:"config_task"`
-	Variable       []Variable     `json:"variable"`
-	Scene          Scene          `json:"scene"`
-	Partition      int32          `json:"partition"`
-	Configuration  Configuration  `json:"configuration"` // 准备弃用
-	IsRun          int            `json:"is_run"`
-	Addr           string         `json:"addr"`
-	GlobalVariable GlobalVariable `json:"global_variable"`
+	PlanID          string         `json:"plan_id"`
+	PlanName        string         `json:"plan_name"`
+	ReportID        string         `json:"report_id"`
+	MachineNum      int32          `json:"machine_num"`
+	TeamID          string         `json:"team_id"`
+	ReportName      string         `json:"report_name"`
+	ConfigTask      ConfigTask     `json:"config_task"`
+	Variable        []Variable     `json:"variable"`
+	Scene           Scene          `json:"scene"`
+	Partition       int32          `json:"partition"`
+	Configuration   Configuration  `json:"configuration"` // 准备弃用
+	IsRun           int            `json:"is_run"`
+	Addr            string         `json:"addr"`
+	GlobalVariable  GlobalVariable `json:"global_variable"`
+	ExecConcurrency int64          `json:"exec_concurrency"` // 当前机器执行的并发数
 }
 
 type GlobalVariable struct {
@@ -68,13 +69,15 @@ type VariableNames struct {
 }
 
 type ConfigTask struct {
-	TaskType    int32    `json:"task_type"`
-	Mode        int32    `json:"mode"`
-	ControlMode int32    `json:"control_mode"`
-	DebugMode   string   `json:"debug_mode"`
-	Remark      string   `json:"remark"`
-	CronExpr    string   `json:"cron_expr"`
-	ModeConf    ModeConf `json:"mode_conf"`
+	TaskType                int32                   `json:"task_type"`
+	Mode                    int32                   `json:"mode"`
+	ControlMode             int32                   `json:"control_mode"`
+	DebugMode               string                  `json:"debug_mode"`
+	Remark                  string                  `json:"remark"`
+	CronExpr                string                  `json:"cron_expr"`
+	ModeConf                ModeConf                `json:"mode_conf"`
+	IsOpenDistributed       int32                   `json:"is_open_distributed"`        // 是否开启分布式调度：0-关闭，1-开启
+	MachineDispatchModeConf MachineDispatchModeConf `json:"machine_dispatch_mode_conf"` // 分布式压力机配置
 }
 
 type ModeConf struct {
@@ -96,13 +99,13 @@ type Variable struct {
 }
 
 type Scene struct {
-	SceneID                 string `json:"scene_id"`
-	EnablePlanConfiguration bool   `json:"enable_plan_configuration"`
-	SceneName               string `json:"scene_name"`
-	TeamID                  string `json:"team_id"`
-	//Nodes                   []rao.Node         `json:"nodes"`
-	Configuration SceneConfiguration `json:"configuration"`
-	NodesRound    [][]rao.Node       `json:"nodes_round"`
+	SceneID                 string             `json:"scene_id"`
+	EnablePlanConfiguration bool               `json:"enable_plan_configuration"`
+	SceneName               string             `json:"scene_name"`
+	TeamID                  string             `json:"team_id"`
+	Configuration           SceneConfiguration `json:"configuration"`
+	NodesRound              [][]rao.Node       `json:"nodes_round"`
+	Prepositions            []rao.Preposition  `json:"prepositions"` // 前置条件
 }
 
 type SceneConfiguration struct {
@@ -367,11 +370,35 @@ type Controller struct {
 }
 
 type Task struct {
-	PlanID      string    `json:"plan_id"`
-	SceneID     string    `json:"scene_id"`
-	TaskType    int32     `json:"task_type"`
-	TaskMode    int32     `json:"task_mode"`
-	ControlMode int32     `json:"control_mode"`
-	DebugMode   string    `json:"debug_mode"`
-	ModeConf    *ModeConf `json:"mode_conf"`
+	PlanID                  string                  `json:"plan_id"`
+	SceneID                 string                  `json:"scene_id"`
+	TaskType                int32                   `json:"task_type"`
+	TaskMode                int32                   `json:"task_mode"`
+	ControlMode             int32                   `json:"control_mode"`
+	DebugMode               string                  `json:"debug_mode"`
+	ModeConf                ModeConf                `json:"mode_conf"`
+	IsOpenDistributed       int32                   `json:"is_open_distributed"`        // 是否开启分布式调度：0-关闭，1-开启
+	MachineDispatchModeConf MachineDispatchModeConf `json:"machine_dispatch_mode_conf"` // 分布式压力机配置
+}
+
+type MachineDispatchModeConf struct {
+	MachineAllotType  int32               `json:"machine_allot_type"`  // 机器分配方式：0-权重，1-自定义
+	UsableMachineList []UsableMachineInfo `json:"usable_machine_list"` // 可选机器列表
+}
+
+type UsableMachineInfo struct {
+	MachineStatus    int32  `json:"machine_status"`    // 是否可用：1-使用中，2-已卸载
+	MachineName      string `json:"machine_name"`      // 机器名称
+	Region           string `json:"region"`            // 区域
+	Ip               string `json:"ip"`                // ip
+	Weight           int    `json:"weight"`            // 权重
+	RoundNum         int64  `json:"round_num"`         // 轮次
+	Concurrency      int64  `json:"concurrency"`       // 并发数
+	ThresholdValue   int64  `json:"threshold_value"`   // 阈值
+	StartConcurrency int64  `json:"start_concurrency"` // 起始并发数
+	Step             int64  `json:"step"`              // 步长
+	StepRunTime      int64  `json:"step_run_time"`     // 步长执行时长
+	MaxConcurrency   int64  `json:"max_concurrency"`   // 最大并发数
+	Duration         int64  `json:"duration"`          // 稳定持续时长，持续时长
+	CreatedTimeSec   int64  `json:"created_time_sec"`  // 创建时间
 }

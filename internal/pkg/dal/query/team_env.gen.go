@@ -30,10 +30,7 @@ func newTeamEnv(db *gorm.DB, opts ...gen.DOOption) teamEnv {
 	_teamEnv.ID = field.NewInt64(tableName, "id")
 	_teamEnv.TeamID = field.NewString(tableName, "team_id")
 	_teamEnv.Name = field.NewString(tableName, "name")
-	_teamEnv.Sort = field.NewInt32(tableName, "sort")
-	_teamEnv.Status = field.NewInt32(tableName, "status")
 	_teamEnv.CreatedUserID = field.NewString(tableName, "created_user_id")
-	_teamEnv.RecentUserID = field.NewInt64(tableName, "recent_user_id")
 	_teamEnv.CreatedAt = field.NewTime(tableName, "created_at")
 	_teamEnv.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_teamEnv.DeletedAt = field.NewField(tableName, "deleted_at")
@@ -47,16 +44,13 @@ type teamEnv struct {
 	teamEnvDo teamEnvDo
 
 	ALL           field.Asterisk
-	ID            field.Int64  // ID
-	TeamID        field.String // 团队ID
+	ID            field.Int64  // 主键id
+	TeamID        field.String // 团队id
 	Name          field.String // 环境名称
-	Sort          field.Int32  // 排序
-	Status        field.Int32  // 状态：1-正常 2-删除
-	CreatedUserID field.String // 创建人ID
-	RecentUserID  field.Int64
-	CreatedAt     field.Time
-	UpdatedAt     field.Time
-	DeletedAt     field.Field
+	CreatedUserID field.String // 创建人id
+	CreatedAt     field.Time   // 创建时间
+	UpdatedAt     field.Time   // 修改时间
+	DeletedAt     field.Field  // 删除时间
 
 	fieldMap map[string]field.Expr
 }
@@ -76,10 +70,7 @@ func (t *teamEnv) updateTableName(table string) *teamEnv {
 	t.ID = field.NewInt64(table, "id")
 	t.TeamID = field.NewString(table, "team_id")
 	t.Name = field.NewString(table, "name")
-	t.Sort = field.NewInt32(table, "sort")
-	t.Status = field.NewInt32(table, "status")
 	t.CreatedUserID = field.NewString(table, "created_user_id")
-	t.RecentUserID = field.NewInt64(table, "recent_user_id")
 	t.CreatedAt = field.NewTime(table, "created_at")
 	t.UpdatedAt = field.NewTime(table, "updated_at")
 	t.DeletedAt = field.NewField(table, "deleted_at")
@@ -105,14 +96,11 @@ func (t *teamEnv) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (t *teamEnv) fillFieldMap() {
-	t.fieldMap = make(map[string]field.Expr, 10)
+	t.fieldMap = make(map[string]field.Expr, 7)
 	t.fieldMap["id"] = t.ID
 	t.fieldMap["team_id"] = t.TeamID
 	t.fieldMap["name"] = t.Name
-	t.fieldMap["sort"] = t.Sort
-	t.fieldMap["status"] = t.Status
 	t.fieldMap["created_user_id"] = t.CreatedUserID
-	t.fieldMap["recent_user_id"] = t.RecentUserID
 	t.fieldMap["created_at"] = t.CreatedAt
 	t.fieldMap["updated_at"] = t.UpdatedAt
 	t.fieldMap["deleted_at"] = t.DeletedAt

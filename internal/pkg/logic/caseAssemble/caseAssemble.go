@@ -13,6 +13,7 @@ import (
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/target"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/public"
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,7 @@ func GetCaseAssembleList(ctx *gin.Context, req *rao.GetCaseAssembleListReq) ([]*
 	}
 	conditions = append(conditions, targetTB.TargetType.Eq(consts.TargetTypeTestCase))
 	conditions = append(conditions, targetTB.ParentID.Eq(req.SceneID))
+	//conditions = append(conditions, targetTB.Source.Eq(consts.TargetSourceAutoPlan))
 	list, err := targetTB.WithContext(ctx).Where(conditions...).Order(targetTB.Sort).Find()
 	if err != nil {
 		log.Logger.Info("用例集列表--获取列表失败，err:", err)
@@ -204,16 +206,14 @@ func SceneCaseNameIsExist(ctx *gin.Context, req *rao.SaveCaseAssembleReq) (bool,
 }
 
 func SaveCaseAssemble(ctx *gin.Context, req *rao.SaveCaseAssembleReq) error {
-
 	userID := jwt.GetUserIDByCtx(ctx)
-
-	target := packer.TransSaveCaseAssembleToTargetModel(req, userID)
+	targetInfo := packer.TransSaveCaseAssembleToTargetModel(req, userID)
 
 	err := query.Use(dal.DB()).Transaction(func(tx *query.Query) error {
 		// 查询是否存在
 		_, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.CaseID)).First()
 		if err != nil {
-			if err := tx.Target.WithContext(ctx).Create(target); err != nil {
+			if err := tx.Target.WithContext(ctx).Create(targetInfo); err != nil {
 				return err
 			}
 
@@ -225,7 +225,7 @@ func SaveCaseAssemble(ctx *gin.Context, req *rao.SaveCaseAssembleReq) error {
 				return collectionErr
 			}
 
-			sceneCaseFlow := packer.TransMaoFlowToMaoSceneCaseFlow(&sceneFlow, target.TargetID)
+			sceneCaseFlow := packer.TransMaoFlowToMaoSceneCaseFlow(&sceneFlow, targetInfo.TargetID)
 			sceneCaseFlowCollection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
 			sceneCaseFlowErr := sceneCaseFlowCollection.FindOne(ctx, bson.D{{"scene_case_id", tx.Target.TargetID}}).Decode(&sceneFlow)
 			if sceneCaseFlowErr == mongo.ErrNoDocuments { // 新建
@@ -236,12 +236,12 @@ func SaveCaseAssemble(ctx *gin.Context, req *rao.SaveCaseAssembleReq) error {
 				{"scene_id", sceneCaseFlow.SceneCaseID},
 			}, bson.M{"$set": sceneCaseFlow})
 
-			return record.InsertCreate(ctx, target.TeamID, userID, record.OperationOperateCreateTestCase, target.Name)
+			return record.InsertCreate(ctx, targetInfo.TeamID, userID, record.OperationOperateCreateTestCase, targetInfo.Name)
 		} else {
-			if _, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.CaseID)).Updates(target); err != nil {
+			if _, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.CaseID)).Updates(targetInfo); err != nil {
 				return err
 			}
-			return record.InsertUpdate(ctx, target.TeamID, userID, record.OperationOperateUpdateSceneCase, target.Name)
+			return record.InsertUpdate(ctx, targetInfo.TeamID, userID, record.OperationOperateUpdateSceneCase, targetInfo.Name)
 		}
 	})
 	return err
@@ -338,9 +338,16 @@ func SendSceneCase(ctx *gin.Context, teamID string, sceneID, sceneCaseID string,
 		return "", err
 	}
 
-	var f mao.Flow
-	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
-	err = collection.FindOne(ctx, bson.D{{"scene_case_id", sceneCaseID}}).Decode(&f)
+	var flow mao.Flow
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
+	err = collection.FindOne(ctx, bson.D{{"scene_id", sceneID}}).Decode(&flow)
+	if err != nil {
+		return "", err
+	}
+
+	var caseFlow mao.Flow
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
+	err = collection.FindOne(ctx, bson.D{{"scene_case_id", sceneCaseID}}).Decode(&caseFlow)
 	if err != nil {
 		return "", err
 	}
@@ -351,111 +358,13 @@ func SendSceneCase(ctx *gin.Context, teamID string, sceneID, sceneCaseID string,
 		return "", err
 	}
 
-	//sv := dal.GetQuery().Variable
-	//sceneVariables, err := sv.WithContext(ctx).Where(sv.SceneID.Eq(sceneID)).Find()
-	//if err != nil {
-	//	return "", err
-	//}
-	//
-	//variables, err := sv.WithContext(ctx).Where(sv.TeamID.Eq(teamID)).Find()
-	//if err != nil {
-	//	return "", err
-	//}
-
 	// 获取全局变量
-	globalVariable := rao.GlobalVariable{}
-	// 查询全局变量
-	collection2 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
-	cur, err := collection2.Find(ctx, bson.D{{"team_id", teamID}})
-	var globalParamDataArr []*mao.GlobalParamData
-	if err == nil {
-		if err := cur.All(ctx, &globalParamDataArr); err != nil {
-			return "", fmt.Errorf("全局参数数据获取失败")
-		}
-	}
-
-	cookieParam := make([]rao.CookieParam, 0, 100)
-	headerParam := make([]rao.HeaderParam, 0, 100)
-	variableParam := make([]rao.VariableParam, 0, 100)
-	assertParam := make([]rao.AssertParam, 0, 100)
-	for _, globalParamInfo := range globalParamDataArr {
-		if globalParamInfo.ParamType == 1 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
-			if err != nil {
-				return "", err
-			}
-			parameter := make([]rao.Parameter, 0, len(cookieParam))
-			for _, v := range cookieParam {
-				temp := rao.Parameter{
-					IsChecked: v.IsChecked,
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Cookie.Parameter = parameter
-		}
-		if globalParamInfo.ParamType == 2 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.Parameter, 0, len(headerParam))
-			for _, v := range headerParam {
-				temp := rao.Parameter{
-					IsChecked: v.IsChecked,
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Header.Parameter = parameter
-
-		}
-		if globalParamInfo.ParamType == 3 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.VarForm, 0, len(variableParam))
-			for _, v := range variableParam {
-				temp := rao.VarForm{
-					IsChecked: int64(v.IsChecked),
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Variable = parameter
-
-		}
-		if globalParamInfo.ParamType == 4 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.AssertionText, 0, len(assertParam))
-			for _, v := range assertParam {
-				temp := rao.AssertionText{
-					IsChecked:    int(v.IsChecked),
-					ResponseType: int8(v.ResponseType),
-					Compare:      v.Compare,
-					Var:          v.Var,
-					Val:          v.Val,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Assert = parameter
-		}
-	}
+	globalVariable, _ := target.GetGlobalVariable(ctx, teamID)
 
 	// 获取场景变量
 	sceneVariable := rao.GlobalVariable{}
 	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
-	cur, err = collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
+	cur, err := collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
 	var sceneParamDataArr []*mao.SceneParamData
 	if err == nil {
 		if err := cur.All(ctx, &sceneParamDataArr); err != nil {
@@ -544,7 +453,7 @@ func SendSceneCase(ctx *gin.Context, teamID string, sceneID, sceneCaseID string,
 		return "", err
 	}
 
-	req := packer.TransMaoFlowToRaoSceneCaseFlow(t, &f, vis, sceneVariable, globalVariable)
-	return runner.RunSceneCaseFlow(ctx, req)
+	req := packer.TransMaoFlowToRaoSceneCaseFlow(t, &flow, &caseFlow, vis, sceneVariable, globalVariable)
+	return runner.RunSceneCaseFlow(req)
 
 }

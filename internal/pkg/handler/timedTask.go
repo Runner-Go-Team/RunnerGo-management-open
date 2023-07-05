@@ -21,7 +21,7 @@ func TimedTaskExec() {
 		conditions = append(conditions, tx.Status.Eq(consts.TimedTaskInExec))
 		// 从数据库当中，查出当前需要执行的定时任务
 		timedTaskData, err := tx.WithContext(ctx).Where(conditions...).Select(tx.TeamID, tx.PlanID, tx.SceneID,
-			tx.Frequency, tx.TaskExecTime, tx.TaskCloseTime).Find()
+			tx.Frequency, tx.TaskExecTime, tx.TaskCloseTime, tx.RunUserID).Find()
 
 		if err != nil {
 			log.Logger.Info("性能测试--定时任务查询数据库出错，err：", err)
@@ -35,7 +35,6 @@ func TimedTaskExec() {
 		}
 
 		// 当前时间的 时，分
-		// 当前时间
 		nowTime := time.Now().Unix()
 		nowTimeInfo := time.Unix(nowTime, 0)
 		nowYear := nowTimeInfo.Year()
@@ -84,7 +83,6 @@ func TimedTaskExec() {
 				if taskYear != nowYear || taskMonth != nowMonth || taskDay != nowDay || taskHour != nowHour || taskMinute != nowMinute {
 					continue
 				}
-				log.Logger.Info("定时任务--频次一次：通过可运行")
 			case 1: // 每天
 				// 比较当前时间是否等于定时任务的时间
 				if taskHour != nowHour || taskMinute != nowMinute {
@@ -118,7 +116,7 @@ func TimedTaskExec() {
 			}
 		}
 
-		//// 睡眠一分钟，再循环执行
+		// 睡眠一分钟，再循环执行
 		time.Sleep(60 * time.Second)
 	}
 }
@@ -130,13 +128,13 @@ func runTimedTask(ctx context.Context, timedTaskInfo *model.StressPlanTimedTaskC
 	runStressParams := RunStressReq{
 		PlanID:  timedTaskInfo.PlanID,
 		TeamID:  timedTaskInfo.TeamID,
-		UserID:  timedTaskInfo.UserID,
+		UserID:  timedTaskInfo.RunUserID,
 		SceneID: sceneIDs,
 		RunType: 2,
 	}
 	log.Logger.Info("定时任务--开始执行计划，参数：", runStressParams)
 	// 进入执行计划方法
-	_, runErr := RunStress(ctx, runStressParams)
+	_, _, runErr := RunStress(ctx, runStressParams)
 	log.Logger.Info("定时任务--执行结果，runErr：", runErr)
 	if runErr != nil {
 		return runErr

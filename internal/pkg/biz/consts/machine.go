@@ -1,8 +1,8 @@
 package consts
 
 const (
-	MachineStatusIdle = 1
-	MachineStatusBusy = 2
+	MachineStatusAvailable = 1 // 使用中
+	MachineStatusUnload    = 2 // 已卸载
 
 	MachineListRedisKey   = "RunnerMachineList"
 	MachineUseStatePrefix = "MachineUseState:"

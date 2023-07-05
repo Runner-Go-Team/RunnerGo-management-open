@@ -29,7 +29,7 @@ func TransSaveTargetReqToTargetModel(target *rao.SaveTargetReq, userID string) *
 	return &model.Target{
 		TargetID:      target.TargetID,
 		TeamID:        target.TeamID,
-		TargetType:    consts.TargetTypeAPI,
+		TargetType:    target.TargetType,
 		Name:          target.Name,
 		ParentID:      target.ParentID,
 		Method:        target.Method,
@@ -41,6 +41,7 @@ func TransSaveTargetReqToTargetModel(target *rao.SaveTargetReq, userID string) *
 		RecentUserID:  userID,
 		Source:        target.Source,
 		Description:   target.Description,
+		SourceID:      target.SourceID,
 	}
 }
 

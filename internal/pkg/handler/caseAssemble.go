@@ -148,7 +148,6 @@ func SaveSceneCaseFlow(ctx *gin.Context) {
 
 // GetSceneCaseFlow 获取用例执行流
 func GetSceneCaseFlow(ctx *gin.Context) {
-
 	var req rao.GetSceneCaseFlowReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
@@ -160,7 +159,6 @@ func GetSceneCaseFlow(ctx *gin.Context) {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, GetSceneCaseFlowErr.Error())
 		return
 	}
-
 	response.SuccessWithData(ctx, resp)
 	return
 }

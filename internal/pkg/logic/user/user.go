@@ -23,6 +23,7 @@ func FirstByUserID(ctx context.Context, userID string, teamID string) (*rao.Memb
 
 	return &rao.Member{
 		Avatar:   u.Avatar,
+		Account:  u.Account,
 		Mobile:   u.Mobile,
 		Email:    u.Email,
 		Nickname: u.Nickname,

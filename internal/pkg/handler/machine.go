@@ -15,7 +15,6 @@ import (
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
-	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/net/context"
 	"gorm.io/gorm"
 	"strconv"
@@ -202,13 +201,6 @@ func MachineMonitorInsert() {
 			if err.Err() != nil {
 				log.Logger.Info("压力机监控数据入库--删除redis列表失败，err:", err.Err())
 			}
-		}
-
-		// 删除半个月前的压力机监控数据
-		deleteTime := time.Now().Unix() - (15 * 24 * 3600)
-		_, err := collection.DeleteMany(ctx, bson.D{{"created_at", bson.D{{"$lte", deleteTime}}}})
-		if err != nil {
-			log.Logger.Info("压力机监控数据入库--删除半个月前的压力机监控数据失败")
 		}
 
 		time.Sleep(5 * time.Second)

@@ -29,20 +29,26 @@ type Team struct {
 }
 
 type ListMembersReq struct {
-	TeamID string `form:"team_id" binding:"required,gt=0"`
+	TeamID  string `form:"team_id" binding:"required,gt=0"`
+	Keyword string `form:"keyword"`
+	Page    int    `form:"page,default=1"`
+	Size    int    `form:"size,default=20"`
 }
 
 type ListMembersResp struct {
 	Members []*Member `json:"members"`
+	Total   int64     `json:"total"`
 }
 
 type Member struct {
 	UserID         string `json:"user_id"`
+	Account        string `json:"account"`
 	Mobile         string `json:"mobile"`
 	Avatar         string `json:"avatar"`
 	Email          string `json:"email"`
 	Nickname       string `json:"nickname"`
 	RoleID         int64  `json:"role_id"`
+	TeamRoleName   string `json:"team_role_name"`
 	InviteUserID   string `json:"invite_user_id"`
 	InviteUserName string `json:"invite_user_name"`
 	JoinTimeSec    int64  `json:"join_time_sec,omitempty"`

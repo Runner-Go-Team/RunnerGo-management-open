@@ -30,14 +30,6 @@ func GetUserSettings(ctx context.Context, userID string) (*rao.GetUserSettingsRe
 
 	userInfo := new(model.User)
 
-	// 查询当前用户在默认团队的角色
-	userTeamTable := dal.GetQuery().UserTeam
-	utInfo, err := userTeamTable.WithContext(ctx).Where(userTeamTable.TeamID.Eq(settingInfo.TeamID),
-		userTeamTable.UserID.Eq(userID)).First()
-	if err != nil {
-		return nil, err
-	}
-
 	// 查询用户信息
 	userTable := query.Use(dal.DB()).User
 	userInfo, err = userTable.WithContext(ctx).Where(userTable.UserID.Eq(userID)).First()
@@ -45,7 +37,34 @@ func GetUserSettings(ctx context.Context, userID string) (*rao.GetUserSettingsRe
 		return nil, err
 	}
 
-	return packer.TransUserSettingsToRaoUserSettings(settingInfo, utInfo, userInfo), nil
+	// 查询用户在当前团队内的role_id
+	userRoleTB := dal.GetQuery().UserRole
+	userTeamRole, err := userRoleTB.WithContext(ctx).Where(userRoleTB.TeamID.Eq(settingInfo.TeamID),
+		userRoleTB.UserID.Eq(userID)).First()
+	if err != nil {
+		return nil, err
+	}
+
+	uc := dal.GetQuery().UserCompany
+	company, err := uc.WithContext(ctx).Where(uc.UserID.Eq(userID)).First()
+	if err != nil {
+		return nil, err
+	}
+
+	userCompanyRole, err := userRoleTB.WithContext(ctx).Where(userRoleTB.CompanyID.Eq(company.CompanyID),
+		userRoleTB.UserID.Eq(userID)).First()
+	if err != nil {
+		return nil, err
+	}
+
+	// 查询角色名称
+	roleTB := dal.GetQuery().Role
+	roles, err := roleTB.WithContext(ctx).Where(roleTB.CompanyID.Eq(company.CompanyID)).Find()
+	if err != nil {
+		return nil, err
+	}
+
+	return packer.TransUserSettingsToRaoUserSettings(settingInfo, userInfo, userTeamRole, userCompanyRole, roles), nil
 }
 
 // GetAvailTeamID 获取有效的团队ID

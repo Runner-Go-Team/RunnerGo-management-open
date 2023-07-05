@@ -198,7 +198,9 @@ func Save(ctx *gin.Context, req *rao.SavePlanReq) (string, int, error) {
 	return planID, errno.Ok, nil
 }
 
-func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, error) {
+func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq) (int, error) {
+	userID := jwt.GetUserIDByCtx(ctx)
+
 	// 判断任务配置类型
 	var err error
 
@@ -229,6 +231,13 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 				return err2
 			}
 
+			// 压缩分布式压力机列表数据
+			machineDispatchModeConfString, err3 := json.Marshal(req.MachineDispatchModeConf)
+			if err3 != nil {
+				log.Logger.Info("保存任务配置--分布式压力机数据压缩失败")
+				return err3
+			}
+
 			if err == nil { // 已存在 则修改
 				_, err = tx.StressPlanTaskConf.WithContext(ctx).
 					Where(tx.StressPlanTaskConf.TeamID.Eq(req.TeamID),
@@ -239,6 +248,8 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 					tx.StressPlanTaskConf.ControlMode.Value(req.ControlMode),
 					tx.StressPlanTaskConf.DebugMode.Value(req.DebugMode),
 					tx.StressPlanTaskConf.ModeConf.Value(string(modeConfString)),
+					tx.StressPlanTaskConf.IsOpenDistributed.Value(req.IsOpenDistributed),
+					tx.StressPlanTaskConf.MachineDispatchModeConf.Value(string(machineDispatchModeConfString)),
 					tx.StressPlanTaskConf.RunUserID.Value(userID),
 				)
 				if err != nil {
@@ -246,15 +257,17 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 				}
 			} else { // 不存在，则新增
 				insertData := &model.StressPlanTaskConf{
-					PlanID:      req.PlanID,
-					TeamID:      req.TeamID,
-					SceneID:     req.SceneID,
-					TaskType:    req.TaskType,
-					TaskMode:    req.Mode,
-					ControlMode: req.ControlMode,
-					DebugMode:   req.DebugMode,
-					ModeConf:    string(modeConfString),
-					RunUserID:   userID,
+					PlanID:                  req.PlanID,
+					TeamID:                  req.TeamID,
+					SceneID:                 req.SceneID,
+					TaskType:                req.TaskType,
+					TaskMode:                req.Mode,
+					ControlMode:             req.ControlMode,
+					DebugMode:               req.DebugMode,
+					ModeConf:                string(modeConfString),
+					IsOpenDistributed:       req.IsOpenDistributed,
+					MachineDispatchModeConf: string(machineDispatchModeConfString),
+					RunUserID:               userID,
 				}
 				err = tx.StressPlanTaskConf.WithContext(ctx).Create(insertData)
 				if err != nil {
@@ -303,6 +316,12 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 					return err
 				}
 
+				// 把mode_conf压缩成字符串
+				machineDispatchModeConfString, err := json.Marshal(req.MachineDispatchModeConf)
+				if err != nil {
+					return err
+				}
+
 				// 修改配置
 				_, err = tx.StressPlanTimedTaskConf.WithContext(ctx).Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID)).
 					Where(tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID)).
@@ -315,7 +334,10 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 					tx.StressPlanTimedTaskConf.ControlMode.Value(req.ControlMode),
 					tx.StressPlanTimedTaskConf.DebugMode.Value(req.DebugMode),
 					tx.StressPlanTimedTaskConf.ModeConf.Value(string(modeConfString)),
+					tx.StressPlanTimedTaskConf.IsOpenDistributed.Value(req.IsOpenDistributed),
+					tx.StressPlanTimedTaskConf.MachineDispatchModeConf.Value(string(machineDispatchModeConfString)),
 					tx.StressPlanTimedTaskConf.Status.Value(consts.TimedTaskWaitEnable),
+					tx.StressPlanTimedTaskConf.RunUserID.Value(userID),
 				)
 				if err != nil {
 					log.Logger.Info("保存配置--更新定时任务配置失败，err:", err)
@@ -376,28 +398,102 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskResp, error) {
 	// 初始化返回值
 	planTaskConf := &rao.PlanTaskResp{
-		PlanID:        req.PlanID,
-		SceneID:       req.SceneID,
-		TaskType:      req.TaskType,
-		Mode:          consts.PlanModeConcurrence,
-		ModeConf:      rao.ModeConf{},
-		TimedTaskConf: rao.TimedTaskConf{},
+		PlanID:            req.PlanID,
+		SceneID:           req.SceneID,
+		TaskType:          req.TaskType,
+		Mode:              consts.PlanModeConcurrence,
+		ModeConf:          rao.ModeConf{},
+		TimedTaskConf:     rao.TimedTaskConf{},
+		IsOpenDistributed: 0,
 	}
 
 	tx := dal.GetQuery()
+	// 获取当前所有可用机器列表
+	allMachineList, err := tx.Machine.WithContext(ctx).Where(tx.Machine.Status.Eq(consts.MachineStatusAvailable)).Find()
+	if err != nil {
+		return nil, err
+	}
+
+	defaultUsableMachineList := make([]rao.UsableMachineInfo, 0, len(allMachineList))
+	allMachineMap := make(map[string]rao.UsableMachineInfo, len(allMachineList))
+	for k, v := range allMachineList {
+		weight := 0
+		if k == 0 {
+			weight = 100
+		}
+		temp := rao.UsableMachineInfo{
+			MachineStatus:  v.Status,
+			MachineName:    v.Name,
+			Region:         v.Region,
+			Ip:             v.IP,
+			Weight:         weight,
+			CreatedTimeSec: v.CreatedAt.Unix(),
+		}
+		allMachineMap[v.IP] = temp
+		defaultUsableMachineList = append(defaultUsableMachineList, temp)
+	}
+	planTaskConf.MachineDispatchModeConf.UsableMachineList = defaultUsableMachineList
+
 	if req.TaskType == consts.PlanTaskTypeNormal { // 普通任务
 		taskConfInfo, err := tx.StressPlanTaskConf.WithContext(ctx).
 			Where(tx.StressPlanTaskConf.TeamID.Eq(req.TeamID), tx.StressPlanTaskConf.PlanID.Eq(req.PlanID),
 				tx.StressPlanTaskConf.SceneID.Eq(req.SceneID)).First()
 		if err == nil { // 查到了，普通任务
 			// 解析配置详情
-			var taskConfDetail rao.ModeConf
+			taskConfDetail := rao.ModeConf{}
 			err := json.Unmarshal([]byte(taskConfInfo.ModeConf), &taskConfDetail)
 			if err != nil {
 				log.Logger.Info("获取配置详情--解析数据失败")
 				return nil, err
 			}
 
+			// 解析分布式配置详情
+			machineDispatchModeConfDetail := rao.MachineDispatchModeConf{}
+			if taskConfInfo.MachineDispatchModeConf != "" {
+				err = json.Unmarshal([]byte(taskConfInfo.MachineDispatchModeConf), &machineDispatchModeConfDetail)
+				if err != nil {
+					log.Logger.Info("获取配置详情--解析分布式配置数据失败")
+					return nil, err
+				}
+			}
+
+			usableMachineList := make([]rao.UsableMachineInfo, 0, len(machineDispatchModeConfDetail.UsableMachineList))
+			if len(machineDispatchModeConfDetail.UsableMachineList) == 0 {
+				usableMachineList = defaultUsableMachineList
+			} else {
+				for _, v := range machineDispatchModeConfDetail.UsableMachineList {
+					temp := rao.UsableMachineInfo{
+						MachineStatus:    v.MachineStatus,
+						MachineName:      v.MachineName,
+						Region:           v.Region,
+						Ip:               v.Ip,
+						Weight:           v.Weight,
+						RoundNum:         v.RoundNum,
+						Concurrency:      v.Concurrency,
+						ThresholdValue:   v.ThresholdValue,
+						StartConcurrency: v.StartConcurrency,
+						Step:             v.Step,
+						StepRunTime:      v.StepRunTime,
+						MaxConcurrency:   v.MaxConcurrency,
+						Duration:         v.Duration,
+						CreatedTimeSec:   v.CreatedTimeSec,
+					}
+
+					// 判断配置过的压力机是否在全部压力机列表里面
+					if machineInfo, ok := allMachineMap[v.Ip]; ok {
+						temp.MachineStatus = machineInfo.MachineStatus
+						allMachineMap[v.Ip] = temp
+					} else {
+						temp.MachineStatus = 2 // 机器不可用
+						allMachineMap[v.Ip] = temp
+					}
+				}
+				for _, v := range allMachineMap {
+					usableMachineList = append(usableMachineList, v)
+				}
+			}
+
+			// 组装接口返回值
 			planTaskConf = &rao.PlanTaskResp{
 				PlanID:      req.PlanID,
 				SceneID:     req.SceneID,
@@ -415,6 +511,11 @@ func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskRes
 					MaxConcurrency:   taskConfDetail.MaxConcurrency,
 					Duration:         taskConfDetail.Duration,
 				},
+				IsOpenDistributed: taskConfInfo.IsOpenDistributed,
+				MachineDispatchModeConf: rao.MachineDispatchModeConf{
+					MachineAllotType:  machineDispatchModeConfDetail.MachineAllotType,
+					UsableMachineList: usableMachineList,
+				},
 			}
 		}
 	} else { // 定时任务
@@ -429,6 +530,52 @@ func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskRes
 				log.Logger.Info("获取任务配置详情--解析定时任务详细配置失败，err:", err)
 				return nil, err
 			}
+
+			// 解析分布式配置详情
+			machineDispatchModeConfDetail := rao.MachineDispatchModeConf{}
+			if timingTaskConfigInfo.MachineDispatchModeConf != "" {
+				err = json.Unmarshal([]byte(timingTaskConfigInfo.MachineDispatchModeConf), &machineDispatchModeConfDetail)
+				if err != nil {
+					log.Logger.Info("获取配置详情--解析分布式配置数据失败")
+					return nil, err
+				}
+			}
+			usableMachineList := make([]rao.UsableMachineInfo, 0, len(machineDispatchModeConfDetail.UsableMachineList))
+			if len(machineDispatchModeConfDetail.UsableMachineList) == 0 {
+				usableMachineList = defaultUsableMachineList
+			} else {
+				for _, v := range machineDispatchModeConfDetail.UsableMachineList {
+					temp := rao.UsableMachineInfo{
+						MachineStatus:    v.MachineStatus,
+						MachineName:      v.MachineName,
+						Region:           v.Region,
+						Ip:               v.Ip,
+						Weight:           v.Weight,
+						RoundNum:         v.RoundNum,
+						Concurrency:      v.Concurrency,
+						ThresholdValue:   v.ThresholdValue,
+						StartConcurrency: v.StartConcurrency,
+						Step:             v.Step,
+						StepRunTime:      v.StepRunTime,
+						MaxConcurrency:   v.MaxConcurrency,
+						Duration:         v.Duration,
+						CreatedTimeSec:   v.CreatedTimeSec,
+					}
+
+					// 判断配置过的压力机是否在全部压力机列表里面
+					if machineInfo, ok := allMachineMap[v.Ip]; ok {
+						temp.MachineStatus = machineInfo.MachineStatus
+						allMachineMap[v.Ip] = temp
+					} else {
+						temp.MachineStatus = 2 // 机器不可用
+						allMachineMap[v.Ip] = temp
+					}
+				}
+				for _, v := range allMachineMap {
+					usableMachineList = append(usableMachineList, v)
+				}
+			}
+
 			planTaskConf = &rao.PlanTaskResp{
 				PlanID:      req.PlanID,
 				SceneID:     req.SceneID,
@@ -442,12 +589,16 @@ func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskRes
 					TaskExecTime:  timingTaskConfigInfo.TaskExecTime,
 					TaskCloseTime: timingTaskConfigInfo.TaskCloseTime,
 				},
+				IsOpenDistributed: timingTaskConfigInfo.IsOpenDistributed,
+				MachineDispatchModeConf: rao.MachineDispatchModeConf{
+					MachineAllotType:  machineDispatchModeConfDetail.MachineAllotType,
+					UsableMachineList: usableMachineList,
+				},
 			}
 
 			if timingTaskConfigInfo.Frequency == 0 { // 频次一次
 				planTaskConf.TimedTaskConf.TaskCloseTime = 0
 			}
-
 		}
 	}
 
@@ -690,6 +841,12 @@ func ClonePlan(ctx context.Context, req *rao.ClonePlanReq, userID string) error 
 			}
 			for _, flow := range flows {
 				flow.SceneID = targetMemo[flow.SceneID]
+				// 更新api的uuid
+				err := packer.ChangeSceneNodeUUID(flow)
+				if err != nil {
+					log.Logger.Info("复制性能计划--替换event_id失败")
+					return err
+				}
 				if _, err := c1.InsertOne(ctx, flow); err != nil {
 					return err
 				}
@@ -739,7 +896,7 @@ func ClonePlan(ctx context.Context, req *rao.ClonePlanReq, userID string) error 
 				}
 			}
 		}
-		return nil
+		return record.InsertCreate(ctx, req.TeamID, userID, record.OperationOperateClonePlan, newPlanName)
 	})
 }
 
@@ -1009,5 +1166,37 @@ func GetPublicFunctionList(ctx *gin.Context) ([]*rao.GetPublicFunctionListResp, 
 		}
 		res = append(res, tempData)
 	}
+	return res, nil
+}
+
+func GetNewestStressPlanList(ctx context.Context, req *rao.GetNewestStressPlanListReq) ([]rao.GetNewestStressPlanListResp, error) {
+	res := make([]rao.GetNewestStressPlanListResp, 0, req.Size)
+	_ = dal.GetQuery().Transaction(func(tx *query.Query) error {
+		conditions := make([]gen.Condition, 0)
+		conditions = append(conditions, tx.StressPlan.TeamID.Eq(req.TeamID))
+
+		sort := make([]field.Expr, 0)
+		sort = append(sort, tx.StressPlan.CreatedAt.Desc())
+
+		planList, _, err := tx.StressPlan.WithContext(ctx).Select(tx.StressPlan.TeamID, tx.StressPlan.PlanID, tx.StressPlan.PlanName,
+			tx.StressPlan.CreateUserID, tx.StressPlan.UpdatedAt).Where(conditions...).Order(sort...).FindByPage((req.Page-1)*req.Size, req.Size)
+		if err != nil {
+			return err
+		}
+
+		//统计用户id
+		var userIDs []string
+		for _, planInfo := range planList {
+			userIDs = append(userIDs, planInfo.CreateUserID)
+		}
+
+		users, err := tx.User.WithContext(ctx).Select(tx.User.UserID, tx.User.Nickname, tx.User.Avatar).Where(tx.User.UserID.In(userIDs...)).Find()
+		if err != nil {
+			return err
+		}
+
+		res = packer.TransNewestPlansToRaoPlanList(planList, users)
+		return nil
+	})
 	return res, nil
 }

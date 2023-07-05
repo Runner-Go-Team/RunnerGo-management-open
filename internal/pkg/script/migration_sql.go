@@ -16,5 +16,29 @@ func GetAllAlterSqlMap() map[string][]string {
 	v112 = append(v112, "update target set target_type = 'folder' where target_type = 'group';")
 	alterSqlMap["1.1.2"] = v112
 
+	// management版本2.0.0
+	v200 := make([]string, 0, 10)
+	v200 = append(v200, "ALTER TABLE team_env DROP COLUMN sort;")
+	v200 = append(v200, "ALTER TABLE team_env DROP COLUMN `status`;")
+	v200 = append(v200, "ALTER TABLE team_env DROP COLUMN recent_user_id;")
+	v200 = append(v200, "ALTER TABLE team_env_service DROP COLUMN sort;")
+	v200 = append(v200, "ALTER TABLE teamteam_env_service_env DROP COLUMN `status`;")
+	v200 = append(v200, "ALTER TABLE teamteam_env_service_env DROP COLUMN recent_user_id;")
+	v200 = append(v200, "ALTER TABLE target ADD is_disabled tinyint(2) NOT NULL DEFAULT '0' COMMENT '运行计划时是否禁用：0-不禁用，1-禁用' after is_checked;")
+	v200 = append(v200, "ALTER TABLE stress_plan_task_conf ADD machine_dispatch_mode_conf text NOT NULL COMMENT '分布式压力机配置' after mode_conf;")
+	v200 = append(v200, "ALTER TABLE stress_plan_task_conf ADD is_open_distributed tinyint(2) NOT NULL DEFAULT '0' COMMENT '是否开启分布式调度：0-关闭，1-开启' after mode_conf;")
+	v200 = append(v200, "ALTER TABLE stress_plan_timed_task_conf ADD machine_dispatch_mode_conf text NOT NULL COMMENT '分布式压力机配置' after mode_conf;")
+	v200 = append(v200, "ALTER TABLE stress_plan_timed_task_conf ADD is_open_distributed tinyint(2) NOT NULL DEFAULT '0' COMMENT '是否开启分布式调度：0-关闭，1-开启' after mode_conf;")
+	v200 = append(v200, "ALTER TABLE preinstall_conf ADD machine_dispatch_mode_conf text NOT NULL COMMENT '分布式压力机配置' after timed_task_conf;")
+	v200 = append(v200, "ALTER TABLE preinstall_conf ADD is_open_distributed tinyint(2) NOT NULL DEFAULT '0' COMMENT '是否开启分布式调度：0-关闭，1-开启' after timed_task_conf;")
+	v200 = append(v200, "ALTER TABLE target MODIFY COLUMN source tinyint(4) NOT NULL DEFAULT '0' COMMENT '数据来源：0-测试对象，1-场景管理，2-性能，3-自动化测试， 4-mock';")
+	v200 = append(v200, "ALTER TABLE report_machine ADD concurrency bigint(20) NOT NULL DEFAULT '0' COMMENT '并发数' after ip;")
+	v200 = append(v200, "ALTER TABLE `team` ADD COLUMN `description` text COMMENT '团队描述' AFTER `name`;")
+	v200 = append(v200, "ALTER TABLE `team` ADD COLUMN `company_id` varchar(100) NOT NULL DEFAULT '' COMMENT '所属企业id' AFTER `description`;")
+	v200 = append(v200, "ALTER TABLE `user` ADD COLUMN `account` varchar(100) NOT NULL DEFAULT '' COMMENT '账号' AFTER `user_id`;")
+	v200 = append(v200, "ALTER TABLE `user_team` ADD COLUMN `invite_time` bigint(20) NOT NULL DEFAULT 0 COMMENT '邀请时间' AFTER `invite_user_id`;")
+	v200 = append(v200, "ALTER TABLE `user_team` ADD COLUMN `is_show` tinyint(2) NOT NULL DEFAULT 1 COMMENT '是否展示到团队列表  1:展示   2:不展示' AFTER `sort`;")
+	alterSqlMap["2.0.0"] = v200
+
 	return alterSqlMap
 }

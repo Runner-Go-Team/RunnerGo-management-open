@@ -74,12 +74,17 @@ type UserSettings struct {
 }
 
 type UserInfo struct {
-	ID       int64  `json:"ID"`
-	Email    string `json:"email"`
-	Mobile   string `json:"mobile"`
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-	RoleID   int64  `json:"role_id"`
+	ID              int64  `json:"id"`
+	Email           string `json:"email"`
+	Mobile          string `json:"mobile"`
+	Nickname        string `json:"nickname"`
+	Avatar          string `json:"avatar"`
+	RoleID          string `json:"role_id"`
+	Account         string `json:"account"`
+	RoleName        string `json:"role_name"`
+	UserID          string `json:"user_id"`
+	CompanyRoleID   string `json:"company_role_id"`
+	CompanyRoleName string `json:"company_role_name"`
 }
 
 type ForgetPasswordReq struct {
@@ -272,4 +277,8 @@ type CheckWechatIsChangeBindResp struct {
 
 type UpdateEmailReq struct {
 	Email string `json:"email"`
+}
+
+type UpdateAccountReq struct {
+	Account string `json:"account" binding:"required,min=6,max=30"`
 }

@@ -31,10 +31,12 @@ type Preinstall struct {
 }
 
 type ChangeTaskConf struct {
-	ReportID string    `bson:"report_id"`
-	TeamID   string    `bson:"team_id"`
-	PlanID   string    `bson:"plan_id"`
-	ModeConf *ModeConf `bson:"mode_conf"`
+	ReportID                string                  `bson:"report_id"`
+	TeamID                  string                  `bson:"team_id"`
+	PlanID                  string                  `bson:"plan_id"`
+	ModeConf                *ModeConf               `bson:"mode_conf"`
+	IsOpenDistributed       int32                   `bson:"is_open_distributed"`        // 是否开启分布式调度：0-关闭，1-开启
+	MachineDispatchModeConf MachineDispatchModeConf `bson:"machine_dispatch_mode_conf"` // 分布式压力机配置
 }
 
 //type ChangeTaskModeConf struct {

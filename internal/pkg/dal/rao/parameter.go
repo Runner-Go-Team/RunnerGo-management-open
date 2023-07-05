@@ -154,31 +154,19 @@ type Resful struct {
 }
 
 type Request struct {
-	PreUrl      string `json:"pre_url"`
-	URL         string `json:"url"`
-	Description string `json:"description"`
-	Auth        Auth   `json:"auth"`
-	Body        Body   `json:"body"`
-	Header      Header `json:"header"`
-	Query       Query  `json:"query"`
-	Event       Event  `json:"event"`
-	Cookie      Cookie `json:"cookie"`
-	Resful      Resful `json:"resful"`
-}
-
-type Success struct {
-	Raw       string      `json:"raw"`
-	Parameter []Parameter `json:"parameter"`
-}
-
-type Error struct {
-	Raw       string      `json:"raw"`
-	Parameter []Parameter `json:"parameter"`
-}
-
-type Response struct {
-	Success Success `json:"success"`
-	Error   Error   `json:"error"`
+	PreUrl       string       `json:"pre_url"`
+	URL          string       `json:"url"`
+	Method       string       `json:"method"`
+	Description  string       `json:"description"`
+	Auth         Auth         `json:"auth"`
+	Body         Body         `json:"body"`
+	Header       Header       `json:"header"`
+	Query        Query        `json:"query"`
+	Event        Event        `json:"event"`
+	Cookie       Cookie       `json:"cookie"`
+	Assert       []Assert     `json:"assert"`
+	Regex        []Regex      `json:"regex"`
+	HttpApiSetup HttpApiSetup `json:"http_api_setup"`
 }
 
 type Assert struct {
@@ -187,12 +175,14 @@ type Assert struct {
 	Compare      string `json:"compare"`
 	Val          string `json:"val"`
 	IsChecked    int    `json:"is_checked"`
+	Index        int    `json:"index"` // 正则时提取第几个值
 }
 
 type Regex struct {
-	Var       string `json:"var"`
-	Express   string `json:"express"`
-	Val       string `json:"val"`
 	IsChecked int    `json:"is_checked"` // 1 选中, -1未选
 	Type      int    `json:"type"`       // 0 正则  1 json
+	Var       string `json:"var"`
+	Val       string `json:"val"`
+	Express   string `json:"express"`
+	Index     int    `json:"index"` // 正则时提取第几个值
 }

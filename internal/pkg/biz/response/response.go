@@ -33,6 +33,14 @@ func ErrorWithMsg(c *gin.Context, code int, msg string) {
 	display(c, code, msg, errno.CodeAlertMap[code], struct{}{})
 }
 
+// ErrorWithMsgAndData  返回错误 附带更多信息,同时带着data返回值
+func ErrorWithMsgAndData(c *gin.Context, code int, msg string, data interface{}) {
+	if m, ok := errno.CodeMsgMap[code]; ok {
+		msg = m + " " + msg
+	}
+	display(c, code, msg, errno.CodeAlertMap[code], data)
+}
+
 // SuccessWithData 返回成功并携带数据
 func SuccessWithData(c *gin.Context, data interface{}) {
 	display(c, errno.Ok, errno.CodeMsgMap[errno.Ok], errno.CodeAlertMap[errno.Ok], data)

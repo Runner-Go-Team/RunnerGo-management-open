@@ -3,7 +3,7 @@ package rao
 type APIDebug struct {
 	ApiID                 string                   `json:"api_id"`
 	APIName               string                   `json:"api_name"`
-	Assertion             []*DebugAssertion        `json:"assertion"`
+	Assert                []*DebugAssert           `json:"assert"`
 	EventID               string                   `json:"event_id"`
 	Regex                 []map[string]interface{} `json:"regex"`
 	RequestBody           string                   `json:"request_body"`
@@ -17,11 +17,12 @@ type APIDebug struct {
 	ResponseLen           int32                    `json:"response_len"`
 	ResponseStatusMessage string                   `json:"response_status_message"`
 	UUID                  string                   `json:"uuid"`
+	Status                string                   `json:"status"`
 }
 
-type DebugAssertion struct {
+type DebugAssert struct {
 	Code      int    `json:"code"`
-	IsSucceed bool   `json:"isSucceed"`
+	IsSucceed bool   `json:"is_succeed"`
 	Msg       string `json:"msg"`
 }
 

@@ -1,7 +1,9 @@
 package mail
 
 import (
+	"context"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 	"net/smtp"
 
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
@@ -176,7 +178,7 @@ const (
         <a class="to_login" href="%s" target="_blank">去登录</a>
         <p class="team">【%s】</p>
         <div class="email-body">
-            <p class="plan-name">【%s】By%s</p>
+            <p class="plan-name">【%s】By %s</p>
             <div class="report-list">
                 <div class="line"></div>
                 <div class="list">
@@ -201,7 +203,7 @@ const (
                     </a>`
 )
 
-func SendPlanEmail(toEmail string, planName, teamName, userName string, reports []*model.StressPlanReport, runUsers []*model.User) error {
+func SendPlanEmail(toEmail string, planName, teamName, userName string, reports []*model.StressPlanReport, runUsers *model.User) error {
 	host := conf.Conf.SMTP.Host
 	port := conf.Conf.SMTP.Port
 	email := conf.Conf.SMTP.Email
@@ -216,19 +218,60 @@ func SendPlanEmail(toEmail string, planName, teamName, userName string, reports 
 	header["Subject"] = fmt.Sprintf("测试报告 【%s】的【%s】给您发送了【%s】的测试报告，点击查看", teamName, userName, planName)
 	header["Content-Type"] = "text/html; charset=UTF-8"
 
-	memo := make(map[string]*model.User, 0)
-	for _, user := range runUsers {
-		memo[user.UserID] = user
-	}
-
 	var r string
 	for _, report := range reports {
-
-		r += fmt.Sprintf(reportListHTMLTemplate, conf.Conf.Base.Domain+"#/email/report?report_id="+fmt.Sprintf("%s", report.ReportID)+"&team_id="+fmt.Sprintf("%s", report.TeamID), report.SceneName, memo[report.RunUserID].Nickname, report.CreatedAt.Format("2006-01-02 15:04:05"))
+		r += fmt.Sprintf(reportListHTMLTemplate,
+			conf.Conf.Base.Domain+"#/email/report?report_id="+fmt.Sprintf("%s", report.ReportID)+"&team_id="+fmt.Sprintf("%s", report.TeamID),
+			report.SceneName, runUsers.Nickname, report.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
 
 	domainUrl := conf.Conf.Base.Domain
 	body := fmt.Sprintf(planHTMLTemplate, domainUrl, teamName, planName, userName, r)
+	message := ""
+	for k, v := range header {
+		message += fmt.Sprintf("%s: %s\r\n", k, v)
+	}
+	message += "\r\n" + body
+	auth := smtp.PlainAuth(
+		"",
+		email,
+		password,
+		host,
+	)
+	return SendMailUsingTLS(
+		fmt.Sprintf("%s:%d", host, port),
+		auth,
+		email,
+		[]string{toEmail},
+		[]byte(message),
+	)
+}
+
+func SendPlanNoticeEmail(ctx context.Context, emailConf *rao.SMTPEmail, toEmail string, params *rao.SendCardParams) error {
+	host := emailConf.Host
+	port := emailConf.Port
+	email := emailConf.Email
+	password := emailConf.Password
+	if host == "" || port == 0 || email == "" || password == "" {
+		return fmt.Errorf("请配置邮件相关环境变量")
+	}
+
+	header := make(map[string]string)
+	header["From"] = "RunnerGo" + "<" + email + ">"
+	header["To"] = toEmail
+	header["Subject"] = fmt.Sprintf("测试报告 【%s】的【%s】给您发送了【%s】的测试报告，点击查看", params.Team.Name, params.RunUserName, params.PlanName)
+	header["Content-Type"] = "text/html; charset=UTF-8"
+
+	reports := params.StressPlanReports
+	var r string
+	for _, report := range reports {
+		r += fmt.Sprintf(reportListHTMLTemplate,
+			conf.Conf.Base.Domain+"#/email/report?report_id="+fmt.Sprintf("%s", report.ReportID)+"&team_id="+fmt.Sprintf("%s", report.TeamID),
+			report.SceneName, params.RunUserName, report.CreatedAt.Format("2006-01-02 15:04:05"))
+	}
+
+	domainUrl := conf.Conf.Base.Domain
+	body := fmt.Sprintf(planHTMLTemplate, domainUrl, params.Team.Name, params.PlanName, params.RunUserName, r)
 	message := ""
 	for k, v := range header {
 		message += fmt.Sprintf("%s: %s\r\n", k, v)

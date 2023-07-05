@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -26,6 +27,15 @@ func RegisterRouter(r *gin.Engine) {
 	r.Use(ginzap.Ginzap(proof.Logger.Z, time.RFC3339, true))
 
 	r.Use(ginzap.RecoveryWithZap(proof.Logger.Z, true))
+
+	r.Use(middleware.RecoverPanic()) // 恢复因接口内部错误导致的panic
+
+	// 探活接口
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+		})
+	})
 
 	// 独立报告页面接口
 	html := r.Group("/html/api/v1/report")
@@ -81,6 +91,7 @@ func RegisterRouter(r *gin.Engine) {
 	user.POST("collect_user_info", handler.CollectUserInfo)        // 用户信息收集
 	user.POST("get_collect_user_info", handler.GetCollectUserInfo) // 判断是否需要手机用户信息
 	user.POST("update_email", handler.UpdateEmail)                 // 修改用户邮箱
+	user.POST("update_account", handler.UpdateAccount)
 
 	// 用户配置
 	setting := api.Group("/v1/setting")
@@ -130,17 +141,35 @@ func RegisterRouter(r *gin.Engine) {
 	folder.POST("/save", handler.SaveFolder)
 	folder.GET("/detail", handler.GetFolder)
 
-	// 接口
+	// 测试对象
 	target := api.Group("/v1/target")
-	// 接口调试
-	target.POST("/send", handler.SendTarget)
+	target.POST("/send", handler.SendTarget) // 接口调试
 	target.GET("/result", handler.GetSendTargetResult)
-	// 接口保存
-	target.POST("/save", handler.SaveTarget)
+	target.POST("/save", handler.SaveTarget) // 测试对象保存
 	target.POST("save_import_api", handler.SaveImportApi)
 	target.POST("/sort", handler.SortTarget)
 	target.GET("/list", handler.ListFolderAPI)
 	target.GET("/detail", handler.BatchGetTarget)
+	// sql 调试相关接口
+	target.POST("get_sql_database_list", handler.GetSqlDatabaseList) // 获取当前团队下sql数据库列表
+	target.POST("send_sql", handler.SendSql)                         // 调试sql语句
+	target.POST("connection_database", handler.ConnectionDatabase)   // 测试连接数据库接口
+	target.POST("get_send_sql_result", handler.GetSendSqlResult)     // 获取运行sql语句结果
+	// Tcp 调试相关接口
+	target.POST("send_tcp", handler.SendTcp)                              // 调试tcp接口
+	target.POST("get_send_tcp_result", handler.GetSendTcpResult)          // 获取运行tcp结果
+	target.POST("tcp_send_or_stop_message", handler.TcpSendOrStopMessage) // 发送或者停止ws消息
+	// Websocket 调试相关接口
+	target.POST("send_websocket", handler.SendWebsocket)                     // 调试websocket接口
+	target.POST("get_send_websocket_result", handler.GetSendWebsocketResult) // 获取运行websocket结果
+	target.POST("ws_send_or_stop_message", handler.WsSendOrStopMessage)      // 发送或者停止ws消息
+	// Dubbo 调试相关接口
+	target.POST("send_dubbo", handler.SendDubbo)                     // 调试Dubbo接口
+	target.POST("get_send_dubbo_result", handler.GetSendDubboResult) // 获取运行Dubbo结果
+	// Mqtt 调试相关接口
+	target.POST("send_mqtt", handler.SendMqtt)                     // 调试Mqtt接口
+	target.POST("get_send_mqtt_result", handler.GetSendMqttResult) // 获取运行Mqtt结果
+
 	// 接口回收站
 	target.GET("/trash_list", handler.TrashTargetList)
 	target.POST("/trash", handler.TrashTarget)
@@ -160,7 +189,7 @@ func RegisterRouter(r *gin.Engine) {
 	scene.POST("/api/send", handler.SendSceneAPI)
 	scene.GET("/result", handler.GetSendSceneResult)
 	scene.POST("/delete", handler.DeleteScene)
-
+	scene.POST("send_mysql", handler.SendMysql) // 调试场景里面的mysql
 	// 场景管理
 	scene.POST("/save", handler.SaveScene)
 	scene.GET("/list", handler.ListGroupScene)
@@ -168,6 +197,7 @@ func RegisterRouter(r *gin.Engine) {
 	scene.GET("/flow/get", handler.GetFlow)
 	scene.GET("/flow/batch/get", handler.BatchGetFlow)
 	scene.POST("/flow/save", handler.SaveFlow)
+	scene.POST("change_disabled_status", handler.ChangeDisabledStatus) // 修改场景禁用状态
 
 	//用例集管理
 	caseAssemble := api.Group("/v1/case")
@@ -202,7 +232,7 @@ func RegisterRouter(r *gin.Engine) {
 	// 测试报告
 	report := api.Group("/v1/report/")
 	report.GET("list", handler.ListReports)
-	report.GET("detail", handler.ReportDetail)
+	report.POST("detail", handler.ReportDetail)
 	report.GET("machine", handler.ListMachines)
 	report.POST("delete", handler.DeleteReport)
 	report.GET("debug", handler.GetDebug)
@@ -233,6 +263,7 @@ func RegisterRouter(r *gin.Engine) {
 	preinstall.POST("detail", handler.GetPreinstallDetail)
 	preinstall.POST("delete", handler.DeletePreinstall)
 	preinstall.POST("copy", handler.CopyPreinstall)
+	preinstall.POST("get_available_machine_list", handler.GetAvailableMachineList)
 
 	// 自动化测试
 	// 计划相关
@@ -268,9 +299,54 @@ func RegisterRouter(r *gin.Engine) {
 
 	//环境管理
 	env := api.Group("/v1/env/")
-	env.POST("list", handler.EnvList)           //获取环境列表
-	env.POST("save", handler.SaveEnv)           //保存/编辑环境信息
-	env.POST("copy", handler.CopyEnv)           //复制环境信息
-	env.POST("del", handler.DelEnv)             //删除环境
-	env.POST("del_service", handler.DelService) //删除环境下服务
+	env.POST("list", handler.EnvList)                        //获取环境列表 (待废弃)
+	env.POST("update_env", handler.UpdateEnv)                //更新环境名称
+	env.POST("create_env", handler.CreateEnv)                //新建环境名称
+	env.POST("copy_env", handler.CopyEnv)                    //克隆环境信息
+	env.POST("del_env", handler.DelEnv)                      //删除环境
+	env.POST("del_env_service", handler.DelEnvService)       //删除环境下服务
+	env.POST("del_env_database", handler.DelEnvDatabase)     //删除环境下数据库
+	env.POST("get_env_list", handler.GetEnvList)             //获取环境列表
+	env.POST("get_service_list", handler.GetServiceList)     //获取环境下服务列表
+	env.POST("get_database_list", handler.GetDatabaseList)   //获取环境下数据库列表
+	env.POST("save_env_service", handler.CreateEnvService)   //新建/修改环境下服务
+	env.POST("save_env_database", handler.CreateEnvDatabase) //新建/修改环境下数据库
+
+	// 企业管理相关接口
+	company := r.Group("management/api/company")
+	company.POST("get_newest_stress_plan_list", handler.GetNewestStressPlanList) // 获取团队最新性能计划列表
+	company.POST("get_newest_auto_plan_list", handler.GetNewestAutoPlanList)     // 获取团队最新自动化计划列表
+
+	// 权限相关接口
+	permission := api.Group("permission")
+	permission.POST("get_team_company_members", handler.GetTeamCompanyMembers) // 获取当前团队和企业成员关系
+	permission.POST("team_members_save", handler.TeamMembersSave)              // 添加团队成员
+	permission.POST("get_role_member_info", handler.GetRoleMemberInfo)         // 获取我的角色信息
+	permission.POST("user_get_marks", handler.UserGetMarks)                    // 获取用户的全部角色对应的mark
+	permission.GET("get_notice_group_list", handler.GetNoticeGroupList)        // 获取通知组列表
+	permission.GET("get_notice_third_users", handler.GetNoticeThirdUsers)      // 获取三方组织架构成员
+
+	// mock 相关接口
+	mock := api.Group("/v1/mock/")
+	mock.GET("get", handler.MockInfo)
+	mock.POST("save_to_target", handler.MockSaveToTarget) // mock 接口同步至测试对象
+
+	mockFolder := mock.Group("folder/") // 文件夹
+	mockFolder.POST("save", handler.MockSaveFolder)
+	mockFolder.GET("detail", handler.MockGetFolder)
+
+	mockTarget := mock.Group("target/")             // mock 测试对象
+	mockTarget.POST("save", handler.MockSaveTarget) // 测试对象保存
+	mockTarget.POST("send", handler.MockSendTarget) // 接口调试
+	mockTarget.GET("result", handler.MockGetSendTargetResult)
+	mockTarget.GET("detail", handler.MockBatchGetTarget)
+	mockTarget.POST("sort", handler.MockSortTarget)
+	mockTarget.GET("list", handler.MockListFolderAPI)
+	mockTarget.POST("trash", handler.MockTrashTarget)
+
+	// 三方通知
+	notice := api.Group("/v1/notice")
+	notice.POST("send", handler.SendNotice)                    // 发送通知
+	notice.POST("save_event", handler.SaveNoticeEvent)         // 三方通知绑定
+	notice.GET("get_group_event", handler.GetGroupNoticeEvent) // 获取通知事件对应通知组ID
 }

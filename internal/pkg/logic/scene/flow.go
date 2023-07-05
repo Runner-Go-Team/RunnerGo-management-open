@@ -2,18 +2,21 @@ package scene
 
 import (
 	"context"
+	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
-	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-
-	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/target"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
+	"github.com/gin-gonic/gin"
+	"github.com/goccy/go-json"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func SaveFlow(ctx context.Context, req *rao.SaveFlowReq) (int, error) {
@@ -33,20 +36,30 @@ func SaveFlow(ctx context.Context, req *rao.SaveFlowReq) (int, error) {
 	return errno.Ok, err
 }
 
-func GetFlow(ctx context.Context, sceneID string) (*rao.GetFlowResp, error) {
-	var ret mao.Flow
+func GetFlow(ctx context.Context, sceneID string) (rao.GetFlowResp, error) {
+	res := rao.GetFlowResp{}
 
+	tx := dal.GetQuery().Target
+	targetInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(sceneID)).First()
+	if err != nil {
+		return res, err
+	}
+	res.TeamID = targetInfo.TeamID
+	res.SceneID = targetInfo.TargetID
+	res.Version = targetInfo.Version
+
+	ret := mao.Flow{}
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
-	err := collection.FindOne(ctx, bson.D{{"scene_id", sceneID}}).Decode(&ret)
+	err = collection.FindOne(ctx, bson.D{{"scene_id", sceneID}}).Decode(&ret)
 	if err != nil && err != mongo.ErrNoDocuments {
-		return nil, err
+		return res, err
 	}
 
 	if err == mongo.ErrNoDocuments {
-		return nil, nil
+		return res, nil
 	}
 
-	return packer.TransMaoFlowToRaoGetFowResp(&ret), nil
+	return packer.TransMaoFlowToRaoGetFowResp(ret), nil
 }
 
 func BatchGetFlow(ctx context.Context, sceneIDs []string) ([]*rao.Flow, error) {
@@ -197,4 +210,183 @@ func DeleteScene(ctx *gin.Context, req *rao.DeleteSceneReq, userID string) error
 
 		return nil
 	})
+}
+
+func ChangeDisabledStatus(ctx *gin.Context, req *rao.ChangeDisabledStatusReq) error {
+	tx := dal.GetQuery().Target
+	_, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(req.TargetID)).UpdateSimple(tx.IsDisabled.Value(req.IsDisabled))
+	if err != nil {
+		return fmt.Errorf("修改禁用状态失败")
+	}
+	return nil
+}
+
+func SendMysql(ctx context.Context, req *rao.SendMysqlReq) (string, error) {
+	prepositions := mao.Preposition{}
+	// 场景
+	f := mao.Flow{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
+	err := collection.FindOne(ctx, bson.D{{"scene_id", req.SceneID}}).Decode(&f)
+	if err != nil {
+		return "", err
+	}
+
+	if err = bson.Unmarshal(f.Prepositions, &prepositions); err != nil {
+		return "", err
+	}
+
+	// 获取上传的变量文件地址
+	vi := dal.GetQuery().VariableImport
+	vis, err := vi.WithContext(ctx).Where(vi.SceneID.Eq(req.SceneID)).Find()
+	if err != nil {
+		return "", err
+	}
+
+	fileList := make([]rao.FileList, 0, len(vis))
+	for _, viInfo := range vis {
+		fileList = append(fileList, rao.FileList{
+			IsChecked: int64(viInfo.Status),
+			Path:      viInfo.URL,
+		})
+	}
+
+	// 获取全局变量
+	globalVariable, err := target.GetGlobalVariable(ctx, req.TeamID)
+
+	// 获取场景变量
+	sceneVariable := rao.GlobalVariable{}
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+	cur, err := collection.Find(ctx, bson.D{{"scene_id", req.SceneID}})
+	var sceneParamDataArr []*mao.SceneParamData
+	if err == nil {
+		if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+			return "", fmt.Errorf("场景参数数据获取失败")
+		}
+	}
+
+	sceneCookieParam := make([]rao.CookieParam, 0, 100)
+	sceneHeaderParam := make([]rao.HeaderParam, 0, 100)
+	sceneVariableParam := make([]rao.VariableParam, 0, 100)
+	sceneAssertParam := make([]rao.AssertParam, 0, 100)
+	for _, sceneParamInfo := range sceneParamDataArr {
+		if sceneParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneCookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(sceneCookieParam))
+			for _, v := range sceneCookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Cookie.Parameter = parameter
+		}
+		if sceneParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneHeaderParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(sceneHeaderParam))
+			for _, v := range sceneHeaderParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Header.Parameter = parameter
+
+		}
+		if sceneParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneVariableParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(sceneVariableParam))
+			for _, v := range sceneVariableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Variable = parameter
+		}
+		if sceneParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneAssertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(sceneAssertParam))
+			for _, v := range sceneAssertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Assert = parameter
+		}
+	}
+
+	// 组装场景变量
+	configurationData := rao.Configuration{
+		ParameterizedFile: rao.ParameterizedFile{
+			Paths: fileList,
+		},
+		SceneVariable: rao.GlobalVariable{
+			Cookie:   sceneVariable.Cookie,
+			Header:   sceneVariable.Header,
+			Variable: sceneVariable.Variable,
+			Assert:   sceneVariable.Assert,
+		},
+	}
+
+	for _, prepositionsInfo := range prepositions.Prepositions {
+		if prepositionsInfo.ID == req.NodeID {
+			dbType := "mysql"
+			if prepositionsInfo.API.Method == "ORACLE" {
+				dbType = "oracle"
+			} else if prepositionsInfo.API.Method == "PgSQL" {
+				dbType = "postgresql"
+			}
+
+			runMysqlParam := rao.RunTargetParam{
+				TargetID:   prepositionsInfo.ID,
+				Name:       prepositionsInfo.API.Name,
+				TeamID:     req.TeamID,
+				TargetType: prepositionsInfo.API.TargetType,
+				SqlDetail: rao.SqlDetail{
+					SqlString: prepositionsInfo.API.SqlDetail.SqlString,
+					SqlDatabaseInfo: rao.SqlDatabaseInfo{
+						Type:     dbType,
+						Host:     prepositionsInfo.API.SqlDetail.SqlDatabaseInfo.Host,
+						User:     prepositionsInfo.API.SqlDetail.SqlDatabaseInfo.User,
+						Password: prepositionsInfo.API.SqlDetail.SqlDatabaseInfo.Password,
+						Port:     prepositionsInfo.API.SqlDetail.SqlDatabaseInfo.Port,
+						DbName:   prepositionsInfo.API.SqlDetail.SqlDatabaseInfo.DbName,
+						Charset:  prepositionsInfo.API.SqlDetail.SqlDatabaseInfo.Charset,
+					},
+					Assert: prepositionsInfo.API.SqlDetail.Assert,
+					Regex:  prepositionsInfo.API.SqlDetail.Regex,
+				},
+				Configuration:  configurationData,
+				GlobalVariable: globalVariable,
+			}
+			return runner.RunTarget(runMysqlParam)
+		}
+	}
+	return "", nil
 }

@@ -654,7 +654,7 @@ func SendReportApi(ctx *gin.Context) {
 		return
 	}
 
-	retID, err := autoPlan.SendReportApi(ctx, &req)
+	retID, err := autoPlan.SendReportApi(&req)
 	if err != nil {
 		if err.Error() == "调试接口返回非200状态" {
 			response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())

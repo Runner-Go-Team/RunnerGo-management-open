@@ -24,7 +24,6 @@ import (
 
 func SavePreinstall(ctx *gin.Context, req *rao.SavePreinstallReq) (int, error) {
 	// 名称排重
-	// 查询当前计划名称是否存在
 	pcTable := dal.GetQuery().PreinstallConf
 	_, err := pcTable.WithContext(ctx).Where(pcTable.TeamID.Eq(req.TeamID),
 		pcTable.ConfName.Eq(req.ConfName), pcTable.ID.Neq(req.ID)).First()
@@ -75,6 +74,12 @@ func SavePreinstall(ctx *gin.Context, req *rao.SavePreinstallReq) (int, error) {
 		log.Logger.Error("保存预设配置--压缩timed_task_conf为字符串失败，err:", err)
 		return errno.ErrMarshalFailed, err
 	}
+	// 把MachineDispatchModeConf压缩成字符串
+	machineDispatchModeConfString, err := json.Marshal(req.MachineDispatchModeConf)
+	if err != nil {
+		log.Logger.Error("保存预设配置--压缩MachineDispatchModeConf为字符串失败，err:", err)
+		return errno.ErrMarshalFailed, err
+	}
 
 	if req.ID == 0 { // 新建
 		// 排重
@@ -85,16 +90,18 @@ func SavePreinstall(ctx *gin.Context, req *rao.SavePreinstallReq) (int, error) {
 		}
 
 		insertData := &model.PreinstallConf{
-			ConfName:      req.ConfName,
-			TeamID:        req.TeamID,
-			UserID:        userId,
-			UserName:      userInfo.Nickname,
-			TaskType:      req.TaskType,
-			TaskMode:      req.TaskMode,
-			ControlMode:   req.ControlMode,
-			DebugMode:     req.DebugMode,
-			ModeConf:      string(modeConfString),
-			TimedTaskConf: string(timedTaskConfString),
+			ConfName:                req.ConfName,
+			TeamID:                  req.TeamID,
+			UserID:                  userId,
+			UserName:                userInfo.Nickname,
+			TaskType:                req.TaskType,
+			TaskMode:                req.TaskMode,
+			ControlMode:             req.ControlMode,
+			DebugMode:               req.DebugMode,
+			ModeConf:                string(modeConfString),
+			TimedTaskConf:           string(timedTaskConfString),
+			IsOpenDistributed:       req.IsOpenDistributed,
+			MachineDispatchModeConf: string(machineDispatchModeConfString),
 		}
 		err = tx.WithContext(ctx).Create(insertData)
 		if err != nil {
@@ -120,6 +127,8 @@ func SavePreinstall(ctx *gin.Context, req *rao.SavePreinstallReq) (int, error) {
 			tx.DebugMode.Value(req.DebugMode),
 			tx.ModeConf.Value(string(modeConfString)),
 			tx.TimedTaskConf.Value(string(timedTaskConfString)),
+			tx.IsOpenDistributed.Value(req.IsOpenDistributed),
+			tx.MachineDispatchModeConf.Value(string(machineDispatchModeConfString)),
 		)
 		if err != nil {
 			log.Logger.Error("保存预设配置--修改数据失败，err:", err)
@@ -144,7 +153,7 @@ func GetPreinstallDetail(ctx context.Context, req rao.GetPreinstallDetailReq) (*
 	}
 
 	// 转换数据类型
-	modeConf := new(rao.ModeConf)
+	modeConf := rao.ModeConf{}
 	if preinstallData.ModeConf != "" {
 		err = json.Unmarshal([]byte(preinstallData.ModeConf), &modeConf)
 		if err != nil {
@@ -153,7 +162,7 @@ func GetPreinstallDetail(ctx context.Context, req rao.GetPreinstallDetailReq) (*
 		}
 	}
 
-	timedTaskConf := new(rao.TimedTaskConf)
+	timedTaskConf := rao.TimedTaskConf{}
 	if preinstallData.TimedTaskConf != "" {
 		err = json.Unmarshal([]byte(preinstallData.TimedTaskConf), &timedTaskConf)
 		if err != nil {
@@ -162,17 +171,28 @@ func GetPreinstallDetail(ctx context.Context, req rao.GetPreinstallDetailReq) (*
 		}
 	}
 
+	machineDispatchModeConf := rao.MachineDispatchModeConf{}
+	if preinstallData.MachineDispatchModeConf != "" {
+		err = json.Unmarshal([]byte(preinstallData.MachineDispatchModeConf), &machineDispatchModeConf)
+		if err != nil {
+			log.Logger.Error("查看预设配置详情--解析machineDispatchModeConf数据失败，err：", err)
+			return nil, err
+		}
+	}
+
 	res := &rao.PreinstallDetailResponse{
-		ID:            preinstallData.ID,
-		TeamID:        preinstallData.TeamID,
-		ConfName:      preinstallData.ConfName,
-		UserName:      preinstallData.UserName,
-		TaskType:      preinstallData.TaskType,
-		TaskMode:      preinstallData.TaskMode,
-		ControlMode:   preinstallData.ControlMode,
-		DebugMode:     preinstallData.DebugMode,
-		ModeConf:      modeConf,
-		TimedTaskConf: timedTaskConf,
+		ID:                      preinstallData.ID,
+		TeamID:                  preinstallData.TeamID,
+		ConfName:                preinstallData.ConfName,
+		UserName:                preinstallData.UserName,
+		TaskType:                preinstallData.TaskType,
+		TaskMode:                preinstallData.TaskMode,
+		ControlMode:             preinstallData.ControlMode,
+		DebugMode:               preinstallData.DebugMode,
+		ModeConf:                modeConf,
+		TimedTaskConf:           timedTaskConf,
+		IsOpenDistributed:       preinstallData.IsOpenDistributed,
+		MachineDispatchModeConf: machineDispatchModeConf,
 	}
 
 	if preinstallData.TaskType == consts.PlanTaskTypeCronjob && timedTaskConf.Frequency == 0 {
@@ -233,10 +253,33 @@ func GetPreinstallList(ctx *gin.Context, req rao.GetPreinstallListReq) ([]*rao.P
 		userMap[userInfo.UserID] = userInfo.Nickname
 	}
 
+	// 查询可用压力机
+	machineTB := dal.GetQuery().Machine
+	// 获取当前所有可用机器列表
+	allMachineList, err := machineTB.WithContext(ctx).Where(machineTB.Status.Eq(consts.MachineStatusAvailable)).Find()
+	if err != nil {
+		return nil, 0, fmt.Errorf("压力机数据查询失败")
+	}
+
+	defaultUsableMachineList := make([]rao.UsableMachineInfo, 0, len(allMachineList))
+	allMachineMap := make(map[string]rao.UsableMachineInfo, len(allMachineList))
+	for _, v := range allMachineList {
+		temp := rao.UsableMachineInfo{
+			MachineStatus:  v.Status,
+			MachineName:    v.Name,
+			Region:         v.Region,
+			Ip:             v.IP,
+			CreatedTimeSec: v.CreatedAt.Unix(),
+		}
+		defaultUsableMachineList = append(defaultUsableMachineList, temp)
+		allMachineMap[v.IP] = temp
+	}
+
+	// 组装返回值
 	res := make([]*rao.PreinstallDetailResponse, 0, len(list))
 	for _, detail := range list {
 		// 转换数据类型
-		modeConf := new(rao.ModeConf)
+		modeConf := rao.ModeConf{}
 		if detail.ModeConf != "" {
 			err = json.Unmarshal([]byte(detail.ModeConf), &modeConf)
 			if err != nil {
@@ -245,7 +288,7 @@ func GetPreinstallList(ctx *gin.Context, req rao.GetPreinstallListReq) ([]*rao.P
 			}
 		}
 
-		timedTaskConf := new(rao.TimedTaskConf)
+		timedTaskConf := rao.TimedTaskConf{}
 		if detail.TimedTaskConf != "" {
 			err = json.Unmarshal([]byte(detail.TimedTaskConf), &timedTaskConf)
 			if err != nil {
@@ -254,17 +297,67 @@ func GetPreinstallList(ctx *gin.Context, req rao.GetPreinstallListReq) ([]*rao.P
 			}
 		}
 
+		machineDispatchModeConf := rao.MachineDispatchModeConf{}
+		if detail.MachineDispatchModeConf != "" {
+			err = json.Unmarshal([]byte(detail.MachineDispatchModeConf), &machineDispatchModeConf)
+			if err != nil {
+				log.Logger.Error("查看预设配置详情--解析machineDispatchModeConf数据失败，err：", err)
+				continue
+			}
+		}
+
+		usableMachineList := make([]rao.UsableMachineInfo, 0, len(machineDispatchModeConf.UsableMachineList))
+		if len(machineDispatchModeConf.UsableMachineList) == 0 {
+			usableMachineList = defaultUsableMachineList
+		} else {
+			for _, v := range machineDispatchModeConf.UsableMachineList {
+				temp := rao.UsableMachineInfo{
+					MachineStatus:    v.MachineStatus,
+					MachineName:      v.MachineName,
+					Region:           v.Region,
+					Ip:               v.Ip,
+					Weight:           v.Weight,
+					RoundNum:         v.RoundNum,
+					Concurrency:      v.Concurrency,
+					ThresholdValue:   v.ThresholdValue,
+					StartConcurrency: v.StartConcurrency,
+					Step:             v.Step,
+					StepRunTime:      v.StepRunTime,
+					MaxConcurrency:   v.MaxConcurrency,
+					Duration:         v.Duration,
+					CreatedTimeSec:   v.CreatedTimeSec,
+				}
+
+				// 判断配置过的压力机是否在全部压力机列表里面
+				if machineInfo, ok := allMachineMap[v.Ip]; ok {
+					temp.MachineStatus = machineInfo.MachineStatus
+					allMachineMap[v.Ip] = temp
+				} else {
+					temp.MachineStatus = 2 // 机器不可用
+					allMachineMap[v.Ip] = temp
+				}
+			}
+			for _, v := range allMachineMap {
+				usableMachineList = append(usableMachineList, v)
+			}
+		}
+
 		detailTmp := &rao.PreinstallDetailResponse{
-			ID:            detail.ID,
-			TeamID:        detail.TeamID,
-			ConfName:      detail.ConfName,
-			UserName:      userMap[detail.UserID],
-			TaskType:      detail.TaskType,
-			TaskMode:      detail.TaskMode,
-			ControlMode:   detail.ControlMode,
-			DebugMode:     detail.DebugMode,
-			ModeConf:      modeConf,
-			TimedTaskConf: timedTaskConf,
+			ID:                detail.ID,
+			TeamID:            detail.TeamID,
+			ConfName:          detail.ConfName,
+			UserName:          userMap[detail.UserID],
+			TaskType:          detail.TaskType,
+			TaskMode:          detail.TaskMode,
+			ControlMode:       detail.ControlMode,
+			DebugMode:         detail.DebugMode,
+			ModeConf:          modeConf,
+			TimedTaskConf:     timedTaskConf,
+			IsOpenDistributed: detail.IsOpenDistributed,
+			MachineDispatchModeConf: rao.MachineDispatchModeConf{
+				MachineAllotType:  machineDispatchModeConf.MachineAllotType,
+				UsableMachineList: usableMachineList,
+			},
 		}
 		res = append(res, detailTmp)
 	}
@@ -336,16 +429,18 @@ func CopyPreinstall(ctx *gin.Context, req rao.CopyPreinstallReq) error {
 	}
 
 	insertData := &model.PreinstallConf{
-		ConfName:      newPreInstallName,
-		TeamID:        oldPreinstallInfo.TeamID,
-		UserID:        userId,
-		UserName:      userInfo.Nickname,
-		TaskType:      oldPreinstallInfo.TaskType,
-		TaskMode:      oldPreinstallInfo.TaskMode,
-		ControlMode:   oldPreinstallInfo.ControlMode,
-		DebugMode:     oldPreinstallInfo.DebugMode,
-		ModeConf:      oldPreinstallInfo.ModeConf,
-		TimedTaskConf: oldPreinstallInfo.TimedTaskConf,
+		ConfName:                newPreInstallName,
+		TeamID:                  oldPreinstallInfo.TeamID,
+		UserID:                  userId,
+		UserName:                userInfo.Nickname,
+		TaskType:                oldPreinstallInfo.TaskType,
+		TaskMode:                oldPreinstallInfo.TaskMode,
+		ControlMode:             oldPreinstallInfo.ControlMode,
+		DebugMode:               oldPreinstallInfo.DebugMode,
+		ModeConf:                oldPreinstallInfo.ModeConf,
+		TimedTaskConf:           oldPreinstallInfo.TimedTaskConf,
+		IsOpenDistributed:       oldPreinstallInfo.IsOpenDistributed,
+		MachineDispatchModeConf: oldPreinstallInfo.MachineDispatchModeConf,
 	}
 	err = tx.WithContext(ctx).Create(insertData)
 	if err != nil {
@@ -354,4 +449,27 @@ func CopyPreinstall(ctx *gin.Context, req rao.CopyPreinstallReq) error {
 	}
 
 	return nil
+}
+
+func GetAvailableMachineList(ctx *gin.Context) ([]rao.UsableMachineInfo, error) {
+	res := make([]rao.UsableMachineInfo, 0)
+	tx := dal.GetQuery().Machine
+	list, err := tx.WithContext(ctx).Where(tx.Status.Eq(consts.MachineStatusAvailable)).Find()
+	if err != nil {
+		return res, err
+	}
+
+	if len(list) > 0 {
+		for _, v := range list {
+			temp := rao.UsableMachineInfo{
+				MachineStatus: v.Status,
+				MachineName:   v.Name,
+				Region:        v.Region,
+				Ip:            v.IP,
+			}
+			res = append(res, temp)
+		}
+	}
+
+	return res, nil
 }

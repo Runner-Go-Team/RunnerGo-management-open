@@ -1,10 +1,10 @@
 package packer
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
-	"github.com/go-omnibus/proof"
 	uuid "github.com/satori/go.uuid"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -13,21 +13,26 @@ func TransSaveFlowReqToMaoFlow(req *rao.SaveFlowReq) *mao.Flow {
 
 	nodes, err := bson.Marshal(mao.Node{Nodes: req.Nodes})
 	if err != nil {
-		proof.Errorf("flow.nodes bson marshal err %w", err)
+		log.Logger.Info("flow.nodes bson marshal err %w", err)
 	}
 
 	edges, err := bson.Marshal(mao.Edge{Edges: req.Edges})
 	if err != nil {
-		proof.Errorf("flow.edges bson marshal err %w", err)
+		log.Logger.Info("flow.edges bson marshal err %w", err)
+	}
+
+	prepositions, err := bson.Marshal(mao.Node{Nodes: req.Prepositions})
+	if err != nil {
+		log.Logger.Info("flow.prepositions bson marshal err %w", err)
 	}
 
 	return &mao.Flow{
-		SceneID: req.SceneID,
-		TeamID:  req.TeamID,
-		Version: req.Version,
-		Nodes:   nodes,
-		Edges:   edges,
-		//MultiLevelNodes: req.MultiLevelNodes,
+		SceneID:      req.SceneID,
+		TeamID:       req.TeamID,
+		Version:      req.Version,
+		Nodes:        nodes,
+		Edges:        edges,
+		Prepositions: prepositions,
 	}
 }
 
@@ -35,12 +40,33 @@ func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.Varia
 	sceneVariable rao.GlobalVariable, globalVariable rao.GlobalVariable) *rao.SceneFlow {
 	nodes := mao.Node{}
 	if err := bson.Unmarshal(f.Nodes, &nodes); err != nil {
-		proof.Errorf("flow.nodes bson unmarshal err %w", err)
+		log.Logger.Info("flow.nodes bson unmarshal err %w", err)
 	}
 
 	edges := mao.Edge{}
 	if err := bson.Unmarshal(f.Edges, &edges); err != nil {
-		proof.Errorf("flow.edges bson unmarshal err %w", err)
+		log.Logger.Info("flow.edges bson unmarshal err %w", err)
+	}
+
+	prepositions := mao.Preposition{}
+	if err := bson.Unmarshal(f.Prepositions, &prepositions); err != nil {
+		log.Logger.Info("flow.prepositions bson unmarshal err %w", err)
+	}
+
+	prepositionsArr := make([]rao.Preposition, 0, len(prepositions.Prepositions))
+	for _, nodeInfo := range prepositions.Prepositions {
+		dbType := "mysql"
+		if nodeInfo.API.Method == "ORACLE" {
+			dbType = "oracle"
+		} else if nodeInfo.API.Method == "PgSQL" {
+			dbType = "postgresql"
+		}
+		nodeInfo.API.SqlDetail.SqlDatabaseInfo.Type = dbType
+		temp := rao.Preposition{
+			Type:  nodeInfo.Type,
+			Event: nodeInfo,
+		}
+		prepositionsArr = append(prepositionsArr, temp)
 	}
 
 	fileList := make([]rao.FileList, 0, len(vis))
@@ -50,13 +76,21 @@ func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.Varia
 			Path:      vi.URL,
 		})
 	}
+
+	for k, nodeInfo := range nodes.Nodes {
+		if f.EnvID != 0 {
+			nodes.Nodes[k].API.Request.PreUrl = nodeInfo.API.EnvInfo.PreUrl
+		} else {
+			nodes.Nodes[k].API.Request.PreUrl = ""
+		}
+	}
+
 	nodesRound := GetNodesByLevel(nodes.Nodes, edges.Edges)
 
 	return &rao.SceneFlow{
 		SceneID:   t.TargetID,
 		SceneName: t.Name,
 		TeamID:    t.TeamID,
-		//Nodes:     nodes.Nodes,
 		Configuration: rao.SceneConfiguration{
 			ParameterizedFile: rao.SceneVariablePath{
 				Paths: fileList,
@@ -65,6 +99,7 @@ func TransMaoFlowToRaoSceneFlow(t *model.Target, f *mao.Flow, vis []*model.Varia
 		},
 		NodesRound:     nodesRound,
 		GlobalVariable: globalVariable,
+		Prepositions:   prepositionsArr,
 	}
 }
 
@@ -114,25 +149,49 @@ func containsNode(nodes []rao.Node, node rao.Node) bool {
 	return false
 }
 
-func TransMaoFlowToRaoGetFowResp(f *mao.Flow) *rao.GetFlowResp {
-
-	var n mao.Node
+func TransMaoFlowToRaoGetFowResp(f mao.Flow) rao.GetFlowResp {
+	n := mao.Node{}
 	if err := bson.Unmarshal(f.Nodes, &n); err != nil {
-		proof.Errorf("flow.nodes bson unmarshal err %w", err)
+		log.Logger.Info("flow.nodes bson unmarshal err %w", err)
+	}
+	if n.Nodes == nil || len(n.Nodes) == 0 {
+		n.Nodes = make([]rao.Node, 0)
 	}
 
-	var e mao.Edge
+	e := mao.Edge{}
 	if err := bson.Unmarshal(f.Edges, &e); err != nil {
-		proof.Errorf("flow.edges bson unmarshal err %w", err)
+		log.Logger.Info("flow.edges bson unmarshal err %w", err)
+	}
+	if e.Edges == nil || len(e.Edges) == 0 {
+		e.Edges = make([]rao.Edge, 0)
 	}
 
-	return &rao.GetFlowResp{
+	prepositions := mao.Preposition{}
+	if err := bson.Unmarshal(f.Prepositions, &prepositions); err != nil {
+		log.Logger.Info("flow.prepositions bson unmarshal err %w", err)
+	}
+	if prepositions.Prepositions == nil || len(prepositions.Prepositions) == 0 {
+		prepositions.Prepositions = make([]rao.Node, 0)
+	}
+
+	// 把前置条件放到node里面
+	for _, v := range prepositions.Prepositions {
+		n.Nodes = append(n.Nodes, v)
+	}
+
+	for k, v := range n.Nodes {
+		if v.API.Request.Method == "" {
+			n.Nodes[k].API.Request.Method = v.API.Method
+		}
+	}
+
+	return rao.GetFlowResp{
 		SceneID: f.SceneID,
 		TeamID:  f.TeamID,
 		Version: f.Version,
 		Nodes:   n.Nodes,
 		Edges:   e.Edges,
-		//MultiLevelNodes: f.MultiLevelNodes,
+		EnvID:   f.EnvID,
 	}
 }
 
@@ -141,12 +200,12 @@ func TransMaoFlowsToRaoFlows(flows []*mao.Flow) []*rao.Flow {
 	for _, f := range flows {
 		var n mao.Node
 		if err := bson.Unmarshal(f.Nodes, &n); err != nil {
-			proof.Errorf("flow.nodes bson unmarshal err %w", err)
+			log.Logger.Info("flow.nodes bson unmarshal err %w", err)
 		}
 
 		var e mao.Edge
 		if err := bson.Unmarshal(f.Edges, &e); err != nil {
-			proof.Errorf("flow.edges bson unmarshal err %w", err)
+			log.Logger.Info("flow.edges bson unmarshal err %w", err)
 		}
 
 		ret = append(ret, &rao.Flow{
@@ -163,12 +222,15 @@ func TransMaoFlowsToRaoFlows(flows []*mao.Flow) []*rao.Flow {
 
 // ChangeSceneNodeUUID 更换接口的uuid
 func ChangeSceneNodeUUID(data *mao.Flow) error {
+	// 新老uuid映射关系
+	oldAndNewUUIDMap := make(map[string]string)
+
+	// 替换node里面的uuid
 	var node mao.Node
 	err := bson.Unmarshal(data.Nodes, &node)
 	if err != nil {
 		return err
 	}
-	oldAndNewUUIDMap := make(map[string]string)
 	for k, nodeInfo := range node.Nodes {
 		if _, ok := oldAndNewUUIDMap[nodeInfo.ID]; !ok {
 			oldAndNewUUIDMap[nodeInfo.ID] = uuid.NewV4().String()
@@ -194,6 +256,38 @@ func ChangeSceneNodeUUID(data *mao.Flow) error {
 	}
 	data.Nodes = newNode
 
+	// 替换prepositions里面的uuid
+	prepositions := mao.Preposition{}
+	err = bson.Unmarshal(data.Prepositions, &prepositions)
+	if err != nil {
+		return err
+	}
+	for k, nodeInfo := range prepositions.Prepositions {
+		if _, ok := oldAndNewUUIDMap[nodeInfo.ID]; !ok {
+			oldAndNewUUIDMap[nodeInfo.ID] = uuid.NewV4().String()
+		}
+		prepositions.Prepositions[k].ID = oldAndNewUUIDMap[nodeInfo.ID]
+		prepositions.Prepositions[k].Data.ID = prepositions.Prepositions[k].ID
+		for k2, oldPreID := range nodeInfo.PreList {
+			if _, ok := oldAndNewUUIDMap[oldPreID]; !ok {
+				oldAndNewUUIDMap[oldPreID] = uuid.NewV4().String()
+			}
+			prepositions.Prepositions[k].PreList[k2] = oldAndNewUUIDMap[oldPreID]
+		}
+		for k3, oldNextID := range nodeInfo.NextList {
+			if _, ok := oldAndNewUUIDMap[oldNextID]; !ok {
+				oldAndNewUUIDMap[oldNextID] = uuid.NewV4().String()
+			}
+			prepositions.Prepositions[k].NextList[k3] = oldAndNewUUIDMap[oldNextID]
+		}
+	}
+	newPrepositions, err := bson.Marshal(prepositions)
+	if err != nil {
+		return err
+	}
+	data.Prepositions = newPrepositions
+
+	// 替换edges里面的uuid
 	var oldEdges mao.Edge
 	err = bson.Unmarshal(data.Edges, &oldEdges)
 	if err != nil {

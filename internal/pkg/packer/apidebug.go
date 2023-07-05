@@ -7,9 +7,9 @@ import (
 
 func TransMaoAPIDebugToRaoAPIDebug(m *mao.APIDebug) *rao.APIDebug {
 
-	var as []*rao.DebugAssertion
-	for _, a := range m.Assertion {
-		as = append(as, &rao.DebugAssertion{
+	var as []*rao.DebugAssert
+	for _, a := range m.Assert {
+		as = append(as, &rao.DebugAssert{
 			Code:      a.Code,
 			IsSucceed: a.IsSucceed,
 			Msg:       a.Msg,
@@ -19,7 +19,7 @@ func TransMaoAPIDebugToRaoAPIDebug(m *mao.APIDebug) *rao.APIDebug {
 	return &rao.APIDebug{
 		ApiID:                 m.ApiID,
 		APIName:               m.APIName,
-		Assertion:             as,
+		Assert:                as,
 		EventID:               m.EventID,
 		Regex:                 m.Regex,
 		RequestBody:           m.RequestBody,
@@ -33,5 +33,6 @@ func TransMaoAPIDebugToRaoAPIDebug(m *mao.APIDebug) *rao.APIDebug {
 		ResponseLen:           m.ResponseLen,
 		ResponseStatusMessage: m.ResponseStatusMessage,
 		UUID:                  m.UUID,
+		Status:                m.Status,
 	}
 }

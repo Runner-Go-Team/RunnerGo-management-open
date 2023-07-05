@@ -32,6 +32,7 @@ func newReportMachine(db *gorm.DB, opts ...gen.DOOption) reportMachine {
 	_reportMachine.PlanID = field.NewString(tableName, "plan_id")
 	_reportMachine.TeamID = field.NewString(tableName, "team_id")
 	_reportMachine.IP = field.NewString(tableName, "ip")
+	_reportMachine.Concurrency = field.NewInt64(tableName, "concurrency")
 	_reportMachine.CreatedAt = field.NewTime(tableName, "created_at")
 	_reportMachine.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_reportMachine.DeletedAt = field.NewField(tableName, "deleted_at")
@@ -44,15 +45,16 @@ func newReportMachine(db *gorm.DB, opts ...gen.DOOption) reportMachine {
 type reportMachine struct {
 	reportMachineDo reportMachineDo
 
-	ALL       field.Asterisk
-	ID        field.Int64  // 主键ID
-	ReportID  field.String // 报告id
-	PlanID    field.String // 计划ID
-	TeamID    field.String // 团队ID
-	IP        field.String // 机器ip
-	CreatedAt field.Time   // 创建时间
-	UpdatedAt field.Time   // 更新时间
-	DeletedAt field.Field  // 删除时间
+	ALL         field.Asterisk
+	ID          field.Int64  // 主键ID
+	ReportID    field.String // 报告id
+	PlanID      field.String // 计划ID
+	TeamID      field.String // 团队ID
+	IP          field.String // 机器ip
+	Concurrency field.Int64  // 并发数
+	CreatedAt   field.Time   // 创建时间
+	UpdatedAt   field.Time   // 更新时间
+	DeletedAt   field.Field  // 删除时间
 
 	fieldMap map[string]field.Expr
 }
@@ -74,6 +76,7 @@ func (r *reportMachine) updateTableName(table string) *reportMachine {
 	r.PlanID = field.NewString(table, "plan_id")
 	r.TeamID = field.NewString(table, "team_id")
 	r.IP = field.NewString(table, "ip")
+	r.Concurrency = field.NewInt64(table, "concurrency")
 	r.CreatedAt = field.NewTime(table, "created_at")
 	r.UpdatedAt = field.NewTime(table, "updated_at")
 	r.DeletedAt = field.NewField(table, "deleted_at")
@@ -101,12 +104,13 @@ func (r *reportMachine) GetFieldByName(fieldName string) (field.OrderExpr, bool)
 }
 
 func (r *reportMachine) fillFieldMap() {
-	r.fieldMap = make(map[string]field.Expr, 8)
+	r.fieldMap = make(map[string]field.Expr, 9)
 	r.fieldMap["id"] = r.ID
 	r.fieldMap["report_id"] = r.ReportID
 	r.fieldMap["plan_id"] = r.PlanID
 	r.fieldMap["team_id"] = r.TeamID
 	r.fieldMap["ip"] = r.IP
+	r.fieldMap["concurrency"] = r.Concurrency
 	r.fieldMap["created_at"] = r.CreatedAt
 	r.fieldMap["updated_at"] = r.UpdatedAt
 	r.fieldMap["deleted_at"] = r.DeletedAt

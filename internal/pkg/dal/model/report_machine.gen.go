@@ -14,14 +14,15 @@ const TableNameReportMachine = "report_machine"
 
 // ReportMachine mapped from table <report_machine>
 type ReportMachine struct {
-	ID        int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`                      // 主键ID
-	ReportID  string         `gorm:"column:report_id;not null" json:"report_id"`                             // 报告id
-	PlanID    string         `gorm:"column:plan_id;not null;default:0" json:"plan_id"`                       // 计划ID
-	TeamID    string         `gorm:"column:team_id;not null" json:"team_id"`                                 // 团队ID
-	IP        string         `gorm:"column:ip;not null" json:"ip"`                                           // 机器ip
-	CreatedAt time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"` // 创建时间
-	UpdatedAt time.Time      `gorm:"column:updated_at;not null;default:CURRENT_TIMESTAMP" json:"updated_at"` // 更新时间
-	DeletedAt gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`                                    // 删除时间
+	ID          int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`                      // 主键ID
+	ReportID    string         `gorm:"column:report_id;not null" json:"report_id"`                             // 报告id
+	PlanID      string         `gorm:"column:plan_id;not null;default:0" json:"plan_id"`                       // 计划ID
+	TeamID      string         `gorm:"column:team_id;not null" json:"team_id"`                                 // 团队ID
+	IP          string         `gorm:"column:ip;not null" json:"ip"`                                           // 机器ip
+	Concurrency int64          `gorm:"column:concurrency;not null" json:"concurrency"`                         // 并发数
+	CreatedAt   time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"` // 创建时间
+	UpdatedAt   time.Time      `gorm:"column:updated_at;not null;default:CURRENT_TIMESTAMP" json:"updated_at"` // 更新时间
+	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`                                    // 删除时间
 }
 
 // TableName ReportMachine's table name

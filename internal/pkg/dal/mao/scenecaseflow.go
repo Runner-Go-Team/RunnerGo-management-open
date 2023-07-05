@@ -7,14 +7,13 @@ import (
 )
 
 type SceneCaseFlow struct {
-	SceneID     string `bson:"scene_id"`
-	SceneCaseID string `bson:"scene_case_id"`
-	TeamID      string `bson:"team_id"`
-	Version     int32  `bson:"version"`
-	//Flows   string `bson:"flows"`
-	Nodes bson.Raw `bson:"nodes"`
-	Edges bson.Raw `bson:"edges"`
-	//MultiLevelNodes bson.Raw `bson:"multi_level_nodes"`
+	SceneID     string   `bson:"scene_id"`
+	SceneCaseID string   `bson:"scene_case_id"`
+	TeamID      string   `bson:"team_id"`
+	Version     int32    `bson:"version"`
+	Nodes       bson.Raw `bson:"nodes"`
+	Edges       bson.Raw `bson:"edges"`
+	EnvID       int64    `bson:"env_id"`
 }
 
 type SceneCaseFlowNode struct {

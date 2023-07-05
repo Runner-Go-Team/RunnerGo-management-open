@@ -58,7 +58,7 @@ func ListTeamMembers(ctx *gin.Context) {
 		return
 	}
 
-	members, err := team.ListMembersByTeamID(ctx, req.TeamID)
+	members, total, err := team.ListMembersByTeamID(ctx, req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return
@@ -66,6 +66,7 @@ func ListTeamMembers(ctx *gin.Context) {
 
 	response.SuccessWithData(ctx, rao.ListMembersResp{
 		Members: members,
+		Total:   total,
 	})
 	return
 }

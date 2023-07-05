@@ -155,10 +155,9 @@ func GetFlow(ctx *gin.Context) {
 
 	resp, err := scene.GetFlow(ctx, req.SceneID)
 	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
 		return
 	}
-
 	response.SuccessWithData(ctx, resp)
 	return
 }
@@ -173,7 +172,7 @@ func BatchGetFlow(ctx *gin.Context) {
 
 	flows, err := scene.BatchGetFlow(ctx, req.SceneID)
 	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
 		return
 	}
 
@@ -195,5 +194,39 @@ func DeleteScene(ctx *gin.Context) {
 	}
 
 	response.Success(ctx)
+	return
+}
+
+// ChangeDisabledStatus 改变场景禁用状态
+func ChangeDisabledStatus(ctx *gin.Context) {
+	var req rao.ChangeDisabledStatusReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	if err := scene.ChangeDisabledStatus(ctx, &req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+
+	response.Success(ctx)
+	return
+}
+
+func SendMysql(ctx *gin.Context) {
+	var req rao.SendMysqlReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := scene.SendMysql(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+
+	response.SuccessWithData(ctx, rao.SendSceneAPIResp{RetID: retID})
 	return
 }

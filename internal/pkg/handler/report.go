@@ -8,8 +8,8 @@ import (
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/mail"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 	"github.com/gin-gonic/gin"
-	"github.com/go-omnibus/proof"
 	"go.mongodb.org/mongo-driver/bson"
+	"math"
 	"strings"
 
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
@@ -57,7 +57,11 @@ func DeleteReport(ctx *gin.Context) {
 
 	err := report.DeleteReport(ctx, &req, jwt.GetUserIDByCtx(ctx))
 	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		if err.Error() == "运行中的报告不能删除" {
+			response.ErrorWithMsg(ctx, errno.ErrCannotDeleteRunningReport, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
 		return
 	}
 
@@ -72,7 +76,7 @@ func ReportDetail(ctx *gin.Context) {
 		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
 		return
 	}
-	err, result := report.GetReportDetail(ctx, req)
+	result, err := report.GetReportDetail(ctx, req)
 	if err != nil {
 		if err.Error() == "报告不存在" {
 			response.ErrorWithMsg(ctx, errno.ErrReportNotFound, err.Error())
@@ -125,11 +129,7 @@ func GetDebug(ctx *gin.Context) {
 		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
 		return
 	}
-	err, result := report.GetReportDebugLog(ctx, req)
-	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-		return
-	}
+	result := report.GetReportDebugLog(ctx, req)
 	response.SuccessWithData(ctx, result)
 }
 
@@ -218,29 +218,10 @@ func StopReport(ctx *gin.Context) {
 		return
 	}
 
-	// 停止计划的时候，往redis里面写一条数据
-	reportIDsString := req.ReportIDs
-	for _, reportID := range reportIDsString {
-		// 发送停止计划状态变更信息
-		statusChangeKey := consts.SubscriptionStressPlanStatusChange + reportID
-		statusChangeValue := rao.SubscriptionStressPlanStatusChange{
-			Type:     1,
-			StopPlan: "stop",
-		}
-		statusChangeValueString, err := json.Marshal(statusChangeValue)
-		if err == nil {
-			// 发送计划相关信息到redis频道
-			_, err = dal.GetRDB().Publish(ctx, statusChangeKey, string(statusChangeValueString)).Result()
-			if err != nil {
-				log.Logger.Info("停止性能报告--发送性能报告停止消息失败")
-				continue
-			}
-		} else {
-			log.Logger.Info("停止性能报告--发送性能报告停止消息失败，压缩数据失败")
-			continue
-		}
-		log.Logger.Info("停止性能报告--发送性能报告停止消息成功")
-
+	err := report.StopReport(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
 	}
 	response.Success(ctx)
 	return
@@ -310,57 +291,165 @@ func ChangeTaskConfRun(ctx *gin.Context) {
 
 	// 根据报告id，查询出来机器ip
 	rm := dal.GetQuery().ReportMachine
-	reportMachineInfo, err := rm.WithContext(ctx).Where(rm.TeamID.Eq(req.TeamID), rm.ReportID.Eq(req.ReportID)).Order(rm.CreatedAt.Desc()).First()
+	reportMachineInfo, err := rm.WithContext(ctx).Where(rm.TeamID.Eq(req.TeamID),
+		rm.ReportID.Eq(req.ReportID)).Order(rm.CreatedAt.Desc()).First()
 	if err != nil {
-		proof.Infof("编辑报告-查询报告对应的机器失败，err：", err)
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error()+" 报告对应的机器IP信息没有查到")
+		log.Logger.Info("编辑报告-查询报告对应的机器失败，err：", err)
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error()+" 报告对应的机器IP信息没有查到")
 		return
 	}
 
-	// 把新编辑的任务配置保存到redis当中，供压力机执行使用
-	value := rao.ModeConf{
-		RoundNum:         req.ModeConf.RoundNum,
-		Concurrency:      req.ModeConf.Concurrency,
-		StartConcurrency: req.ModeConf.StartConcurrency,
-		Step:             req.ModeConf.Step,
-		StepRunTime:      req.ModeConf.StepRunTime,
-		MaxConcurrency:   req.ModeConf.MaxConcurrency,
-		Duration:         req.ModeConf.Duration,
+	// 查询报告基本信息
+	sprTB := dal.GetQuery().StressPlanReport
+	reportInfo, err := sprTB.WithContext(ctx).Where(sprTB.ReportID.Eq(req.ReportID)).First()
+	if err != nil {
+		log.Logger.Info("编辑报告-查询报告基本信息失败，err：", err)
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error()+" 报告基本信息没有查到")
+		return
+	}
+
+	machineTB := dal.GetQuery().Machine
+	// 发送debug状态变更消息
+	machineModeConfArr := make([]rao.MachineModeConf, 0, len(req.MachineDispatchModeConf.UsableMachineList))
+	// 判断是否是分布式任务
+	if req.IsOpenDistributed == 1 { // 分布式
+		// 判断分布式类型
+		if req.MachineDispatchModeConf.MachineAllotType == 0 { // 权重
+			// 判断压测模式
+			if reportInfo.TaskMode == consts.PlanModeConcurrence { // 并发模式
+				for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+					addrInfo, err := machineTB.WithContext(ctx).Where(machineTB.IP.Eq(v.Ip)).First()
+					if err != nil {
+						log.Logger.Info("没有查到配置的压力机信息：", " 机器ip为：", v.Ip)
+						continue
+					} else { // 查到了
+						concurrencyNum := int64(math.Ceil(float64(v.Weight) * float64(req.ModeConf.Concurrency) / 100))
+						modeConfTemp := rao.ChangeTakeConf{
+							RoundNum:    req.ModeConf.RoundNum,
+							Duration:    req.ModeConf.Duration,
+							Concurrency: concurrencyNum,
+						}
+						temp := rao.MachineModeConf{
+							Machine:  addrInfo.IP,
+							ModeConf: modeConfTemp,
+						}
+						machineModeConfArr = append(machineModeConfArr, temp)
+					}
+				}
+			} else { // 非并发模式
+				for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+					addrInfo, err := machineTB.WithContext(ctx).Where(machineTB.IP.Eq(v.Ip)).First()
+					if err != nil {
+						log.Logger.Info("没有查到配置的压力机信息：", " 机器ip为：", v.Ip)
+						continue
+					} else { // 查到了
+						modeConfTemp := rao.ChangeTakeConf{
+							StartConcurrency: int64(math.Ceil(float64(v.StartConcurrency) * float64(v.Weight) / 100)),
+							Step:             int64(math.Ceil(float64(v.Step) * float64(v.Weight) / 100)),
+							StepRunTime:      v.StepRunTime,
+							MaxConcurrency:   int64(math.Ceil(float64(v.MaxConcurrency) * float64(v.Weight) / 100)),
+							Duration:         v.Duration,
+						}
+						temp := rao.MachineModeConf{
+							Machine:  addrInfo.IP,
+							ModeConf: modeConfTemp,
+						}
+						machineModeConfArr = append(machineModeConfArr, temp)
+					}
+				}
+			}
+		} else { // 自定义
+			if reportInfo.TaskMode == consts.PlanModeConcurrence { // 并发模式
+				for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+					addrInfo, err := machineTB.WithContext(ctx).Where(machineTB.IP.Eq(v.Ip)).First()
+					if err != nil {
+						log.Logger.Info("没有查到配置的压力机信息：", " 机器ip为：", v.Ip)
+						continue
+					} else { // 查到了
+						modeConfTemp := rao.ChangeTakeConf{
+							RoundNum:    req.ModeConf.RoundNum,
+							Duration:    req.ModeConf.Duration,
+							Concurrency: v.Concurrency,
+						}
+						temp := rao.MachineModeConf{
+							Machine:  addrInfo.IP,
+							ModeConf: modeConfTemp,
+						}
+						machineModeConfArr = append(machineModeConfArr, temp)
+					}
+				}
+			} else { // 非并发模式
+				for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+					addrInfo, err := machineTB.WithContext(ctx).Where(machineTB.IP.Eq(v.Ip)).First()
+					if err != nil {
+						log.Logger.Info("没有查到配置的压力机信息：", " 机器ip为：", v.Ip)
+						continue
+					} else { // 查到了
+						modeConfTemp := rao.ChangeTakeConf{
+							StartConcurrency: v.StartConcurrency,
+							Step:             v.Step,
+							StepRunTime:      v.StepRunTime,
+							MaxConcurrency:   v.MaxConcurrency,
+							Duration:         v.Duration,
+						}
+						temp := rao.MachineModeConf{
+							Machine:  addrInfo.IP,
+							ModeConf: modeConfTemp,
+						}
+						machineModeConfArr = append(machineModeConfArr, temp)
+					}
+				}
+			}
+		}
+	} else { // 智能调度
+		// 把新编辑的任务配置保存到redis当中，供压力机执行使用
+		value := rao.ChangeTakeConf{
+			RoundNum:         req.ModeConf.RoundNum,
+			Concurrency:      req.ModeConf.Concurrency,
+			StartConcurrency: req.ModeConf.StartConcurrency,
+			Step:             req.ModeConf.Step,
+			StepRunTime:      req.ModeConf.StepRunTime,
+			MaxConcurrency:   req.ModeConf.MaxConcurrency,
+			Duration:         req.ModeConf.Duration,
+		}
+		// 发送debug状态变更消息
+		MachineModeConf := rao.MachineModeConf{
+			Machine:  reportMachineInfo.IP,
+			ModeConf: value,
+		}
+		machineModeConfArr = append(machineModeConfArr, MachineModeConf)
 	}
 
 	// 组装修改的配置数据，保存到mg
-	res := packer.TransChangeReportConfRunToMao(req)
+	changeReportConf := packer.TransChangeReportConfRunToMao(req)
 	// 操作mongodb
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectChangeReportConf)
-	_, err = collection.InsertOne(ctx, res)
+	_, err = collection.InsertOne(ctx, changeReportConf)
 	if err != nil {
-		proof.Infof("编辑报告保存配置项失败，err：", err)
+		log.Logger.Info("编辑报告保存配置项失败，err：", err)
 		response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
 		return
 	}
 
-	// 发送debug状态变更消息
-	MachineModeConf := rao.MachineModeConf{
-		Machine:  reportMachineInfo.IP,
-		ModeConf: value,
-	}
-	statusChangeKey := consts.SubscriptionStressPlanStatusChange + reportMachineInfo.ReportID
-	statusChangeKeyValue := rao.SubscriptionStressPlanStatusChange{
-		Type:            3,
-		MachineModeConf: MachineModeConf,
-	}
-	statusChangeValueString, err := json.Marshal(statusChangeKeyValue)
-	if err == nil {
-		// 发送计划相关信息到redis频道
-		_, err = dal.GetRDB().Publish(ctx, statusChangeKey, string(statusChangeValueString)).Result()
-		if err != nil {
-			log.Logger.Info("编辑报告--发送压测计划状态变更到对应频道失败")
+	// 发送消息
+	for _, machineModeConfInfo := range machineModeConfArr {
+		statusChangeKey := consts.SubscriptionStressPlanStatusChange + req.ReportID
+		statusChangeKeyValue := rao.SubscriptionStressPlanStatusChange{
+			Type:            3,
+			MachineModeConf: machineModeConfInfo,
 		}
-	} else {
-		log.Logger.Info("编辑报告--发送压测计划状态变更到对应频道，压缩数据失败")
+		statusChangeValueString, err := json.Marshal(statusChangeKeyValue)
+		if err == nil {
+			// 发送计划相关信息到redis频道
+			_, err = dal.GetRDB().Publish(ctx, statusChangeKey, string(statusChangeValueString)).Result()
+			if err != nil {
+				log.Logger.Info("编辑报告--发送压测计划状态变更到对应频道失败")
+			}
+		} else {
+			log.Logger.Info("编辑报告--发送压测计划状态变更到对应频道，压缩数据失败")
+		}
 	}
 	log.Logger.Info("编辑报告--发送压测计划状态变更到对应频道成功")
-
 	response.Success(ctx)
 	return
 }
@@ -408,8 +497,8 @@ func BatchDeleteReport(ctx *gin.Context) {
 	}
 	err := report.BatchDeleteReport(ctx, &req)
 	if err != nil {
-		if err.Error() == "存在运行中的计划，无法删除" {
-			response.ErrorWithMsg(ctx, errno.ErrCannotBatchDeleteRunningPlan, err.Error())
+		if err.Error() == "存在运行中的报告，无法删除" {
+			response.ErrorWithMsg(ctx, errno.ErrCannotBatchDeleteRunningReport, err.Error())
 		} else {
 			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		}

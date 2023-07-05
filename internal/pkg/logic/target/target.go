@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
@@ -62,99 +63,12 @@ func SendSceneAPI(ctx context.Context, teamID string, sceneID string, nodeID str
 	}
 
 	// 获取全局变量
-	globalVariable := rao.GlobalVariable{}
-	// 查询全局变量
-	collection2 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
-	cur, err := collection2.Find(ctx, bson.D{{"team_id", teamID}})
-	var globalParamDataArr []*mao.GlobalParamData
-	if err == nil {
-		if err := cur.All(ctx, &globalParamDataArr); err != nil {
-			return "", fmt.Errorf("全局参数数据获取失败")
-		}
-	}
-
-	cookieParam := make([]rao.CookieParam, 0, 100)
-	headerParam := make([]rao.HeaderParam, 0, 100)
-	variableParam := make([]rao.VariableParam, 0, 100)
-	assertParam := make([]rao.AssertParam, 0, 100)
-	for _, globalParamInfo := range globalParamDataArr {
-		if globalParamInfo.ParamType == 1 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
-			if err != nil {
-				return "", err
-			}
-			parameter := make([]rao.Parameter, 0, len(cookieParam))
-			for _, v := range cookieParam {
-				temp := rao.Parameter{
-					IsChecked: v.IsChecked,
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Cookie.Parameter = parameter
-		}
-		if globalParamInfo.ParamType == 2 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.Parameter, 0, len(headerParam))
-			for _, v := range headerParam {
-				temp := rao.Parameter{
-					IsChecked: v.IsChecked,
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Header.Parameter = parameter
-
-		}
-		if globalParamInfo.ParamType == 3 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.VarForm, 0, len(variableParam))
-			for _, v := range variableParam {
-				temp := rao.VarForm{
-					IsChecked: int64(v.IsChecked),
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Variable = parameter
-
-		}
-		if globalParamInfo.ParamType == 4 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.AssertionText, 0, len(assertParam))
-			for _, v := range assertParam {
-				temp := rao.AssertionText{
-					IsChecked:    int(v.IsChecked),
-					ResponseType: int8(v.ResponseType),
-					Compare:      v.Compare,
-					Var:          v.Var,
-					Val:          v.Val,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Assert = parameter
-		}
-	}
+	globalVariable, err := GetGlobalVariable(ctx, teamID)
 
 	// 获取场景变量
 	sceneVariable := rao.GlobalVariable{}
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
-	cur, err = collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
+	cur, err := collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
 	var sceneParamDataArr []*mao.SceneParamData
 	if err == nil {
 		if err := cur.All(ctx, &sceneParamDataArr); err != nil {
@@ -246,7 +160,15 @@ func SendSceneAPI(ctx context.Context, teamID string, sceneID string, nodeID str
 			if len(fileList) > 0 {
 				node.API.Configuration.ParameterizedFile.Paths = fileList
 			}
-			return runner.RunAPI(ctx, node.API)
+			node.API.Request.PreUrl = ""
+			if node.API.EnvInfo.EnvID != 0 {
+				node.API.Request.PreUrl = node.API.EnvInfo.PreUrl
+			}
+			if node.API.Request.Method == "" {
+				node.API.Request.Method = node.API.Method
+			}
+
+			return runner.RunAPI(node.API)
 		}
 	}
 
@@ -274,99 +196,12 @@ func SendScene(ctx context.Context, teamID string, sceneID string, userID string
 	}
 
 	// 获取全局变量
-	globalVariable := rao.GlobalVariable{}
-	// 查询全局变量
-	collection2 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
-	cur, err := collection2.Find(ctx, bson.D{{"team_id", teamID}})
-	var globalParamDataArr []*mao.GlobalParamData
-	if err == nil {
-		if err := cur.All(ctx, &globalParamDataArr); err != nil {
-			return "", fmt.Errorf("全局参数数据获取失败")
-		}
-	}
-
-	cookieParam := make([]rao.CookieParam, 0, 100)
-	headerParam := make([]rao.HeaderParam, 0, 100)
-	variableParam := make([]rao.VariableParam, 0, 100)
-	assertParam := make([]rao.AssertParam, 0, 100)
-	for _, globalParamInfo := range globalParamDataArr {
-		if globalParamInfo.ParamType == 1 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
-			if err != nil {
-				return "", err
-			}
-			parameter := make([]rao.Parameter, 0, len(cookieParam))
-			for _, v := range cookieParam {
-				temp := rao.Parameter{
-					IsChecked: v.IsChecked,
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Cookie.Parameter = parameter
-		}
-		if globalParamInfo.ParamType == 2 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.Parameter, 0, len(headerParam))
-			for _, v := range headerParam {
-				temp := rao.Parameter{
-					IsChecked: v.IsChecked,
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Header.Parameter = parameter
-
-		}
-		if globalParamInfo.ParamType == 3 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.VarForm, 0, len(variableParam))
-			for _, v := range variableParam {
-				temp := rao.VarForm{
-					IsChecked: int64(v.IsChecked),
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Variable = parameter
-
-		}
-		if globalParamInfo.ParamType == 4 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.AssertionText, 0, len(assertParam))
-			for _, v := range assertParam {
-				temp := rao.AssertionText{
-					IsChecked:    int(v.IsChecked),
-					ResponseType: int8(v.ResponseType),
-					Compare:      v.Compare,
-					Var:          v.Var,
-					Val:          v.Val,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Assert = parameter
-		}
-	}
+	globalVariable, err := GetGlobalVariable(ctx, teamID)
 
 	// 获取场景变量
 	sceneVariable := rao.GlobalVariable{}
 	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
-	cur, err = collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
+	cur, err := collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
 	var sceneParamDataArr []*mao.SceneParamData
 	if err == nil {
 		if err := cur.All(ctx, &sceneParamDataArr); err != nil {
@@ -466,8 +301,8 @@ func SendScene(ctx context.Context, teamID string, sceneID string, userID string
 		return "", err
 	}
 
-	req := packer.TransMaoFlowToRaoSceneFlow(t, &f, vis, sceneVariable, globalVariable)
-	return runner.RunScene(ctx, req)
+	runSceneParam := packer.TransMaoFlowToRaoSceneFlow(t, &f, vis, sceneVariable, globalVariable)
+	return runner.RunScene(runSceneParam)
 }
 
 func GetSendSceneResult(ctx context.Context, retID string) ([]*rao.SceneDebug, error) {
@@ -492,7 +327,7 @@ func GetSendSceneResult(ctx context.Context, retID string) ([]*rao.SceneDebug, e
 
 func SendAPI(ctx *gin.Context, teamID string, targetID string) (string, error) {
 	tx := dal.GetQuery().Target
-	t, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(targetID)).First()
+	targetInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(targetID)).First()
 	if err != nil {
 		return "", err
 	}
@@ -505,94 +340,7 @@ func SendAPI(ctx *gin.Context, teamID string, targetID string) (string, error) {
 	}
 
 	// 获取全局变量
-	globalVariable := rao.GlobalVariable{}
-	// 查询全局变量
-	collection2 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
-	cur, err := collection2.Find(ctx, bson.D{{"team_id", teamID}})
-	var globalParamDataArr []*mao.GlobalParamData
-	if err == nil {
-		if err := cur.All(ctx, &globalParamDataArr); err != nil {
-			return "", fmt.Errorf("全局参数数据获取失败")
-		}
-	}
-
-	cookieParam := make([]rao.CookieParam, 0, 100)
-	headerParam := make([]rao.HeaderParam, 0, 100)
-	variableParam := make([]rao.VariableParam, 0, 100)
-	assertParam := make([]rao.AssertParam, 0, 100)
-	for _, globalParamInfo := range globalParamDataArr {
-		if globalParamInfo.ParamType == 1 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
-			if err != nil {
-				return "", err
-			}
-			parameter := make([]rao.Parameter, 0, len(cookieParam))
-			for _, v := range cookieParam {
-				temp := rao.Parameter{
-					IsChecked: v.IsChecked,
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Cookie.Parameter = parameter
-		}
-		if globalParamInfo.ParamType == 2 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.Parameter, 0, len(headerParam))
-			for _, v := range headerParam {
-				temp := rao.Parameter{
-					IsChecked: v.IsChecked,
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Header.Parameter = parameter
-
-		}
-		if globalParamInfo.ParamType == 3 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.VarForm, 0, len(variableParam))
-			for _, v := range variableParam {
-				temp := rao.VarForm{
-					IsChecked: int64(v.IsChecked),
-					Key:       v.Key,
-					Value:     v.Value,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Variable = parameter
-
-		}
-		if globalParamInfo.ParamType == 4 {
-			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
-			if err != nil {
-				return "", err
-			}
-
-			parameter := make([]rao.AssertionText, 0, len(assertParam))
-			for _, v := range assertParam {
-				temp := rao.AssertionText{
-					IsChecked:    int(v.IsChecked),
-					ResponseType: int8(v.ResponseType),
-					Compare:      v.Compare,
-					Var:          v.Var,
-					Val:          v.Val,
-				}
-				parameter = append(parameter, temp)
-			}
-			globalVariable.Assert = parameter
-		}
-	}
+	globalVariable, err := GetGlobalVariable(ctx, teamID)
 
 	// 把调试信息入库
 	targetDebugLog := dal.GetQuery().TargetDebugLog
@@ -607,15 +355,14 @@ func SendAPI(ctx *gin.Context, teamID string, targetID string) (string, error) {
 	}
 
 	userID := jwt.GetUserIDByCtx(ctx)
-	if err := record.InsertDebug(ctx, teamID, userID, record.OperationOperateDebugApi, t.Name); err != nil {
+	if err := record.InsertDebug(ctx, teamID, userID, record.OperationOperateDebugApi, targetInfo.Name); err != nil {
 		return "", err
 	}
 
-	retID, err := runner.RunAPI(ctx, packer.TransTargetToRaoAPIDetail(t, &apiInfo, globalVariable))
+	retID, err := runner.RunTarget(packer.GetRunTargetParam(targetInfo, globalVariable, &apiInfo))
 	if err != nil {
 		return "", fmt.Errorf("调试接口返回非200状态")
 	}
-
 	return retID, err
 }
 
@@ -638,7 +385,9 @@ func ListFolderAPI(ctx context.Context, req *rao.ListFolderAPIReq) ([]*rao.Folde
 	tx := query.Use(dal.DB()).Target
 	targets, err := tx.WithContext(ctx).Where(
 		tx.TeamID.Eq(req.TeamID),
-		tx.TargetType.In(consts.TargetTypeFolder, consts.TargetTypeAPI),
+		tx.TargetType.In(consts.TargetTypeFolder, consts.TargetTypeAPI,
+			consts.TargetTypeSql, consts.TargetTypeTcp, consts.TargetTypeWebsocket,
+			consts.TargetTypeDubbo),
 		tx.Status.Eq(consts.TargetStatusNormal),
 		tx.Source.Eq(req.Source)).Order(tx.Sort, tx.CreatedAt.Desc()).Find()
 
@@ -753,6 +502,16 @@ func Trash(ctx *gin.Context, targetID string, userID string) error {
 		var operate int32 = 0
 		if t.TargetType == consts.TargetTypeFolder {
 			operate = record.OperationOperateDeleteFolder
+		} else if t.TargetType == consts.TargetTypeSql {
+			operate = record.OperationLogDeleteSql
+		} else if t.TargetType == consts.TargetTypeTcp {
+			operate = record.OperationLogDeleteTcp
+		} else if t.TargetType == consts.TargetTypeWebsocket {
+			operate = record.OperationLogDeleteWebsocket
+		} else if t.TargetType == consts.TargetTypeMQTT {
+			operate = record.OperationLogDeleteMqtt
+		} else if t.TargetType == consts.TargetTypeDubbo {
+			operate = record.OperationLogDeleteDubbo
 		} else {
 			operate = record.OperationOperateDeleteApi
 		}
@@ -765,12 +524,7 @@ func Trash(ctx *gin.Context, targetID string, userID string) error {
 
 func getAllSonTargetID(ctx *gin.Context, targetID string, targetType string) error {
 	tx := dal.GetQuery().Target
-	if targetType == consts.TargetTypeAPI {
-		_, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(targetID)).UpdateSimple(tx.Status.Value(consts.TargetStatusTrash))
-		if err != nil {
-			return err
-		}
-	} else {
+	if targetType == consts.TargetTypeFolder {
 		// 查询这个目录下是否还有别的目录或文件
 		targetList, err := tx.WithContext(ctx).Where(tx.ParentID.Eq(targetID)).Find()
 		if err != nil {
@@ -786,8 +540,12 @@ func getAllSonTargetID(ctx *gin.Context, targetID string, targetType string) err
 		if err != nil {
 			return err
 		}
+	} else {
+		_, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(targetID)).UpdateSimple(tx.Status.Value(consts.TargetStatusTrash))
+		if err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -831,14 +589,535 @@ func Delete(ctx context.Context, targetID string) error {
 
 		filter := bson.D{{"target_id", targetID}}
 
-		//if _, err := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFolder).DeleteOne(ctx, filter); err != nil {
-		//	return err
-		//}
-
 		if _, err := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAPI).DeleteOne(ctx, filter); err != nil {
 			return err
 		}
 
 		return nil
 	})
+}
+
+func SendSql(ctx *gin.Context, req *rao.SendSqlReq) (string, error) {
+	tx := dal.GetQuery().Target
+	targetInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(req.TargetID)).First()
+	if err != nil {
+		return "", err
+	}
+
+	// 获取全局变量
+	globalVariable, _ := GetGlobalVariable(ctx, req.TeamID)
+
+	retID := ""
+	runSqlParam := rao.RunTargetParam{}
+
+	sqlDetailInfo := mao.SqlDetailForMg{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSqlDetail)
+	err = collection.FindOne(ctx, bson.D{{"target_id", req.TargetID}}).Decode(&sqlDetailInfo)
+	if err != nil {
+		return retID, err
+	}
+	runSqlParam = packer.TransRunSqlParam(targetInfo, &sqlDetailInfo, globalVariable)
+
+	// 把调试信息入库
+	targetDebugLog := dal.GetQuery().TargetDebugLog
+	insertData := &model.TargetDebugLog{
+		TargetID:   req.TargetID,
+		TargetType: consts.TargetDebugLogApi,
+		TeamID:     req.TeamID,
+	}
+	_ = targetDebugLog.WithContext(ctx).Create(insertData)
+
+	userID := jwt.GetUserIDByCtx(ctx)
+	if err := record.InsertDebug(ctx, req.TeamID, userID, record.OperationOperateDebugApi, targetInfo.Name); err != nil {
+		return retID, err
+	}
+
+	retID, err = runner.RunTarget(runSqlParam)
+	if err != nil {
+		return retID, fmt.Errorf("调试返回非200状态")
+	}
+	return retID, err
+}
+
+// GetGlobalVariable 获取全局变量
+func GetGlobalVariable(ctx context.Context, teamID string) (rao.GlobalVariable, error) {
+	// 获取全局变量
+	globalVariable := rao.GlobalVariable{}
+	// 查询全局变量
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectGlobalParam)
+	cur, err := collection.Find(ctx, bson.D{{"team_id", teamID}})
+	var globalParamDataArr []*mao.GlobalParamData
+	if err == nil {
+		if err := cur.All(ctx, &globalParamDataArr); err != nil {
+			return rao.GlobalVariable{}, fmt.Errorf("全局参数数据获取失败")
+		}
+	}
+
+	cookieParam := make([]rao.CookieParam, 0, 100)
+	headerParam := make([]rao.HeaderParam, 0, 100)
+	variableParam := make([]rao.VariableParam, 0, 100)
+	assertParam := make([]rao.AssertParam, 0, 100)
+	for _, globalParamInfo := range globalParamDataArr {
+		if globalParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &cookieParam)
+			if err != nil {
+				return rao.GlobalVariable{}, err
+			}
+			parameter := make([]rao.Parameter, 0, len(cookieParam))
+			for _, v := range cookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Cookie.Parameter = parameter
+		}
+		if globalParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &headerParam)
+			if err != nil {
+				return rao.GlobalVariable{}, err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(headerParam))
+			for _, v := range headerParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Header.Parameter = parameter
+
+		}
+		if globalParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &variableParam)
+			if err != nil {
+				return rao.GlobalVariable{}, err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(variableParam))
+			for _, v := range variableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Variable = parameter
+
+		}
+		if globalParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(globalParamInfo.DataDetail), &assertParam)
+			if err != nil {
+				return rao.GlobalVariable{}, err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(assertParam))
+			for _, v := range assertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			globalVariable.Assert = parameter
+		}
+	}
+	return globalVariable, err
+}
+
+func ConnectionDatabase(req *rao.ConnectionDatabaseReq) (bool, error) {
+	res, err := runner.RunConnectionDatabase(*req)
+	if err != nil {
+		log.Logger.Info("连接数据库失败，err:", err)
+		return res, err
+	}
+	return res, nil
+}
+
+func GetSendSqlResult(ctx *gin.Context, req *rao.GetSendSqlResultReq) (*rao.GetSendSqlResultResp, error, string) {
+	sqlDebug := mao.SqlDebug{}
+	err := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAPIDebug).
+		FindOne(ctx, bson.D{{"uuid", req.RetID}}).Decode(&sqlDebug)
+	if err != nil && err != mongo.ErrNoDocuments {
+		return nil, err, ""
+	}
+
+	if err == mongo.ErrNoDocuments {
+		return nil, nil, ""
+	}
+
+	res := &rao.GetSendSqlResultResp{
+		RetID:        sqlDebug.Uuid,
+		RequestTime:  sqlDebug.RequestTime,
+		Status:       sqlDebug.Status,
+		Regex:        sqlDebug.Regex,
+		Assert:       sqlDebug.Assert,
+		ResponseBody: sqlDebug.ResponseBody,
+	}
+	return res, nil, ""
+}
+
+func SendTcp(ctx *gin.Context, req *rao.SendTcpReq) (string, error) {
+	tx := dal.GetQuery().Target
+	targetInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(req.TargetID)).First()
+	if err != nil {
+		return "", err
+	}
+
+	tcpDetailInfo := mao.TcpDetail{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectTcpDetail)
+	err = collection.FindOne(ctx, bson.D{{"target_id", req.TargetID}}).Decode(&tcpDetailInfo)
+	if err != nil {
+		return "", err
+	}
+
+	// 获取全局变量
+	globalVariable, err := GetGlobalVariable(ctx, req.TeamID)
+
+	// 把调试信息入库
+	targetDebugLog := dal.GetQuery().TargetDebugLog
+	insertData := &model.TargetDebugLog{
+		TargetID:   req.TargetID,
+		TargetType: consts.TargetDebugLogApi,
+		TeamID:     req.TeamID,
+	}
+	err = targetDebugLog.WithContext(ctx).Create(insertData)
+	if err != nil {
+		return "", err
+	}
+
+	userID := jwt.GetUserIDByCtx(ctx)
+	if err := record.InsertDebug(ctx, req.TeamID, userID, record.OperationOperateDebugApi, targetInfo.Name); err != nil {
+		return "", err
+	}
+
+	retID, err := runner.RunTarget(packer.GetSendTcpParam(targetInfo, &tcpDetailInfo, globalVariable))
+	if err != nil {
+		return "", fmt.Errorf("调试TCP返回非200状态")
+	}
+	return retID, err
+}
+
+func GetSendTcpResult(ctx *gin.Context, req *rao.GetSendTcpResultReq) ([]rao.GetSendTcpResultResp, error) {
+	cur, err := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAPIDebug).
+		Find(ctx, bson.D{{"uuid", req.RetID}})
+
+	tcpDebug := make([]mao.TcpDebug, 0, 10)
+	if err == nil {
+		if err = cur.All(ctx, &tcpDebug); err != nil {
+			return nil, fmt.Errorf("tcp结果解析失败")
+		}
+	}
+
+	res := make([]rao.GetSendTcpResultResp, 0, len(tcpDebug))
+	for _, v := range tcpDebug {
+		temp := rao.GetSendTcpResultResp{
+			TargetID:     v.TargetID,
+			TeamID:       v.TeamID,
+			Uuid:         v.Uuid,
+			Name:         v.Name,
+			IsStop:       v.IsStop,
+			Type:         v.Type,
+			RequestBody:  v.RequestBody,
+			ResponseBody: v.ResponseBody,
+			Status:       v.Status,
+		}
+		res = append(res, temp)
+	}
+
+	return res, nil
+}
+
+func SendWebsocket(ctx *gin.Context, req *rao.SendWebsocketReq) (string, error) {
+	tx := dal.GetQuery().Target
+	targetInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(req.TargetID)).First()
+	if err != nil {
+		return "", err
+	}
+
+	wsDetailInfo := mao.WebsocketDetail{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectWebsocketDetail)
+	err = collection.FindOne(ctx, bson.D{{"target_id", req.TargetID}}).Decode(&wsDetailInfo)
+	if err != nil {
+		return "", err
+	}
+
+	// 获取全局变量
+	globalVariable, err := GetGlobalVariable(ctx, req.TeamID)
+
+	// 把调试信息入库
+	targetDebugLog := dal.GetQuery().TargetDebugLog
+	insertData := &model.TargetDebugLog{
+		TargetID:   req.TargetID,
+		TargetType: consts.TargetDebugLogApi,
+		TeamID:     req.TeamID,
+	}
+	err = targetDebugLog.WithContext(ctx).Create(insertData)
+	if err != nil {
+		return "", err
+	}
+
+	userID := jwt.GetUserIDByCtx(ctx)
+	if err := record.InsertDebug(ctx, req.TeamID, userID, record.OperationOperateDebugApi, targetInfo.Name); err != nil {
+		return "", err
+	}
+
+	retID, err := runner.RunTarget(packer.GetSendWebsocketParam(targetInfo, &wsDetailInfo, globalVariable))
+	if err != nil {
+		return "", fmt.Errorf("调试TCP返回非200状态")
+	}
+	return retID, err
+}
+
+func GetSendWebsocketResult(ctx *gin.Context, req *rao.GetSendWebsocketResultReq) ([]rao.GetSendWebsocketResultResp, error) {
+	cur, err := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAPIDebug).
+		Find(ctx, bson.D{{"uuid", req.RetID}})
+
+	websocketDebug := make([]mao.WebsocketDebug, 0, 10)
+	res := make([]rao.GetSendWebsocketResultResp, 0, len(websocketDebug))
+
+	if err == nil {
+		if err = cur.All(ctx, &websocketDebug); err != nil {
+			return nil, fmt.Errorf("websocket结果解析失败")
+		}
+	}
+
+	if len(websocketDebug) > 0 {
+		for _, v := range websocketDebug {
+			temp := rao.GetSendWebsocketResultResp{
+				TargetID:            v.TargetID,
+				TeamID:              v.TeamID,
+				Uuid:                v.Uuid,
+				Name:                v.Name,
+				IsStop:              v.IsStop,
+				Type:                v.Type,
+				Status:              v.Status,
+				RequestBody:         v.RequestBody,
+				ResponseBody:        v.ResponseBody,
+				ResponseMessageType: v.ResponseMessageType,
+			}
+			res = append(res, temp)
+		}
+	}
+
+	return res, nil
+}
+
+func SendDubbo(ctx *gin.Context, req *rao.SendDubboReq) (string, error) {
+	tx := dal.GetQuery().Target
+	targetInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(req.TargetID)).First()
+	if err != nil {
+		return "", err
+	}
+
+	dubboDetailInfo := mao.DubboDetail{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectDubboDetail)
+	err = collection.FindOne(ctx, bson.D{{"target_id", req.TargetID}}).Decode(&dubboDetailInfo)
+	if err != nil {
+		return "", err
+	}
+
+	// 获取全局变量
+	globalVariable, err := GetGlobalVariable(ctx, req.TeamID)
+
+	// 把调试信息入库
+	targetDebugLog := dal.GetQuery().TargetDebugLog
+	insertData := &model.TargetDebugLog{
+		TargetID:   req.TargetID,
+		TargetType: consts.TargetDebugLogApi,
+		TeamID:     req.TeamID,
+	}
+	err = targetDebugLog.WithContext(ctx).Create(insertData)
+	if err != nil {
+		return "", err
+	}
+
+	userID := jwt.GetUserIDByCtx(ctx)
+	if err := record.InsertDebug(ctx, req.TeamID, userID, record.OperationOperateDebugApi, targetInfo.Name); err != nil {
+		return "", err
+	}
+
+	retID, err := runner.RunTarget(packer.GetSendDubboParam(targetInfo, &dubboDetailInfo, globalVariable))
+	if err != nil {
+		return "", fmt.Errorf("调试dubbo返回非200状态")
+	}
+	return retID, err
+}
+
+func GetSendDubboResult(ctx *gin.Context, req *rao.GetSendDubboResultReq) (rao.GetSendDubboResultResp, error) {
+	dubboDebug := mao.DubboDebug{}
+	err := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAPIDebug).
+		FindOne(ctx, bson.D{{"uuid", req.RetID}}).Decode(&dubboDebug)
+	if err != nil && err != mongo.ErrNoDocuments {
+		return rao.GetSendDubboResultResp{}, err
+	}
+
+	assertions := make([]rao.DebugAssert, 0, len(dubboDebug.Assert))
+	for _, a := range dubboDebug.Assert {
+		assertions = append(assertions, rao.DebugAssert{
+			Code:      a.Code,
+			IsSucceed: a.IsSucceed,
+			Msg:       a.Msg,
+		})
+	}
+
+	regexs := make([]map[string]interface{}, len(dubboDebug.Regex))
+	for _, r := range dubboDebug.Regex {
+		regexs = append(regexs, r)
+	}
+
+	res := rao.GetSendDubboResultResp{
+		TargetID:     dubboDebug.TargetID,
+		TeamID:       dubboDebug.TeamID,
+		Uuid:         dubboDebug.Uuid,
+		Name:         dubboDebug.Name,
+		RequestType:  dubboDebug.RequestType,
+		RequestBody:  dubboDebug.RequestBody,
+		ResponseBody: dubboDebug.ResponseBody,
+		Assert:       assertions,
+		Regex:        regexs,
+		Status:       dubboDebug.Status,
+	}
+
+	return res, nil
+}
+
+func SendMqtt(ctx *gin.Context, req *rao.SendMqttReq) (string, error) {
+	tx := dal.GetQuery().Target
+	targetInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(req.TargetID)).First()
+	if err != nil {
+		return "", err
+	}
+
+	mqttDetailInfo := mao.MqttDetail{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectMqttDetail)
+	err = collection.FindOne(ctx, bson.D{{"target_id", req.TargetID}}).Decode(&mqttDetailInfo)
+	if err != nil {
+		return "", err
+	}
+
+	// 获取全局变量
+	globalVariable, err := GetGlobalVariable(ctx, req.TeamID)
+
+	// 把调试信息入库
+	targetDebugLog := dal.GetQuery().TargetDebugLog
+	insertData := &model.TargetDebugLog{
+		TargetID:   req.TargetID,
+		TargetType: consts.TargetDebugLogApi,
+		TeamID:     req.TeamID,
+	}
+	err = targetDebugLog.WithContext(ctx).Create(insertData)
+	if err != nil {
+		return "", err
+	}
+
+	userID := jwt.GetUserIDByCtx(ctx)
+	if err := record.InsertDebug(ctx, req.TeamID, userID, record.OperationOperateDebugApi, targetInfo.Name); err != nil {
+		return "", err
+	}
+
+	retID, err := runner.RunMqtt(packer.GetSendMqttParam(targetInfo, &mqttDetailInfo, globalVariable))
+	if err != nil {
+		return "", fmt.Errorf("调试mqtt返回非200状态")
+	}
+	return retID, err
+}
+
+func GetSendMqttResult(ctx *gin.Context, req *rao.GetSendMqttResultReq) (rao.GetSendMqttResultResp, error) {
+	mqttDebug := mao.MqttDebug{}
+	err := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectMqttDebug).
+		FindOne(ctx, bson.D{{"uuid", req.RetID}}).Decode(&mqttDebug)
+	if err != nil {
+		return rao.GetSendMqttResultResp{}, err
+	}
+
+	res := rao.GetSendMqttResultResp{
+		TargetID:      mqttDebug.TargetID,
+		TeamID:        mqttDebug.TeamID,
+		Uuid:          mqttDebug.Uuid,
+		Name:          mqttDebug.Name,
+		RequestTime:   mqttDebug.RequestTime,
+		ErrorType:     mqttDebug.ErrorType,
+		IsSucceed:     mqttDebug.IsSucceed,
+		SendBytes:     mqttDebug.SendBytes,
+		ReceivedBytes: mqttDebug.ReceivedBytes,
+		ErrorMsg:      mqttDebug.ErrorMsg,
+		Timestamp:     mqttDebug.Timestamp,
+		StartTime:     mqttDebug.StartTime,
+		EndTime:       mqttDebug.EndTime,
+	}
+
+	return res, nil
+}
+
+func WsSendOrStopMessage(ctx *gin.Context, req *rao.WsSendOrStopMessageReq) error {
+	statusChangeKey := fmt.Sprintf("WsStatusChange:%s", req.RetID)
+	// 判断是发消息还是断开连接
+	var forNum = 1
+	execType := "发送websocket消息"
+	if req.ConnectionStatusChange.Type == 1 { // 断开消息
+		forNum = 2
+		execType = "断开websocket连接"
+	}
+
+	for i := 0; i < forNum; i++ {
+		statusChangeValue := rao.ConnectionStatusChange{
+			Type:        req.ConnectionStatusChange.Type,
+			MessageType: req.ConnectionStatusChange.MessageType,
+			Message:     req.ConnectionStatusChange.Message,
+		}
+		statusChangeValueString, err := json.Marshal(statusChangeValue)
+		if err == nil {
+			// 发送计划相关信息到redis频道
+			_, err = dal.GetRDB().Publish(ctx, statusChangeKey, string(statusChangeValueString)).Result()
+			if err != nil {
+				log.Logger.Info(execType + "--发送到对应频道失败")
+				continue
+			}
+		} else {
+			log.Logger.Info(execType + "--压缩数据失败")
+			continue
+		}
+	}
+	return nil
+}
+
+func TcpSendOrStopMessage(ctx *gin.Context, req *rao.TcpSendOrStopMessageReq) error {
+	statusChangeKey := fmt.Sprintf("TcpStatusChange:%s", req.RetID)
+	// 判断是发消息还是断开连接
+	var forNum = 1
+	execType := "发送tcp消息"
+	if req.ConnectionStatusChange.Type == 1 { // 断开消息
+		forNum = 2
+		execType = "断开tcp连接"
+	}
+
+	for i := 0; i < forNum; i++ {
+		statusChangeValue := rao.ConnectionStatusChange{
+			Type:        req.ConnectionStatusChange.Type,
+			MessageType: req.ConnectionStatusChange.MessageType,
+			Message:     req.ConnectionStatusChange.Message,
+		}
+		statusChangeValueString, err := json.Marshal(statusChangeValue)
+		if err == nil {
+			// 发送计划相关信息到redis频道
+			_, err = dal.GetRDB().Publish(ctx, statusChangeKey, string(statusChangeValueString)).Result()
+			if err != nil {
+				log.Logger.Info(execType + "--发送到对应频道失败")
+				continue
+			}
+		} else {
+			log.Logger.Info(execType + "--压缩数据失败")
+			continue
+		}
+	}
+	return nil
 }

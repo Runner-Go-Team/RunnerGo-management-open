@@ -100,3 +100,18 @@ func CopyPreinstall(ctx *gin.Context) {
 	response.Success(ctx)
 	return
 }
+
+func GetAvailableMachineList(ctx *gin.Context) {
+	var req rao.GetAvailableMachineListReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	list, err := preinstall.GetAvailableMachineList(ctx)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, list)
+	return
+}

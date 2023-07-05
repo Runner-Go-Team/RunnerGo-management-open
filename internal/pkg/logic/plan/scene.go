@@ -132,13 +132,14 @@ func ImportScene(ctx *gin.Context, req *rao.ImportSceneReq) ([]*model.Target, er
 				sceneIDMap[oldSceneID] = targetInfo.TargetID
 
 				// 复制场景里面的flow
-				var flow mao.Flow
+				flow := mao.Flow{}
 				err = collection.FindOne(ctx, bson.D{{"scene_id", oldSceneID}}).Decode(&flow)
 				if err != nil && err != mongo.ErrNoDocuments {
 					return err
 				}
 				if err != mongo.ErrNoDocuments {
-					var ns mao.Node
+					// 修改node来源from字段
+					ns := mao.Node{}
 					if err := bson.Unmarshal(flow.Nodes, &ns); err != nil {
 						return err
 					}
@@ -149,9 +150,32 @@ func ImportScene(ctx *gin.Context, req *rao.ImportSceneReq) ([]*model.Target, er
 					if err != nil {
 						return err
 					}
+					flow.SceneID = targetInfo.TargetID
+					flow.Nodes = nodes
+
+					// 修改前置条件来源from字段
+					prepositions := mao.Preposition{}
+					if err := bson.Unmarshal(flow.Prepositions, &prepositions); err != nil {
+						return err
+					}
+					for k := range prepositions.Prepositions {
+						prepositions.Prepositions[k].Data.From = dataFrom
+					}
+					newPrepositions, err := bson.Marshal(prepositions)
+					if err != nil {
+						return err
+					}
 
 					flow.SceneID = targetInfo.TargetID
 					flow.Nodes = nodes
+					flow.Prepositions = newPrepositions
+
+					// 更新api的uuid
+					err = packer.ChangeSceneNodeUUID(&flow)
+					if err != nil {
+						log.Logger.Info("导入场景--替换event_id失败")
+						return err
+					}
 					if _, err := collection.InsertOne(ctx, flow); err != nil {
 						return err
 					}

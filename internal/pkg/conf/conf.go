@@ -11,31 +11,36 @@ import (
 var Conf Config
 
 type Config struct {
-	Base                        Base          `yaml:"base"`
-	Http                        Http          `yaml:"http"`
-	GRPC                        GRPC          `yaml:"grpc"`
-	MySQL                       MySQL         `yaml:"mysql"`
-	JWT                         JWT           `yaml:"jwt"`
-	MongoDB                     MongoDB       `yaml:"mongodb"`
-	Prometheus                  Prometheus    `yaml:"prometheus"`
-	Kafka                       Kafka         `yaml:"kafka"`
-	ES                          ES            `yaml:"es"`
-	Clients                     Clients       `yaml:"clients"`
-	Proof                       Proof         `yaml:"proof"`
-	Redis                       Redis         `yaml:"redis"`
-	RedisReport                 RedisReport   `yaml:"redisReport"`
-	SMTP                        SMTP          `yaml:"smtp"`
-	Sms                         Sms           `yaml:"sms"`
-	InviteData                  inviteData    `yaml:"inviteData"`
-	Log                         Log           `yaml:"log"`
-	Pay                         Pay           `yaml:"pay"`
-	GeeTest                     GeeTest       `yaml:"geeTest"`
-	WechatLogin                 WechatLogin   `yaml:"wechatLogin"`
-	CanUsePartitionTotalNum     int           `yaml:"canUsePartitionTotalNum"`
-	OneMachineCanConcurrenceNum int           `yaml:"oneMachineCanConcurrenceNum"`
-	MachineConfig               MachineConfig `yaml:"machineConfig"`
-	DefaultTokenExpireTime      time.Duration `yaml:"defaultTokenExpireTime"`
-	KeepStressDebugLogTime      int           `yaml:"keepStressDebugLogTime"`
+	Base                        Base            `yaml:"base"`
+	Http                        Http            `yaml:"http"`
+	GRPC                        GRPC            `yaml:"grpc"`
+	MySQL                       MySQL           `yaml:"mysql"`
+	JWT                         JWT             `yaml:"jwt"`
+	MongoDB                     MongoDB         `yaml:"mongodb"`
+	Prometheus                  Prometheus      `yaml:"prometheus"`
+	Kafka                       Kafka           `yaml:"kafka"`
+	ES                          ES              `yaml:"es"`
+	Clients                     Clients         `yaml:"clients"`
+	Proof                       Proof           `yaml:"proof"`
+	Redis                       Redis           `yaml:"redis"`
+	RedisReport                 RedisReport     `yaml:"redisReport"`
+	SMTP                        SMTP            `yaml:"smtp"`
+	Sms                         Sms             `yaml:"sms"`
+	InviteData                  inviteData      `yaml:"inviteData"`
+	Log                         Log             `yaml:"log"`
+	Pay                         Pay             `yaml:"pay"`
+	GeeTest                     GeeTest         `yaml:"geeTest"`
+	WechatLogin                 WechatLogin     `yaml:"wechatLogin"`
+	CanUsePartitionTotalNum     int             `yaml:"canUsePartitionTotalNum"`
+	OneMachineCanConcurrenceNum int             `yaml:"oneMachineCanConcurrenceNum"`
+	MachineConfig               MachineConfig   `yaml:"machineConfig"`
+	AboutTimeConfig             AboutTimeConfig `yaml:"aboutTimeConfig"`
+}
+
+type AboutTimeConfig struct {
+	DefaultTokenExpireTime     time.Duration `yaml:"defaultTokenExpireTime"`
+	KeepStressDebugLogTime     int64         `yaml:"keepStressDebugLogTime"`
+	KeepMachineMonitorDataTime int64         `yaml:"keepMachineMonitorDataTime"`
 }
 
 type MachineConfig struct {
@@ -104,15 +109,26 @@ type ES struct {
 }
 
 type Clients struct {
-	Runner Runner
+	Runner     Runner
+	Permission Permission
+	Mock       Mock
+}
+
+type Permission struct {
+	PermissionDomain string `mapstructure:"permission_domain"`
 }
 
 type Runner struct {
-	RunAPI    string `mapstructure:"run_api"`
-	RunScene  string `mapstructure:"run_scene"`
-	StopScene string `mapstructure:"stop_scene"`
-	RunPlan   string `mapstructure:"run_plan"`
-	StopPlan  string `mapstructure:"stop_plan"`
+	EngineDomain string `mapstructure:"engine_domain"`
+}
+
+type Mock struct {
+	ApiManager ApiManager `mapstructure:"api_manager"`
+	HttpServer string     `mapstructure:"http_server"`
+}
+
+type ApiManager struct {
+	GrpcDomain string `mapstructure:"grpc_domain"`
 }
 
 type Proof struct {
@@ -200,8 +216,7 @@ func MustInitConfByEnv() {
 	initCanUsePartitionTotalNum()
 	initOneMachineCanConcurrenceNum()
 	initMachineConfig()
-	initDefaultTokenExpireTime()
-	initKeepStressDebugLogTime()
+	initAboutTimeConfig()
 }
 
 func initBase() {
@@ -282,25 +297,21 @@ func initMongoDB() {
 	Conf.MongoDB.PoolSize = 20
 }
 func initClients() {
-	Conf.Clients.Runner.RunAPI = os.Getenv("RG_CLIENTS_ENGINE_RUN_API")
-	if Conf.Clients.Runner.RunAPI == "" {
-		Conf.Clients.Runner.RunAPI = "https://127.0.0.0:30000/runner/run_api"
+	Conf.Clients.Runner.EngineDomain = os.Getenv("RG_CLIENTS_ENGINE_DOMAIN")
+	if Conf.Clients.Runner.EngineDomain == "" {
+		Conf.Clients.Runner.EngineDomain = "https://127.0.0.0:30000"
 	}
-	Conf.Clients.Runner.RunScene = os.Getenv("RG_CLIENTS_ENGINE_RUN_SCENE")
-	if Conf.Clients.Runner.RunScene == "" {
-		Conf.Clients.Runner.RunScene = "https://127.0.0.0:30000/runner/run_scene"
+	Conf.Clients.Permission.PermissionDomain = os.Getenv("RG_CLIENTS_PERMISSION_DOMAIN")
+	if Conf.Clients.Permission.PermissionDomain == "" {
+		Conf.Clients.Permission.PermissionDomain = "https://127.0.0.0:30000"
 	}
-	Conf.Clients.Runner.StopScene = os.Getenv("RG_CLIENTS_ENGINE_STOP_SCENE")
-	if Conf.Clients.Runner.StopScene == "" {
-		Conf.Clients.Runner.StopScene = "https://127.0.0.0:30000/runner/stop_scene"
+	Conf.Clients.Mock.ApiManager.GrpcDomain = os.Getenv("RG_CLIENTS_MOCK_API_MANAGER_GRPC_DOMAIN")
+	if Conf.Clients.Mock.ApiManager.GrpcDomain == "" {
+		Conf.Clients.Mock.ApiManager.GrpcDomain = "0.0.0.0:30000"
 	}
-	Conf.Clients.Runner.RunPlan = os.Getenv("RG_CLIENTS_ENGINE_RUN_PLAN")
-	if Conf.Clients.Runner.RunPlan == "" {
-		Conf.Clients.Runner.RunPlan = "https://127.0.0.0:30000/runner/run_plan"
-	}
-	Conf.Clients.Runner.StopPlan = os.Getenv("RG_CLIENTS_ENGINE_STOP_PLAN")
-	if Conf.Clients.Runner.StopPlan == "" {
-		Conf.Clients.Runner.StopPlan = "https://127.0.0.0:30000/runner/stop"
+	Conf.Clients.Mock.HttpServer = os.Getenv("RG_CLIENTS_MOCK_HTTP_SERVER")
+	if Conf.Clients.Mock.HttpServer == "" {
+		Conf.Clients.Mock.HttpServer = "https://127.0.0.0:30003"
 	}
 }
 func initProof() {
@@ -434,21 +445,30 @@ func initMachineConfig() {
 	}
 }
 
-func initDefaultTokenExpireTime() {
+func initAboutTimeConfig() {
+	// 默认token过期时间
 	defaultTokenExpireTime, err := strconv.ParseInt(os.Getenv("RG_DEFAULT_TOKEN_EXPIRE_TIME"), 10, 64)
 	if err != nil {
-		Conf.DefaultTokenExpireTime = 24
+		Conf.AboutTimeConfig.DefaultTokenExpireTime = 24
 	} else {
 		defaultTokenExpireTimeTemp := time.Duration(defaultTokenExpireTime)
-		Conf.DefaultTokenExpireTime = defaultTokenExpireTimeTemp
+		Conf.AboutTimeConfig.DefaultTokenExpireTime = defaultTokenExpireTimeTemp
 	}
-}
 
-func initKeepStressDebugLogTime() {
+	// 性能测试debug日志默认保留时间
 	keepStressDebugLogTime, err := strconv.ParseInt(os.Getenv("RG_KEEP_STRESS_DEBUG_LOG_TIME"), 10, 64)
 	if err != nil {
-		Conf.KeepStressDebugLogTime = 1
+		Conf.AboutTimeConfig.KeepStressDebugLogTime = 1
 	} else {
-		Conf.KeepStressDebugLogTime = int(keepStressDebugLogTime)
+		Conf.AboutTimeConfig.KeepStressDebugLogTime = keepStressDebugLogTime
 	}
+
+	// 压力机监控数据默认保存时间
+	keepMachineMonitorDataTime, err := strconv.ParseInt(os.Getenv("RG_KEEP_MACHINE_MONITOR_DATA_TIME"), 10, 64)
+	if err != nil {
+		Conf.AboutTimeConfig.KeepMachineMonitorDataTime = 3
+	} else {
+		Conf.AboutTimeConfig.KeepMachineMonitorDataTime = keepMachineMonitorDataTime
+	}
+
 }

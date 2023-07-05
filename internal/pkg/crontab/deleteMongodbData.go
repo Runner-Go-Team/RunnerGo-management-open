@@ -28,27 +28,27 @@ func DeleteDebugData() {
 	// 删除Api调试数据
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAPIDebug)
 	findFilter := bson.D{{}}
-	_, err := collection.DeleteOne(ctx, findFilter)
+	_, err := collection.DeleteMany(ctx, findFilter)
 	if err != nil {
-		log.Logger.Info("删除操作日志--api_debug日志删除失败，err:", err)
+		log.Logger.Info("删除Api调试数据--api_debug日志删除失败，err:", err)
 	}
-	log.Logger.Info("删除操作日志--api_debug删除成功")
+	log.Logger.Info("删除Api调试数据--api_debug删除成功")
 
 	// 删除场景调试数据
 	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneDebug)
 	findFilter = bson.D{{}}
-	_, err = collection.DeleteOne(ctx, findFilter)
+	_, err = collection.DeleteMany(ctx, findFilter)
 	if err != nil {
-		log.Logger.Info("删除操作日志--scene_debug日志删除失败，err:", err)
+		log.Logger.Info("删除场景调试数据--scene_debug日志删除失败，err:", err)
 	}
-	log.Logger.Info("删除操作日志--scene_debug删除成功")
+	log.Logger.Info("删除场景调试数据--scene_debug删除成功")
 
-	// 删除性能压测debug日志，仅保存一个月以内的数据
-	keepDataTime := conf.Conf.KeepStressDebugLogTime
-	now := time.Now()                               // 获取当前时间
-	oneMonthAgo := now.AddDate(0, -keepDataTime, 0) // 获取一个月前的时间
+	// 删除性能压测debug日志
+	keepDataTime := int(conf.Conf.AboutTimeConfig.KeepStressDebugLogTime)
+	now := time.Now() // 获取当前时间
+	timeAgo := now.AddDate(0, 0, -keepDataTime)
 	tx := dal.GetQuery().StressPlanReport
-	reportList, err := tx.WithContext(ctx).Where(tx.CreatedAt.Lt(oneMonthAgo)).Find()
+	reportList, err := tx.WithContext(ctx).Where(tx.CreatedAt.Lt(timeAgo)).Find()
 	reportIDs := make([]string, 0, len(reportList))
 	for _, reportInfo := range reportList {
 		reportIDs = append(reportIDs, reportInfo.ReportID)
@@ -61,4 +61,58 @@ func DeleteDebugData() {
 		log.Logger.Info("删除debug日志--debug日志删除失败，err:", err)
 	}
 	log.Logger.Info("删除debug日志--debug删除成功")
+
+	// 删除sql的debug数据
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSQLDebug)
+	findFilter = bson.D{{}}
+	_, err = collection.DeleteMany(ctx, findFilter)
+	if err != nil {
+		log.Logger.Info("删除sql的debug日志--删除失败，err:", err)
+	}
+	log.Logger.Info("删除sql的debug日志--删除成功")
+
+	// 删除Tcp的debug数据
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectTcpDebug)
+	findFilter = bson.D{{}}
+	_, err = collection.DeleteMany(ctx, findFilter)
+	if err != nil {
+		log.Logger.Info("删除tcp的debug日志--删除失败，err:", err)
+	}
+	log.Logger.Info("删除tcp的debug日志--删除成功")
+
+	// 删除Websocket的debug数据
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectWebsocketDebug)
+	findFilter = bson.D{{}}
+	_, err = collection.DeleteMany(ctx, findFilter)
+	if err != nil {
+		log.Logger.Info("删除websocket的debug日志--删除失败，err:", err)
+	}
+	log.Logger.Info("删除websocket的debug日志--删除成功")
+
+	// 删除Dubbo的debug数据
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectDubboDebug)
+	findFilter = bson.D{{}}
+	_, err = collection.DeleteMany(ctx, findFilter)
+	if err != nil {
+		log.Logger.Info("删除dubbo的debug日志--删除失败，err:", err)
+	}
+	log.Logger.Info("删除dubbo的debug日志--删除成功")
+
+	//// 删除mqtt的debug数据
+	//collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectMqttDebug)
+	//findFilter = bson.D{{}}
+	//_, err = collection.DeleteMany(ctx, findFilter)
+	//if err != nil {
+	//	log.Logger.Info("删除mqtt的debug日志--删除失败，err:", err)
+	//}
+	//log.Logger.Info("删除mqtt的debug日志--删除成功")
+
+	// 删除压力机监控数据
+	deleteTime := time.Now().Unix() - (conf.Conf.AboutTimeConfig.KeepMachineMonitorDataTime * 24 * 3600)
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectMachineMonitorData)
+	_, err = collection.DeleteMany(ctx, bson.D{{"created_at", bson.D{{"$lte", deleteTime}}}})
+	if err != nil {
+		log.Logger.Info("压力机监控数据--删除压力机监控数据失败")
+	}
+
 }

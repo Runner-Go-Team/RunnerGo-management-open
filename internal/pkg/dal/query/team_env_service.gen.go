@@ -30,12 +30,10 @@ func newTeamEnvService(db *gorm.DB, opts ...gen.DOOption) teamEnvService {
 	_teamEnvService.ID = field.NewInt64(tableName, "id")
 	_teamEnvService.TeamID = field.NewString(tableName, "team_id")
 	_teamEnvService.TeamEnvID = field.NewInt64(tableName, "team_env_id")
+	_teamEnvService.ProtocolType = field.NewString(tableName, "protocol_type")
 	_teamEnvService.Name = field.NewString(tableName, "name")
 	_teamEnvService.Content = field.NewString(tableName, "content")
-	_teamEnvService.Sort = field.NewInt32(tableName, "sort")
-	_teamEnvService.Status = field.NewInt32(tableName, "status")
 	_teamEnvService.CreatedUserID = field.NewString(tableName, "created_user_id")
-	_teamEnvService.RecentUserID = field.NewInt64(tableName, "recent_user_id")
 	_teamEnvService.CreatedAt = field.NewTime(tableName, "created_at")
 	_teamEnvService.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_teamEnvService.DeletedAt = field.NewField(tableName, "deleted_at")
@@ -49,18 +47,16 @@ type teamEnvService struct {
 	teamEnvServiceDo teamEnvServiceDo
 
 	ALL           field.Asterisk
-	ID            field.Int64  // ID
-	TeamID        field.String // 团队ID
-	TeamEnvID     field.Int64  // 环境ID
+	ID            field.Int64  // 主键id
+	TeamID        field.String // 团队id
+	TeamEnvID     field.Int64  // 环境id
+	ProtocolType  field.String // 协议类型
 	Name          field.String // 服务名称
 	Content       field.String // 服务URL
-	Sort          field.Int32  // 排序
-	Status        field.Int32  // 状态：1-正常 2-删除
-	CreatedUserID field.String // 创建人ID
-	RecentUserID  field.Int64
-	CreatedAt     field.Time
-	UpdatedAt     field.Time
-	DeletedAt     field.Field
+	CreatedUserID field.String // 创建人id
+	CreatedAt     field.Time   // 创建时间
+	UpdatedAt     field.Time   // 更新时间
+	DeletedAt     field.Field  // 删除时间
 
 	fieldMap map[string]field.Expr
 }
@@ -80,12 +76,10 @@ func (t *teamEnvService) updateTableName(table string) *teamEnvService {
 	t.ID = field.NewInt64(table, "id")
 	t.TeamID = field.NewString(table, "team_id")
 	t.TeamEnvID = field.NewInt64(table, "team_env_id")
+	t.ProtocolType = field.NewString(table, "protocol_type")
 	t.Name = field.NewString(table, "name")
 	t.Content = field.NewString(table, "content")
-	t.Sort = field.NewInt32(table, "sort")
-	t.Status = field.NewInt32(table, "status")
 	t.CreatedUserID = field.NewString(table, "created_user_id")
-	t.RecentUserID = field.NewInt64(table, "recent_user_id")
 	t.CreatedAt = field.NewTime(table, "created_at")
 	t.UpdatedAt = field.NewTime(table, "updated_at")
 	t.DeletedAt = field.NewField(table, "deleted_at")
@@ -113,16 +107,14 @@ func (t *teamEnvService) GetFieldByName(fieldName string) (field.OrderExpr, bool
 }
 
 func (t *teamEnvService) fillFieldMap() {
-	t.fieldMap = make(map[string]field.Expr, 12)
+	t.fieldMap = make(map[string]field.Expr, 10)
 	t.fieldMap["id"] = t.ID
 	t.fieldMap["team_id"] = t.TeamID
 	t.fieldMap["team_env_id"] = t.TeamEnvID
+	t.fieldMap["protocol_type"] = t.ProtocolType
 	t.fieldMap["name"] = t.Name
 	t.fieldMap["content"] = t.Content
-	t.fieldMap["sort"] = t.Sort
-	t.fieldMap["status"] = t.Status
 	t.fieldMap["created_user_id"] = t.CreatedUserID
-	t.fieldMap["recent_user_id"] = t.RecentUserID
 	t.fieldMap["created_at"] = t.CreatedAt
 	t.fieldMap["updated_at"] = t.UpdatedAt
 	t.fieldMap["deleted_at"] = t.DeletedAt

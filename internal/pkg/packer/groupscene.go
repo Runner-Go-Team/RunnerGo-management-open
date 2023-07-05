@@ -22,6 +22,7 @@ func TransTargetsToRaoGroupSceneList(targets []*model.Target) []*rao.GroupScene 
 			RecentUserID:  t.RecentUserID,
 			Description:   t.Description,
 			Source:        t.Source,
+			IsDisabled:    t.IsDisabled,
 		})
 	}
 	return ret

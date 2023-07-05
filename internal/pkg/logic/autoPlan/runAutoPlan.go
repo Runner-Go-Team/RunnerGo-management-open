@@ -28,25 +28,21 @@ import (
 )
 
 type Baton struct {
-	Ctx      context.Context
-	PlanID   string
-	TeamID   string
-	UserID   string
-	SceneIDs []string
-	RunType  int
-
-	reportID    string
-	plan        *model.AutoPlan
-	scenes      []*model.Target
-	testCase    []*model.Target
-	testCaseIDs []string
-	//task            map[int64]*mao.Task // sceneID 对应任务配置
-	ConfigTask ConfigTask // 任务配置
-	//globalVariables []*model.Variable
+	Ctx             context.Context
+	PlanID          string
+	TeamID          string
+	UserID          string
+	SceneIDs        []string
+	RunType         int
+	reportID        string
+	plan            *model.AutoPlan
+	scenes          []*model.Target
+	testCase        []*model.Target
+	testCaseIDs     []string
+	ConfigTask      ConfigTask // 任务配置
 	globalVariables run_plan.GlobalVariable
 	sceneFlows      map[string]*mao.Flow
 	sceneCaseFlows  map[string]*mao.SceneCaseFlow
-	//sceneVariables  map[string][]*model.Variable
 	sceneVariables  map[string]run_plan.GlobalVariable
 	importVariables map[string][]*model.VariableImport
 	reports         []*model.Report
@@ -85,49 +81,33 @@ type PlanKv struct {
 }
 
 type Scene struct {
-	PlanId                  string `json:"plan_id" bson:"plan_id"`
-	SceneId                 string `json:"scene_id" bson:"scene_id"`     // 场景Id
-	IsChecked               int32  `json:"is_checked" bson:"is_checked"` // 是否启用
-	ParentId                string `json:"parentId" bson:"parent_id"`
-	CaseId                  string `json:"case_id" bson:"case_id"`
-	Partition               int32  `json:"partition"`
-	MachineNum              int64  `json:"machine_num" bson:"machine_num"` // 使用的机器数量
-	ReportId                string `json:"report_id" bson:"report_id"`
-	TeamId                  string `json:"team_id" bson:"team_id"`
-	SceneName               string `json:"scene_name" bson:"scene_name"` // 场景名称
-	Version                 int64  `json:"version" bson:"version"`
-	Debug                   string `json:"debug" bson:"debug"`
-	EnablePlanConfiguration bool   `json:"enable_plan_configuration" bson:"enable_plan_configuration"` // 是否启用计划的任务配置，默认为true，
-	//Nodes                   []rao.Node              `json:"nodes" bson:"nodes"`                                         // 事件列表
-	ConfigTask     ConfigTask              `json:"config_task" bson:"config_task"`     // 任务配置
-	Configuration  Configuration           `json:"configuration" bson:"configuration"` // 场景配置
-	Variable       []KV                    `json:"variable" bson:"variable"`           // 场景配置
-	Cases          []Scene                 `json:"cases" bson:"cases"`
-	NodesRound     [][]rao.Node            `json:"nodes_round" bson:"nodes_round"`
-	GlobalVariable run_plan.GlobalVariable `json:"global_variable"` // 全局变量
+	PlanId                  string                  `json:"plan_id" bson:"plan_id"`
+	SceneId                 string                  `json:"scene_id" bson:"scene_id"`     // 场景Id
+	IsChecked               int32                   `json:"is_checked" bson:"is_checked"` // 是否启用
+	ParentId                string                  `json:"parentId" bson:"parent_id"`
+	CaseId                  string                  `json:"case_id" bson:"case_id"`
+	Partition               int32                   `json:"partition"`
+	MachineNum              int64                   `json:"machine_num" bson:"machine_num"` // 使用的机器数量
+	ReportId                string                  `json:"report_id" bson:"report_id"`
+	TeamId                  string                  `json:"team_id" bson:"team_id"`
+	SceneName               string                  `json:"scene_name" bson:"scene_name"` // 场景名称
+	Version                 int64                   `json:"version" bson:"version"`
+	Debug                   string                  `json:"debug" bson:"debug"`
+	EnablePlanConfiguration bool                    `json:"enable_plan_configuration" bson:"enable_plan_configuration"` // 是否启用计划的任务配置，默认为true，
+	ConfigTask              ConfigTask              `json:"config_task" bson:"config_task"`                             // 任务配置
+	Configuration           Configuration           `json:"configuration" bson:"configuration"`                         // 场景配置
+	Variable                []KV                    `json:"variable" bson:"variable"`                                   // 场景配置
+	Cases                   []Scene                 `json:"cases" bson:"cases"`
+	NodesRound              [][]rao.Node            `json:"nodes_round" bson:"nodes_round"`
+	GlobalVariable          run_plan.GlobalVariable `json:"global_variable"` // 全局变量
+	Prepositions            []rao.Preposition       `json:"prepositions"`    // 前置条件
 }
-
-//type GlobalVariable struct {
-//	Cookie   Cookie          `json:"cookie"`
-//	Header   Header          `json:"header"`
-//	Variable []VarForm       `json:"variable"`
-//	Assert   []AssertionText `json:"assert"` // 验证的方法(断言)
-//}
 
 type Configuration struct {
 	ParameterizedFile ParameterizedFile       `json:"parameterizedFile" bson:"parameterizedFile"`
 	SceneVariable     run_plan.GlobalVariable `json:"scene_variable"`
 	//Variable          []KV              `json:"variable" bson:"variable"` // todo 弃用
 }
-
-//type Parameter struct {
-//	IsChecked   int32  `json:"is_checked"`
-//	Type        string `json:"type"`
-//	Key         string `json:"key"`
-//	Value       string `json:"value"`
-//	NotNull     int32  `json:"not_null"`
-//	Description string `json:"description"`
-//}
 
 // ParameterizedFile 参数化文件
 type ParameterizedFile struct {
@@ -607,7 +587,8 @@ func AssembleScenes(baton *Baton) (int, error) {
 	targetList, err := tx.WithContext(baton.Ctx).Where(tx.TeamID.Eq(baton.TeamID),
 		tx.PlanID.Eq(baton.PlanID),
 		tx.TargetType.Eq(consts.TargetTypeScene),
-		tx.Source.Eq(consts.TargetSourceAutoPlan)).Find()
+		tx.Source.Eq(consts.TargetSourceAutoPlan),
+		tx.IsDisabled.Eq(consts.TargetIsDisabledNo)).Find()
 	if err != nil {
 		return errno.ErrMysqlFailed, fmt.Errorf("组装场景失败")
 	}
@@ -1021,15 +1002,6 @@ func AssembleRunPlanRealParams(baton *Baton) (int, error) {
 	baton.RealRunParam.MachineNum = 1
 	baton.RealRunParam.ConfigTask = baton.ConfigTask
 
-	////组装全局变量
-	//for _, gvInfo := range baton.globalVariables {
-	//	tempData := PlanKv{
-	//		Var: gvInfo.Var,
-	//		Val: gvInfo.Val,
-	//	}
-	//	baton.RealRunParam.Variable = append(baton.RealRunParam.Variable, tempData)
-	//}
-
 	//组装全局变量
 	baton.RealRunParam.GlobalVariable = baton.globalVariables
 
@@ -1047,6 +1019,24 @@ func AssembleRunPlanRealParams(baton *Baton) (int, error) {
 			ConfigTask: baton.ConfigTask, // 任务配置
 		}
 
+		// 组装前置条件
+		if flowInfo, ok := baton.sceneFlows[sceneInfo.TargetID]; ok {
+			prepositions := mao.Preposition{}
+			if err := bson.Unmarshal(flowInfo.Prepositions, &prepositions); err != nil {
+				log.Logger.Errorf("prepositions bson unmarshal err:%v", err)
+				continue
+			}
+			prepositionsArr := make([]rao.Preposition, 0, len(prepositions.Prepositions))
+			for _, v := range prepositions.Prepositions {
+				temp := rao.Preposition{
+					Type:  v.Type,
+					Event: v,
+				}
+				prepositionsArr = append(prepositionsArr, temp)
+			}
+			tempData.Prepositions = prepositionsArr
+		}
+
 		// 场景导入变量
 		for _, iv := range baton.importVariables[sceneInfo.TargetID] {
 			temp := FileList{
@@ -1057,23 +1047,9 @@ func AssembleRunPlanRealParams(baton *Baton) (int, error) {
 		}
 
 		// 全局变量
-		//for _, gv := range baton.globalVariables {
-		//	temp := KV{
-		//		Key:   gv.Var,
-		//		Value: gv.Val,
-		//	}
-		//	tempData.Variable = append(tempData.Variable, temp)
-		//}
 		tempData.GlobalVariable = baton.globalVariables
 
 		// 场景变量
-		//for _, sv := range baton.sceneVariables[sceneInfo.TargetID] {
-		//	temp := KV{
-		//		Key:   sv.Var,
-		//		Value: sv.Val,
-		//	}
-		//	tempData.Configuration.Variable = append(tempData.Configuration.Variable, temp)
-		//}
 		tempData.Configuration.SceneVariable = baton.sceneVariables[sceneInfo.TargetID]
 
 		// 拼装场景下所有测试用例
@@ -1117,7 +1093,17 @@ func getTestCase(tc *model.Target, baton *Baton) (Scene, error) {
 	}
 
 	nodesRound := packer.GetNodesByLevel(nodes.Nodes, edges.Edges)
-	//res.Nodes = nodes.Nodes
+	// 把flow里面的pre_url替换成环境变量的
+	for k1, v1 := range nodesRound {
+		for k2, v2 := range v1 {
+			if baton.sceneCaseFlows[tc.TargetID].EnvID != 0 {
+				nodesRound[k1][k2].API.Request.PreUrl = v2.API.EnvInfo.PreUrl
+			} else {
+				nodesRound[k1][k2].API.Request.PreUrl = ""
+			}
+		}
+	}
+
 	res.NodesRound = nodesRound
 	return res, nil
 }

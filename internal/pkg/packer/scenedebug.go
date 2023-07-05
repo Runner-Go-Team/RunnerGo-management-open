@@ -10,9 +10,9 @@ func TransMaoSceneDebugsToRaoSceneDebugs(ms []*mao.SceneDebug) []*rao.SceneDebug
 
 	for _, m := range ms {
 
-		var as []*rao.DebugAssertion
-		for _, a := range m.Assertion {
-			as = append(as, &rao.DebugAssertion{
+		var as []*rao.DebugAssert
+		for _, a := range m.Assert {
+			as = append(as, &rao.DebugAssert{
 				Code:      a.Code,
 				IsSucceed: a.IsSucceed,
 				Msg:       a.Msg,
@@ -22,7 +22,7 @@ func TransMaoSceneDebugsToRaoSceneDebugs(ms []*mao.SceneDebug) []*rao.SceneDebug
 		ret = append(ret, &rao.SceneDebug{
 			ApiID:          m.ApiID,
 			APIName:        m.APIName,
-			Assertion:      as,
+			Assert:         as,
 			EventID:        m.EventID,
 			NextList:       m.NextList,
 			Regex:          m.Regex,
@@ -35,6 +35,7 @@ func TransMaoSceneDebugsToRaoSceneDebugs(ms []*mao.SceneDebug) []*rao.SceneDebug
 			Status:         m.Status,
 			UUID:           m.UUID,
 			ResponseTime:   m.ResponseTime,
+			RequestType:    m.RequestType,
 		})
 	}
 

@@ -1,8 +1,10 @@
 package mail
 
 import (
+	"context"
 	"fmt"
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 	"net/smtp"
 
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
@@ -145,7 +147,7 @@ const (
         <a class="to_login" href="%s" target="_blank">去登录</a>
         <p class="team">【%s】</p>
         <div class="email-body">
-            <p class="plan-name">【%s】By%s</p>
+            <p class="plan-name">【%s】By %s</p>
             <div class="report-list">
                 <button><a class="a_text" href="%s">查看测试报告</a></button>
             </div>
@@ -174,6 +176,47 @@ func SendAutoPlanEmail(toEmail string, planInfo *model.AutoPlan, teamInfo *model
 	reportDetailUrl := fmt.Sprintf(conf.Conf.Base.Domain + "#/email/autoReport?report_id=" + fmt.Sprintf("%s", reportID) + "&team_id=" + fmt.Sprintf("%s", teamInfo.TeamID))
 	domainUrl := conf.Conf.Base.Domain
 	body := fmt.Sprintf(autoPlanHTMLTemplate, domainUrl, teamInfo.Name, planInfo.PlanName, userName, reportDetailUrl)
+	message := ""
+	for k, v := range header {
+		message += fmt.Sprintf("%s: %s\r\n", k, v)
+	}
+	message += "\r\n" + body
+	auth := smtp.PlainAuth(
+		"",
+		email,
+		password,
+		host,
+	)
+	return SendMailUsingTLS(
+		fmt.Sprintf("%s:%d", host, port),
+		auth,
+		email,
+		[]string{toEmail},
+		[]byte(message),
+	)
+}
+
+func SendAutoPlanNoticeEmail(ctx context.Context, emailConf *rao.SMTPEmail, toEmail string, params *rao.SendCardParams) error {
+	host := emailConf.Host
+	port := emailConf.Port
+	email := emailConf.Email
+	password := emailConf.Password
+	if host == "" || port == 0 || email == "" || password == "" {
+		return fmt.Errorf("请配置邮件相关环境变量")
+	}
+
+	header := make(map[string]string)
+	header["From"] = "RunnerGo" + "<" + email + ">"
+	header["To"] = toEmail
+	header["Subject"] = fmt.Sprintf("测试报告 【%s】的【%s】给您发送了【%s】的测试报告，点击查看", params.Team.Name, params.RunUserName, params.PlanName)
+	header["Content-Type"] = "text/html; charset=UTF-8"
+
+	reportDetailUrl := ""
+	for _, report := range params.AutoPlanReports {
+		reportDetailUrl += fmt.Sprintf(conf.Conf.Base.Domain + "#/email/autoReport?report_id=" + fmt.Sprintf("%s", report.ReportID) + "&team_id=" + fmt.Sprintf("%s", params.Team.TeamID))
+	}
+	domainUrl := conf.Conf.Base.Domain
+	body := fmt.Sprintf(autoPlanHTMLTemplate, domainUrl, params.Team.Name, params.PlanName, params.RunUserName, reportDetailUrl)
 	message := ""
 	for k, v := range header {
 		message += fmt.Sprintf("%s: %s\r\n", k, v)
