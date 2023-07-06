@@ -1,5 +1,11 @@
 package script
 
+import (
+	"database/sql"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"strings"
+)
+
 func GetAllAlterSqlMap() map[string][]string {
 	alterSqlMap := make(map[string][]string)
 
@@ -41,4 +47,72 @@ func GetAllAlterSqlMap() map[string][]string {
 	alterSqlMap["2.0.0"] = v200
 
 	return alterSqlMap
+}
+
+func ExecMigrationSql(db *sql.DB) {
+	// 创建迁移记录表
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS `migrations` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键id',\n  `version` varchar(50) NOT NULL COMMENT '版本号',\n  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',\n  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',\n  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;")
+	if err != nil {
+		log.Logger.Error("创建迁移记录表失败：", err)
+	}
+
+	// 获取已执行的脚本版本号
+	versions := make([]string, 0)
+	rows, err := db.Query("SELECT version FROM migrations")
+	if err != nil {
+		log.Logger.Error("查询数据迁移记录失败：", err)
+	}
+	defer func(rows *sql.Rows) {
+		err = rows.Close()
+		if err != nil {
+			log.Logger.Error("关闭查询迁移记录数据失败：", err)
+		}
+	}(rows)
+	for rows.Next() {
+		var version string
+		if err = rows.Scan(&version); err != nil {
+			log.Logger.Error("遍历版本迁移记录数据失败：", err)
+		}
+		versions = append(versions, version)
+	}
+	if err = rows.Err(); err != nil {
+		log.Logger.Error("迭代数据迁移记录表失败：", err)
+	}
+
+	// 获取所有更新sql
+	AlterSqlMap := GetAllAlterSqlMap()
+
+	// 执行需要数据迁移版本对应的sql语句
+	for version, allSql := range AlterSqlMap {
+		if contains(versions, version) {
+			continue
+		}
+
+		// 执行SQL语句
+		for _, statement := range allSql {
+			if strings.TrimSpace(statement) == "" {
+				continue
+			}
+			_, err := db.Exec(statement)
+			if err != nil {
+				log.Logger.Error("执行sql语句失败", err)
+				continue
+			}
+		}
+		_, err = db.Exec("INSERT INTO migrations (version) VALUES (?)", version)
+		if err != nil {
+			log.Logger.Error("添加版本迁移记录失败：", err)
+		}
+		log.Logger.Error("数据迁移成功，迁移的版本号为：", version)
+	}
+	return
+}
+
+func contains(versions []string, version string) bool {
+	for _, v := range versions {
+		if v == version {
+			return true
+		}
+	}
+	return false
 }

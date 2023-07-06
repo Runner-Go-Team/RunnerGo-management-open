@@ -28,6 +28,11 @@ func main() {
 
 	internal.InitProjects(readConfMode, configFile)
 
+	// 数据库初始化和数据迁移任务
+	go func() {
+		script.DataMigrations()
+	}()
+
 	//异步执行性能定时任务
 	go func() {
 		handler.TimedTaskExec()
@@ -62,11 +67,6 @@ func main() {
 	go func() {
 		crontab.DeleteOperationLogBeforeSevenDay()
 		crontab.DeleteMongodbData()
-	}()
-
-	// 数据库迁移任务】
-	go func() {
-		script.DataMigrations()
 	}()
 
 	//// 性能分析
