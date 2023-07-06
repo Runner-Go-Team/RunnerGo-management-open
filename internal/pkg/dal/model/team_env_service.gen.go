@@ -17,7 +17,6 @@ type TeamEnvService struct {
 	ID            int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`                      // 主键id
 	TeamID        string         `gorm:"column:team_id;not null" json:"team_id"`                                 // 团队id
 	TeamEnvID     int64          `gorm:"column:team_env_id;not null" json:"team_env_id"`                         // 环境id
-	ProtocolType  string         `gorm:"column:protocol_type;not null" json:"protocol_type"`                     // 协议类型
 	Name          string         `gorm:"column:name;not null" json:"name"`                                       // 服务名称
 	Content       string         `gorm:"column:content;not null" json:"content"`                                 // 服务URL
 	CreatedUserID string         `gorm:"column:created_user_id;not null" json:"created_user_id"`                 // 创建人id

@@ -123,12 +123,11 @@ type GetServiceListReq struct {
 }
 
 type ServiceList struct {
-	ServiceID    int64  `json:"service_id"`
-	TeamID       string `json:"team_id"`
-	EnvID        int64  `json:"env_id"`
-	ProtocolType string `json:"protocol_type"`
-	ServiceName  string `json:"service_name"`
-	Content      string `json:"content"`
+	ServiceID   int64  `json:"service_id"`
+	TeamID      string `json:"team_id"`
+	EnvID       int64  `json:"env_id"`
+	ServiceName string `json:"service_name"`
+	Content     string `json:"content"`
 }
 
 type GetServiceListResp struct {
@@ -163,12 +162,11 @@ type DatabaseList struct {
 }
 
 type CreateEnvServiceReq struct {
-	ServiceID    int64  `json:"service_id"`
-	TeamID       string `json:"team_id"`
-	EnvID        int64  `json:"env_id"`
-	ProtocolType string `json:"protocol_type"`
-	ServiceName  string `json:"service_name"`
-	Content      string `json:"content"`
+	ServiceID   int64  `json:"service_id"`
+	TeamID      string `json:"team_id"`
+	EnvID       int64  `json:"env_id"`
+	ServiceName string `json:"service_name"`
+	Content     string `json:"content"`
 }
 
 type CreateEnvDatabaseReq struct {

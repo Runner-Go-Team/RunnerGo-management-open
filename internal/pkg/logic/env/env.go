@@ -386,12 +386,11 @@ func GetServiceList(ctx *gin.Context, req *rao.GetServiceListReq) ([]rao.Service
 	res := make([]rao.ServiceList, 0, len(serviceList))
 	for _, serviceInfo := range serviceList {
 		temp := rao.ServiceList{
-			ServiceID:    serviceInfo.ID,
-			TeamID:       serviceInfo.TeamID,
-			EnvID:        serviceInfo.TeamEnvID,
-			ProtocolType: serviceInfo.ProtocolType,
-			ServiceName:  serviceInfo.Name,
-			Content:      serviceInfo.Content,
+			ServiceID:   serviceInfo.ID,
+			TeamID:      serviceInfo.TeamID,
+			EnvID:       serviceInfo.TeamEnvID,
+			ServiceName: serviceInfo.Name,
+			Content:     serviceInfo.Content,
 		}
 		res = append(res, temp)
 	}
@@ -432,8 +431,8 @@ func CreateEnvService(ctx *gin.Context, req *rao.CreateEnvServiceReq) error {
 	userID := jwt.GetUserIDByCtx(ctx)
 	err := query.Use(dal.DB()).Transaction(func(tx *query.Query) error {
 		_, err := tx.TeamEnvService.WithContext(ctx).Where(tx.TeamEnvService.TeamID.Eq(req.TeamID),
-			tx.TeamEnvService.TeamEnvID.Eq(req.EnvID), tx.TeamEnvService.ProtocolType.Eq(req.ProtocolType),
-			tx.TeamEnvService.ID.Neq(req.ServiceID), tx.TeamEnvService.Name.Eq(req.ServiceName)).First()
+			tx.TeamEnvService.TeamEnvID.Eq(req.EnvID), tx.TeamEnvService.ID.Neq(req.ServiceID),
+			tx.TeamEnvService.Name.Eq(req.ServiceName)).First()
 		if err == nil {
 			return fmt.Errorf("名称已存在")
 		}
@@ -449,7 +448,6 @@ func CreateEnvService(ctx *gin.Context, req *rao.CreateEnvServiceReq) error {
 				InsertData := model.TeamEnvService{
 					TeamID:        req.TeamID,
 					TeamEnvID:     envInfo.ID,
-					ProtocolType:  req.ProtocolType,
 					Name:          req.ServiceName,
 					Content:       req.Content,
 					CreatedUserID: userID,
@@ -472,7 +470,7 @@ func CreateEnvService(ctx *gin.Context, req *rao.CreateEnvServiceReq) error {
 				if envInfo.ID == req.EnvID {
 					_, err = tx.TeamEnvService.WithContext(ctx).Where(tx.TeamEnvService.TeamID.Eq(req.TeamID), tx.TeamEnvService.ID.Eq(req.ServiceID)).UpdateSimple(
 						tx.TeamEnvService.Name.Value(req.ServiceName), tx.TeamEnvService.Content.Value(req.Content),
-						tx.TeamEnvService.ProtocolType.Value(req.ProtocolType), tx.TeamEnvService.CreatedUserID.Value(userID))
+						tx.TeamEnvService.CreatedUserID.Value(userID))
 					if err != nil {
 						return err
 					}

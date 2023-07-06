@@ -30,7 +30,6 @@ func newTeamEnvService(db *gorm.DB, opts ...gen.DOOption) teamEnvService {
 	_teamEnvService.ID = field.NewInt64(tableName, "id")
 	_teamEnvService.TeamID = field.NewString(tableName, "team_id")
 	_teamEnvService.TeamEnvID = field.NewInt64(tableName, "team_env_id")
-	_teamEnvService.ProtocolType = field.NewString(tableName, "protocol_type")
 	_teamEnvService.Name = field.NewString(tableName, "name")
 	_teamEnvService.Content = field.NewString(tableName, "content")
 	_teamEnvService.CreatedUserID = field.NewString(tableName, "created_user_id")
@@ -50,7 +49,6 @@ type teamEnvService struct {
 	ID            field.Int64  // 主键id
 	TeamID        field.String // 团队id
 	TeamEnvID     field.Int64  // 环境id
-	ProtocolType  field.String // 协议类型
 	Name          field.String // 服务名称
 	Content       field.String // 服务URL
 	CreatedUserID field.String // 创建人id
@@ -76,7 +74,6 @@ func (t *teamEnvService) updateTableName(table string) *teamEnvService {
 	t.ID = field.NewInt64(table, "id")
 	t.TeamID = field.NewString(table, "team_id")
 	t.TeamEnvID = field.NewInt64(table, "team_env_id")
-	t.ProtocolType = field.NewString(table, "protocol_type")
 	t.Name = field.NewString(table, "name")
 	t.Content = field.NewString(table, "content")
 	t.CreatedUserID = field.NewString(table, "created_user_id")
@@ -107,11 +104,10 @@ func (t *teamEnvService) GetFieldByName(fieldName string) (field.OrderExpr, bool
 }
 
 func (t *teamEnvService) fillFieldMap() {
-	t.fieldMap = make(map[string]field.Expr, 10)
+	t.fieldMap = make(map[string]field.Expr, 9)
 	t.fieldMap["id"] = t.ID
 	t.fieldMap["team_id"] = t.TeamID
 	t.fieldMap["team_env_id"] = t.TeamEnvID
-	t.fieldMap["protocol_type"] = t.ProtocolType
 	t.fieldMap["name"] = t.Name
 	t.fieldMap["content"] = t.Content
 	t.fieldMap["created_user_id"] = t.CreatedUserID

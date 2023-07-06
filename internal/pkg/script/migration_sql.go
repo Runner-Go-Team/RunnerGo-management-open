@@ -46,6 +46,11 @@ func GetAllAlterSqlMap() map[string][]string {
 	v200 = append(v200, "ALTER TABLE `user_team` ADD COLUMN `is_show` tinyint(2) NOT NULL DEFAULT 1 COMMENT '是否展示到团队列表  1:展示   2:不展示' AFTER `sort`;")
 	alterSqlMap["2.0.0"] = v200
 
+	// management版本2.0.0.1
+	v2001 := make([]string, 0, 10)
+	v2001 = append(v2001, "ALTER TABLE team_env_service DROP COLUMN protocol_type;")
+	alterSqlMap["2.0.0.1"] = v200
+
 	return alterSqlMap
 }
 
