@@ -218,7 +218,7 @@ func SaveCaseAssemble(ctx *gin.Context, req *rao.SaveCaseAssembleReq) error {
 			}
 
 			//获取场景的执行流flow 然后赋给用例执行流flow
-			var sceneFlow mao.Flow
+			sceneFlow := mao.Flow{}
 			collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
 			collectionErr := collection.FindOne(ctx, bson.D{{"scene_id", req.SceneID}}).Decode(&sceneFlow)
 			if collectionErr != nil && collectionErr != mongo.ErrNoDocuments {
@@ -230,12 +230,11 @@ func SaveCaseAssemble(ctx *gin.Context, req *rao.SaveCaseAssembleReq) error {
 			sceneCaseFlowErr := sceneCaseFlowCollection.FindOne(ctx, bson.D{{"scene_case_id", tx.Target.TargetID}}).Decode(&sceneFlow)
 			if sceneCaseFlowErr == mongo.ErrNoDocuments { // 新建
 				_, _ = sceneCaseFlowCollection.InsertOne(ctx, sceneCaseFlow)
+			} else {
+				_, _ = sceneCaseFlowCollection.UpdateOne(ctx, bson.D{
+					{"scene_id", sceneCaseFlow.SceneCaseID},
+				}, bson.M{"$set": sceneCaseFlow})
 			}
-
-			_, _ = sceneCaseFlowCollection.UpdateOne(ctx, bson.D{
-				{"scene_id", sceneCaseFlow.SceneCaseID},
-			}, bson.M{"$set": sceneCaseFlow})
-
 			return record.InsertCreate(ctx, targetInfo.TeamID, userID, record.OperationOperateCreateTestCase, targetInfo.Name)
 		} else {
 			if _, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.CaseID)).Updates(targetInfo); err != nil {
@@ -266,16 +265,25 @@ func SaveSceneCaseFlow(ctx *gin.Context, req *rao.SaveSceneCaseFlowReq) error {
 }
 
 func GetSceneCaseFlow(ctx *gin.Context, req *rao.GetSceneCaseFlowReq) (*rao.GetSceneCaseFlowResp, error) {
-	var ret mao.SceneCaseFlow
-
-	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
-	err := collection.FindOne(ctx, bson.D{{"scene_case_id", req.CaseID}}).Decode(&ret)
-	if err != nil && err != mongo.ErrNoDocuments {
+	// 查询用例基本信息
+	tx := dal.GetQuery().Target
+	caseInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(req.CaseID)).First()
+	if err != nil {
 		return nil, err
 	}
 
-	if err == mongo.ErrNoDocuments {
-		return nil, nil
+	res := &rao.GetSceneCaseFlowResp{
+		SceneID:     caseInfo.ParentID,
+		SceneCaseID: caseInfo.TargetID,
+		TeamID:      caseInfo.TeamID,
+		Version:     caseInfo.Version,
+	}
+
+	ret := mao.SceneCaseFlow{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
+	err = collection.FindOne(ctx, bson.D{{"scene_case_id", req.CaseID}}).Decode(&ret)
+	if err != nil {
+		return res, nil
 	}
 
 	return packer.TransMaoSceneCaseFlowToRaoGetFowResp(&ret), nil

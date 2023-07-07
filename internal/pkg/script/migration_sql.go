@@ -42,14 +42,19 @@ func GetAllAlterSqlMap() map[string][]string {
 	v200 = append(v200, "ALTER TABLE `team` ADD COLUMN `description` text COMMENT '团队描述' AFTER `name`;")
 	v200 = append(v200, "ALTER TABLE `team` ADD COLUMN `company_id` varchar(100) NOT NULL DEFAULT '' COMMENT '所属企业id' AFTER `description`;")
 	v200 = append(v200, "ALTER TABLE `user` ADD COLUMN `account` varchar(100) NOT NULL DEFAULT '' COMMENT '账号' AFTER `user_id`;")
-	v200 = append(v200, "ALTER TABLE `user_team` ADD COLUMN `invite_time` bigint(20) NOT NULL DEFAULT 0 COMMENT '邀请时间' AFTER `invite_user_id`;")
+	v200 = append(v200, "ALTER TABLE `user_team` ADD COLUMN `invite_time` datetime DEFAULT NULL COMMENT '邀请时间' AFTER `invite_user_id`;")
 	v200 = append(v200, "ALTER TABLE `user_team` ADD COLUMN `is_show` tinyint(2) NOT NULL DEFAULT 1 COMMENT '是否展示到团队列表  1:展示   2:不展示' AFTER `sort`;")
 	alterSqlMap["2.0.0"] = v200
 
 	// management版本2.0.0.1
 	v2001 := make([]string, 0, 10)
 	v2001 = append(v2001, "ALTER TABLE team_env_service DROP COLUMN protocol_type;")
-	alterSqlMap["2.0.0.1"] = v200
+	alterSqlMap["2.0.0.1"] = v2001
+
+	// management版本2.0.0.1
+	v2002 := make([]string, 0, 10)
+	v2002 = append(v2002, "ALTER TABLE `user_team` MODIFY COLUMN `invite_time` datetime DEFAULT NULL COMMENT '邀请时间';")
+	alterSqlMap["2.0.0.2"] = v2002
 
 	return alterSqlMap
 }

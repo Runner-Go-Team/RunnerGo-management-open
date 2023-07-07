@@ -38,9 +38,7 @@ type SaveCaseAssembleReq struct {
 	TeamID      string `json:"team_id" binding:"required,gt=0"`
 	SceneID     string `json:"scene_id" binding:"required,gt=0"`
 	Name        string `json:"name" binding:"required,min=1"`
-	Method      string `json:"method"`
 	Sort        int32  `json:"sort"`
-	TypeSort    int32  `json:"type_sort"`
 	Version     int32  `json:"version"`
 	Source      int32  `json:"source"`
 	PlanID      string `json:"plan_id"`

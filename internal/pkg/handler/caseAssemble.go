@@ -66,7 +66,6 @@ func CopyCaseAssemble(ctx *gin.Context) {
 
 // SaveCaseAssemble 新建用例
 func SaveCaseAssemble(ctx *gin.Context) {
-
 	var req rao.SaveCaseAssembleReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
@@ -79,13 +78,11 @@ func SaveCaseAssemble(ctx *gin.Context) {
 		response.ErrorWithMsg(ctx, errno.ErrSceneCaseNameIsExist, "")
 		return
 	}
-
 	saveCaseAssembleErr := caseAssemble.SaveCaseAssemble(ctx, &req)
 	if saveCaseAssembleErr != nil {
 		response.ErrorWithMsg(ctx, errno.ErrParam, saveCaseAssembleErr.Error())
 		return
 	}
-
 	response.SuccessWithData(ctx, req)
 	return
 }

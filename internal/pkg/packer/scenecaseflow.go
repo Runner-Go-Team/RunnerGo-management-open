@@ -38,9 +38,7 @@ func TransSaveCaseAssembleToTargetModel(caseAssemble *rao.SaveCaseAssembleReq, u
 		TargetType:    consts.TargetTypeTestCase,
 		Name:          caseAssemble.Name,
 		ParentID:      caseAssemble.SceneID,
-		Method:        caseAssemble.Method,
 		Sort:          caseAssemble.Sort,
-		TypeSort:      caseAssemble.TypeSort,
 		Status:        consts.TargetStatusNormal,
 		Version:       caseAssemble.Version,
 		CreatedUserID: userID,
@@ -52,7 +50,6 @@ func TransSaveCaseAssembleToTargetModel(caseAssemble *rao.SaveCaseAssembleReq, u
 }
 
 func TransMaoSceneCaseFlowToRaoGetFowResp(f *mao.SceneCaseFlow) *rao.GetSceneCaseFlowResp {
-
 	var n mao.Node
 	if err := bson.Unmarshal(f.Nodes, &n); err != nil {
 		log.Logger.Errorf("flow.nodes bson unmarshal err %w", err)
