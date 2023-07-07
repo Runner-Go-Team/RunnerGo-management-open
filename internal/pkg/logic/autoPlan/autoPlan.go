@@ -1517,7 +1517,7 @@ type ApiList struct {
 	RequestBody    string         `json:"request_body" bson:"request_body"`
 	ResponseHeader string         `json:"response_header" bson:"response_header"`
 	ResponseBody   string         `json:"response_body" bson:"response_body"`
-	AssertionMsg   []AssertionMsg `json:"assertion_msg" bson:"assertion_msg"`
+	AssertionMsg   []AssertionMsg `json:"assert" bson:"assert"`
 }
 
 type AssertionMsg struct {
