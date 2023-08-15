@@ -989,7 +989,7 @@ func InsertReportData(ctx *gin.Context, req *rao.NotifyStopStressReq) error {
 	log.Logger.Info("NotifyStopStress--从MongoDB库查询报告详情结果为，err:", err, " ok:", ok)
 	if err != nil || !ok {
 		log.Logger.Info("NotifyStopStress--把redis数据写到mg库")
-		rdb := dal.GetRDBForReport()
+		rdb := dal.GetRDB()
 		key := fmt.Sprintf("reportData:%s", req.ReportID)
 		dataList := rdb.LRange(ctx, key, 0, -1).Val()
 		if len(dataList) < 1 {

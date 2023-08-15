@@ -1,0 +1,73 @@
+version: "3"
+ 
+services:
+ 
+  redis1:
+    image: redis
+    volumes:
+      - C:\dockerV\runnergo\rediscluster\7000\:/etc/redis/
+      - C:\dockerV\runnergo\rediscluster\7000\data:/data
+    ports:
+      - "7000:7000"
+      - "17000:17000"
+    command: redis-server /etc/redis/redis.conf
+ 
+  redis2:
+    image: redis
+    volumes:
+      - C:\dockerV\runnergo\rediscluster\7001\:/etc/redis/
+      - C:\dockerV\runnergo\rediscluster\7001\data:/data
+    ports:
+      - "7001:7001"
+      - "17001:17001"
+    command: redis-server /etc/redis/redis.conf
+ 
+  redis3:
+    image: redis
+    volumes:
+      - C:\dockerV\runnergo\rediscluster\7002\:/etc/redis/
+      - C:\dockerV\runnergo\rediscluster\7002\data:/data
+    ports:
+      - "7002:7002"
+      - "17002:17002"
+    command: redis-server /etc/redis/redis.conf
+  redis4:
+    image: redis
+    volumes:
+      - C:\dockerV\runnergo\rediscluster\7003\:/etc/redis/
+      - C:\dockerV\runnergo\rediscluster\7003\data:/data
+    ports:
+      - "7003:7003"
+      - "17003:17003"
+    command: redis-server /etc/redis/redis.conf
+  redis5:
+    image: redis
+    volumes:
+      - C:\dockerV\runnergo\rediscluster\7004\:/etc/redis/
+      - C:\dockerV\runnergo\rediscluster\7004\data:/data
+    ports:
+      - "7004:7004"
+      - "17004:17004"
+    command: redis-server /etc/redis/redis.conf
+  redis6:
+    image: redis
+    volumes:
+      - C:\dockerV\runnergo\rediscluster\7005\:/etc/redis/
+      - C:\dockerV\runnergo\rediscluster\7005\data:/data
+    ports:
+      - "7005:7005"
+      - "17005:17005"
+    command: redis-server /etc/redis/redis.conf
+ 
+ 
+  redis-cluster:
+    image: redis
+    command: redis-cli -a runnergo!666  --cluster create {节点ip}:7000 {节点ip}:7001 {节点ip}:7002 {节点ip}:7003 {节点ip}:7004 {节点ip}:7005 --cluster-replicas 1  --cluster-yes
+    network_mode: "host"
+    depends_on:
+      - redis1
+      - redis2
+      - redis3
+      - redis4
+      - redis5
+      - redis6

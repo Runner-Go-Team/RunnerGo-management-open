@@ -56,14 +56,14 @@ log:
   ErrPath:
 
 redis:
-  address:
-  password:
-  db:
+  # 集群地址 使用;分割
+  clusterAddress : "{redis ip}:7000;{redis ip}:7001;{redis ip}:7002;{redis ip}:7003;{redis ip}:7004;{redis ip}:7005"
+  password: "runnergo!666"
 
-redisReport:
-  address:
-  password:
-  db:
+#redisReport:
+#  address: ""
+#  password: ""
+#  db: 0
 
 smtp:
   host:

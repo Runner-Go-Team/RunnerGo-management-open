@@ -3,21 +3,21 @@ package dal
 import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
+	"strings"
 
 	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 )
 
-var rdb *redis.Client
+var rdb *redis.ClusterClient
 
 func MustInitRedis() {
 	fmt.Println("redis initialized")
-	rdb = redis.NewClient(&redis.Options{
-		Addr:     conf.Conf.Redis.Address,
+	rdb = redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs:    strings.Split(conf.Conf.Redis.ClusterAddress, ";"),
 		Password: conf.Conf.Redis.Password,
-		DB:       conf.Conf.Redis.DB,
 	})
 }
 
-func GetRDB() *redis.Client {
+func GetRDB() *redis.ClusterClient {
 	return rdb
 }
