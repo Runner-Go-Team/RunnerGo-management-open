@@ -546,7 +546,7 @@ func GetReportDetail(ctx context.Context, req rao.GetReportReq) (err error, resu
 					resultData.Results[k].FiftyList = append(resultData.Results[k].FiftyList, timeValue)
 
 					// 90响应时间列表
-					timeValue.Value = resultData.Results[k].NinetyNineRequestTimeLineValue
+					timeValue.Value = resultData.Results[k].NinetyRequestTimeLineValue
 					if resultData.Results[k].NinetyList == nil {
 						resultData.Results[k].NinetyList = []TimeValue{}
 					}
