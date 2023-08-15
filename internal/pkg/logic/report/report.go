@@ -499,7 +499,7 @@ func GetReportDetail(ctx context.Context, req rao.GetReportReq) (ResultData, err
 	_, ok := dataMap["data"]
 	if err != nil || !ok {
 		log.Logger.Info("mango数据为空，开始查询redis")
-		rdb := dal.GetRDBForReport()
+		rdb := dal.GetRDB()
 		key := fmt.Sprintf("reportData:%s", req.ReportID)
 		dataList := rdb.LRange(ctx, key, 0, -1).Val()
 		log.Logger.Info("查询redis报告数据，报告数据的Key:", key, "，数组长度为：", len(dataList), dataList)

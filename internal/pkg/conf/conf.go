@@ -11,19 +11,19 @@ import (
 var Conf Config
 
 type Config struct {
-	Base                        Base            `yaml:"base"`
-	Http                        Http            `yaml:"http"`
-	GRPC                        GRPC            `yaml:"grpc"`
-	MySQL                       MySQL           `yaml:"mysql"`
-	JWT                         JWT             `yaml:"jwt"`
-	MongoDB                     MongoDB         `yaml:"mongodb"`
-	Prometheus                  Prometheus      `yaml:"prometheus"`
-	Kafka                       Kafka           `yaml:"kafka"`
-	ES                          ES              `yaml:"es"`
-	Clients                     Clients         `yaml:"clients"`
-	Proof                       Proof           `yaml:"proof"`
-	Redis                       Redis           `yaml:"redis"`
-	RedisReport                 RedisReport     `yaml:"redisReport"`
+	Base       Base       `yaml:"base"`
+	Http       Http       `yaml:"http"`
+	GRPC       GRPC       `yaml:"grpc"`
+	MySQL      MySQL      `yaml:"mysql"`
+	JWT        JWT        `yaml:"jwt"`
+	MongoDB    MongoDB    `yaml:"mongodb"`
+	Prometheus Prometheus `yaml:"prometheus"`
+	Kafka      Kafka      `yaml:"kafka"`
+	ES         ES         `yaml:"es"`
+	Clients    Clients    `yaml:"clients"`
+	Proof      Proof      `yaml:"proof"`
+	Redis      Redis      `yaml:"redis"`
+	//RedisReport                 RedisReport     `yaml:"redisReport"`
 	SMTP                        SMTP            `yaml:"smtp"`
 	Sms                         Sms             `yaml:"sms"`
 	InviteData                  inviteData      `yaml:"inviteData"`
@@ -137,15 +137,15 @@ type Proof struct {
 }
 
 type Redis struct {
-	Address  string `yaml:"address"`
-	Password string `yaml:"password"`
-	DB       int    `yaml:"db"`
+	ClusterAddress string `yaml:"clusterAddress"`
+	Password       string `yaml:"password"`
 }
-type RedisReport struct {
-	Address  string `yaml:"address"`
-	Password string `yaml:"password"`
-	DB       int    `yaml:"db"`
-}
+
+//type RedisReport struct {
+//	Address  string `yaml:"address"`
+//	Password string `yaml:"password"`
+//	DB       int    `yaml:"db"`
+//}
 
 type SMTP struct {
 	Host     string `mapstructure:"host"`
@@ -208,7 +208,7 @@ func MustInitConfByEnv() {
 	initClients()
 	initProof()
 	initRedis()
-	initRedisReport()
+	//initRedisReport()
 	initSMTP()
 	initSms()
 	initInviteData()
@@ -325,33 +325,34 @@ func initProof() {
 	}
 }
 func initRedis() {
-	Conf.Redis.Address = os.Getenv("RG_REDIS_ADDRESS")
-	if Conf.Redis.Address == "" {
-		Conf.Redis.Address = "127.0.0.0:6379"
+	Conf.Redis.ClusterAddress = os.Getenv("RG_REDIS_ADDRESS")
+	if Conf.Redis.ClusterAddress == "" {
+		Conf.Redis.ClusterAddress = "127.0.0.0:6379"
 	}
 	Conf.Redis.Password = os.Getenv("RG_REDIS_PASSWORD")
 
-	redisDB, err := strconv.Atoi(os.Getenv("RG_REDIS_DB"))
-	if err != nil {
-		Conf.Redis.DB = 0
-	} else {
-		Conf.Redis.DB = redisDB
-	}
+	//redisDB, err := strconv.Atoi(os.Getenv("RG_REDIS_DB"))
+	//if err != nil {
+	//	Conf.Redis.DB = 0
+	//} else {
+	//	Conf.Redis.DB = redisDB
+	//}
 }
-func initRedisReport() {
-	Conf.RedisReport.Address = os.Getenv("RG_REDIS_ADDRESS")
-	if Conf.RedisReport.Address == "" {
-		Conf.RedisReport.Address = "127.0.0.0:6379"
-	}
-	Conf.RedisReport.Password = os.Getenv("RG_REDIS_PASSWORD")
 
-	redisDB, err := strconv.Atoi(os.Getenv("RG_REDIS_DB"))
-	if err != nil {
-		Conf.RedisReport.DB = 0
-	} else {
-		Conf.RedisReport.DB = redisDB
-	}
-}
+//	func initRedisReport() {
+//		Conf.RedisReport.Address = os.Getenv("RG_REDIS_ADDRESS")
+//		if Conf.RedisReport.Address == "" {
+//			Conf.RedisReport.Address = "127.0.0.0:6379"
+//		}
+//		Conf.RedisReport.Password = os.Getenv("RG_REDIS_PASSWORD")
+//
+//		redisDB, err := strconv.Atoi(os.Getenv("RG_REDIS_DB"))
+//		if err != nil {
+//			Conf.RedisReport.DB = 0
+//		} else {
+//			Conf.RedisReport.DB = redisDB
+//		}
+//	}
 func initSMTP() {
 	Conf.SMTP.Host = os.Getenv("RG_SMTP_HOST")
 	port, err := strconv.Atoi(os.Getenv("RG_SMTP_PORT"))
