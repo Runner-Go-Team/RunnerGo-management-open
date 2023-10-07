@@ -24,8 +24,8 @@ type StressPlan struct {
 	Status       int32          `gorm:"column:status;not null;default:1" json:"status"`                         // 计划状态1:未开始,2:进行中
 	CreateUserID string         `gorm:"column:create_user_id;not null;default:0" json:"create_user_id"`         // 创建人id
 	RunUserID    string         `gorm:"column:run_user_id;not null;default:0" json:"run_user_id"`               // 运行人id
-	Remark       string         `gorm:"column:remark" json:"remark"`                                            // 备注
-	RunCount     int64          `gorm:"column:run_count" json:"run_count"`                                      // 运行次数
+	Remark       string         `gorm:"column:remark;not null" json:"remark"`                                   // 备注
+	RunCount     int64          `gorm:"column:run_count;not null" json:"run_count"`                             // 运行次数
 	CreatedAt    time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"` // 创建时间
 	UpdatedAt    time.Time      `gorm:"column:updated_at;not null;default:CURRENT_TIMESTAMP" json:"updated_at"` // 修改时间
 	DeletedAt    gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`                                    // 删除时间

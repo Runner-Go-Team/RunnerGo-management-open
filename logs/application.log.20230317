@@ -1,1 +1,0 @@
-2023-03-17T16:54:01.732+0800	[34mINFO[0m	/management/api/v1/auth/user_register	{"status": 200, "method": "POST", "path": "/management/api/v1/auth/user_register", "query": "", "ip": "127.0.0.1", "user-agent": "PostmanRuntime-ApipostRuntime/1.1.0", "latency": 0.3259235, "time": "2023-03-17T08:54:01Z"}

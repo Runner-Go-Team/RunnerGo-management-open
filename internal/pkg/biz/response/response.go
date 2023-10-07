@@ -3,7 +3,7 @@ package response
 import (
 	"net/http"
 
-	"kp-management/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,10 +27,18 @@ func display(c *gin.Context, code int, em string, et string, data interface{}) {
 
 // ErrorWithMsg 返回错误 附带更多信息
 func ErrorWithMsg(c *gin.Context, code int, msg string) {
-	if m, ok := errno.CodeMsgMap[code]; ok {
+	if m, ok := errno.CodeAlertMap[code]; ok {
 		msg = m + " " + msg
 	}
-	display(c, code, msg, errno.CodeAlertMap[code], struct{}{})
+	display(c, code, errno.CodeMsgMap[code], msg, struct{}{})
+}
+
+// ErrorWithMsgAndData  返回错误 附带更多信息,同时带着data返回值
+func ErrorWithMsgAndData(c *gin.Context, code int, msg string, data interface{}) {
+	if m, ok := errno.CodeAlertMap[code]; ok {
+		msg = m + " " + msg
+	}
+	display(c, code, errno.CodeMsgMap[code], msg, data)
 }
 
 // SuccessWithData 返回成功并携带数据

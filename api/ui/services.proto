@@ -1,0 +1,316 @@
+syntax = "proto3";
+
+package services;
+
+option go_package = "api/ui;ui";
+
+service UiEngine {
+    rpc Run (RunRequest) returns (RunResponse);
+}
+
+message RunResponse {
+    int32 code = 1;
+    string message = 2;
+    map<string, string> data = 3;
+}
+
+message RunRequest {
+    string topic = 4;
+    int32 scene_run_order = 5;  // 场景运行次序：1-顺序执行，2-同时执行
+    string user_id = 6;
+    repeated Browser browsers = 7;
+    repeated Scene scenes = 8;
+}
+
+message Browser {
+    bool headless = 1;
+    string browser_type = 2;
+    string size_type = 3;
+    WindowSize set_size = 4;
+}
+
+message Scene {
+    string scene_id = 1;
+    string scene_name = 2;
+    repeated Operator operators = 3;
+}
+
+message Operator {
+    string operator_id = 1;
+    int32 sort = 2;
+    string operator_type = 3;
+    string action = 4;
+    string parent_id = 5;
+    Settings settings = 6;
+    repeated Assert asserts = 7;
+    OpenPage open_page = 8;
+    ClosePage close_page = 9;
+    ToggleWindow toggle_window = 10;
+    SetWindowSize set_window_size = 11;
+    Forward forward = 12;
+    Back back = 13;
+    Refresh refresh = 14;
+    MouseClick mouse_clicking = 16;
+    MouseScroll mouse_scrolling = 17;
+    MouseMove mouse_movement = 18;
+    MouseDrag mouse_dragging = 19;
+    InputOperations input_operations = 20;
+    WaitEvent wait_events = 21;
+    IfCondition  if_condition = 22;
+    Assert  assert_info = 23;
+    ForLoop  for_loop = 24;
+    WhileLoop  while_loop = 25;
+    DataWithdraw  data_withdraw = 26;
+    repeated Operator operators = 27;
+    repeated DataWithdraw data_withdraws = 28;
+    CodeOperation  code_operation = 29;
+}
+
+message OpenPage {
+    string url = 1;
+    bool is_new_page = 2;
+}
+
+message ClosePage {
+    string window_action = 1;
+    string input_content = 2;
+    int32 custom_index = 3;
+}
+
+message ToggleWindow {
+    string type = 1;
+    SwitchPage switch_page = 2;
+    ExitFrame exit_frame = 3;
+    SwitchFrameByIndex switch_frame_by_index = 4;
+    SwitchToParentFrame switch_to_parent_frame = 5;
+    SwitchFrameByLocator switch_frame_by_locator = 6;
+}
+
+message Forward {}
+
+message Back {}
+
+message Refresh {}
+
+message SwitchPage {
+    string window_action = 1;
+    string input_content = 2;
+}
+
+message ExitFrame {}
+
+message SwitchFrameByIndex {
+    int32 frame_index = 1;
+}
+
+message SwitchToParentFrame {}
+
+message SwitchFrameByLocator {
+    Element element = 1;
+}
+
+message SetWindowSize {
+    string type = 1;
+    WindowSize set_size = 2;
+}
+
+message WindowSize {
+    float x = 1;
+    float y = 2;
+}
+
+message Settings {
+    int32 wait_before_exec = 1;
+    int32 timeout = 2;
+    string error_handling = 3;
+    string screenshot_config = 4;
+}
+
+message Assert {
+    string type = 1;
+    ElementAssertion element_exists = 2;
+    ElementAssertion element_not_exists = 3;
+    ElementAssertion element_displayed = 4;
+    ElementAssertion element_not_displayed = 5;
+    TextExists text_exists = 6;
+    TextNotExists text_not_exists = 7;
+    VariableAssertion variable_assertion = 8;
+    ExpressionAssertion expression_assertion = 9;
+    ElementAttributeAssert element_attribute_assertion = 10;
+    PageAttributeAssert page_attribute_assertion = 11;
+}
+
+message DataWithdraw {
+    string name = 1;
+    string variable_type = 2;
+    string withdraw_type = 3;
+    WithdrawElementMethod element_method = 4;
+    WithdrawWebpageMethod webpage_method = 5;
+    WithdrawScrollBarMethod scroll_bar_method = 6;
+}
+
+message WithdrawElementMethod  {
+    string  method = 1;
+    Element element = 2;
+    string  attribute_name = 3;
+    string  position_type = 4;
+}
+
+message WithdrawWebpageMethod  {
+    string  method = 1;
+    string  value = 2;
+}
+
+message WithdrawScrollBarMethod  {
+    string  method = 1;
+    string  scroll_position = 2;
+}
+
+message ElementAssertion {
+    Element element = 1;
+}
+
+message TextExists {
+    repeated string target_texts = 1;
+}
+
+message TextNotExists {
+    repeated string target_texts = 1;
+}
+
+message ExpressionAssertion {
+    string expected_value = 1;
+}
+
+message ElementAttributeAssert {
+    string relation_options = 1;
+    Element element = 2;
+    string condition_type = 3;
+    string expected_value = 4;
+}
+
+message PageAttributeAssert {
+    string relation_options = 1;
+    string assert_attribute = 2;
+    string expected_value = 3;
+}
+
+message AssertElementExists {
+    Element element = 1;
+}
+
+message AssertTextExists {
+    repeated string target_texts = 1;
+}
+
+message VariableAssertion {
+    string relation_options = 1;
+    string actual_value = 2;
+    string expected_value = 3;
+}
+
+message MouseClick {
+    string type = 1;
+    Element element = 2;
+    ClickPosition click_position = 3;
+}
+
+message ClickPosition {
+    float x = 1;
+    float y = 2;
+}
+
+message MouseScroll {
+    string type = 1;
+    string direction = 2;
+    Element element = 3;
+    int32 scroll_distance = 4;
+    int32 single_scroll_distance = 5;
+}
+
+message MouseMove {
+    string type = 1;
+    DragPointCoordinates end_point_coordinates = 2;
+}
+
+message MouseDrag {
+    string type = 1;
+    Element element = 2;
+    Element target_element = 3;
+    DragPointCoordinates end_point_coordinates = 4;
+}
+
+message DragPointCoordinates {
+    float x = 1;
+    float y = 2;
+}
+
+message InputOperations {
+    string type = 1;
+    Element element = 2;
+    string input_content = 3;
+    bool is_append_content = 4;
+}
+
+message WaitEvent {
+    string type = 1;
+    string wait_time = 2;
+    Element element= 3;
+    repeated string target_texts = 4;
+}
+
+message Element {
+    repeated Locator locators = 1;
+}
+
+message Locator {
+    string method = 1;
+    string type = 2;
+    string key = 3;
+    string value = 4;
+    int32 index = 5;
+}
+
+message IfCondition {
+    string condition_relate = 1;
+    repeated ConditionOperator condition_operators = 2;
+}
+
+message WhileLoop {
+    string condition_relate = 1;
+    repeated ConditionOperator condition_operators = 2;
+    int32 max_count=3;
+}
+
+message ConditionOperator {
+    string type = 1;
+    Assert assert_info = 2;
+    Expression expression = 3;
+}
+
+message Expression {
+    string relation_options = 1;
+    string actual_value = 2;
+    string expected_value = 3;
+}
+
+message ForLoop {
+    string type = 1;
+    int32 count = 2;
+    repeated BaseFile files = 3;
+}
+
+message BaseFile {
+    int64 id = 1;
+    string name = 2;
+    string url = 3;
+    int64 file_type = 4;  // 0:普通文件  1:json
+    bool mark = 5;
+}
+
+message CodeOperation {
+    string type = 1; // javascript
+    Element element= 2;
+    string operation_type = 3; // element | page
+    string code_text = 4;
+}

@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newAutoPlan(db *gorm.DB, opts ...gen.DOOption) autoPlan {
@@ -57,7 +57,7 @@ type autoPlan struct {
 	TeamID       field.String // 团队ID
 	PlanName     field.String // 计划名称
 	TaskType     field.Int32  // 计划类型：1-普通任务，2-定时任务
-	Status       field.Int32  // 计划状：1-未开始，2-进行中
+	Status       field.Int32  // 计划状态1:未开始,2:进行中
 	CreateUserID field.String // 创建人id
 	RunUserID    field.String // 运行人id
 	Remark       field.String // 备注

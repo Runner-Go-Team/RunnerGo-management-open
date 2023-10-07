@@ -1,11 +1,11 @@
 package handler
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/preinstall"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/preinstall"
 	"strings"
 )
 
@@ -98,5 +98,20 @@ func CopyPreinstall(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx)
+	return
+}
+
+func GetAvailableMachineList(ctx *gin.Context) {
+	var req rao.GetAvailableMachineListReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	list, err := preinstall.GetAvailableMachineList(ctx)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, list)
 	return
 }

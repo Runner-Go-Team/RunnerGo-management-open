@@ -1,27 +1,35 @@
 package plan
 
 import (
-	"context"
 	"fmt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/scene"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
+	"github.com/gin-gonic/gin"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
 )
 
-func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([]*model.Target, error) {
+func ImportScene(ctx *gin.Context, req *rao.ImportSceneReq) ([]*model.Target, error) {
+	userID := jwt.GetUserIDByCtx(ctx)
 	targetList := make([]*model.Target, 0)
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
+
+	targetIDMap := make(map[string]int, len(req.TargetIDList))
+	for _, tID := range req.TargetIDList {
+		targetIDMap[tID] = 1
+	}
 
 	err := dal.GetQuery().Transaction(func(tx *query.Query) error {
 		targets, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.In(req.TargetIDList...)).Find()
@@ -34,46 +42,39 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 		}
 
 		// 查询要导入的场景基本信息
-		groupNames := make([]string, 0, len(targets))
-		oldGroupsIDs := make([]string, 0, len(targets))
-
-		sceneNames := make([]string, 0, len(targets))
 		oldSceneIDs := make([]string, 0, len(targets))
+
+		groupIDOldToNewMap := make(map[string]string, len(targets))
 		for _, targetInfo := range targets {
 			// 分组名称
-			if targetInfo.TargetType == consts.TargetTypeGroup {
-				groupNames = append(groupNames, targetInfo.Name)
-				oldGroupsIDs = append(oldGroupsIDs, targetInfo.TargetID)
+			if targetInfo.TargetType == consts.TargetTypeFolder {
+				newGroupID := uuid.GetUUID()
+				groupIDOldToNewMap[targetInfo.TargetID] = newGroupID
+
+				if targetInfo.ParentID == "0" {
+					// 查询当前目录名称在当前目录下是否存在
+					_, err = tx.Target.WithContext(ctx).Where(tx.Target.PlanID.Eq(req.PlanID),
+						tx.Target.ParentID.Eq("0"), tx.Target.Source.Eq(req.Source), tx.Target.Name.Eq(targetInfo.Name)).First()
+					if err == nil {
+						return fmt.Errorf("计划内目录不可重名")
+					}
+				}
 			}
 			// 场景名称
 			if targetInfo.TargetType == consts.TargetTypeScene {
-				sceneNames = append(sceneNames, targetInfo.Name)
 				oldSceneIDs = append(oldSceneIDs, targetInfo.TargetID)
-			}
 
-		}
-
-		// 检测分组排重
-		if len(groupNames) > 0 {
-			isExistCount, _ := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID),
-				tx.Target.PlanID.Eq(req.PlanID), tx.Target.Source.Eq(req.Source),
-				tx.Target.TargetType.Eq(consts.TargetTypeGroup),
-				tx.Target.Name.In(groupNames...)).Count()
-			if isExistCount > 0 {
-				return fmt.Errorf("计划内分组不可重名")
+				if targetInfo.ParentID == "0" {
+					// 查询当前场景名称在当前目录下是否存在
+					_, err = tx.Target.WithContext(ctx).Where(tx.Target.PlanID.Eq(req.PlanID),
+						tx.Target.ParentID.Eq("0"), tx.Target.Source.Eq(req.Source), tx.Target.Name.Eq(targetInfo.Name)).First()
+					if err == nil {
+						return fmt.Errorf("计划内场景不可重名")
+					}
+				}
 			}
 		}
 
-		// 检查场景名称排重
-		if len(sceneNames) > 0 {
-			isExistCount, _ := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID),
-				tx.Target.PlanID.Eq(req.PlanID), tx.Target.Source.Eq(req.Source),
-				tx.Target.TargetType.Eq(consts.TargetTypeScene),
-				tx.Target.Name.In(sceneNames...)).Count()
-			if isExistCount > 0 {
-				return fmt.Errorf("计划内场景不可重名")
-			}
-		}
 		// 根据source 判断来源
 		dataFrom := ""
 		if req.Source == 2 {
@@ -82,23 +83,28 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 			dataFrom = "auto_plan"
 		}
 
-		// 开始导入
-		// 先导入分组
-		groupIDMap := make(map[string]string, len(targets))
+		// 先导入顶层分组
 		for _, targetInfo := range targets {
-			if targetInfo.TargetType == consts.TargetTypeGroup {
+			if targetInfo.TargetType == consts.TargetTypeFolder {
 				oldGroupID := targetInfo.TargetID
+				oldParentID := targetInfo.ParentID
 				targetInfo.ID = 0
-				targetInfo.TargetID = uuid.GetUUID()
+				targetInfo.TargetID = groupIDOldToNewMap[oldGroupID]
 				targetInfo.PlanID = req.PlanID
+				targetInfo.ParentID = ""
 				targetInfo.CreatedUserID = userID
 				targetInfo.RecentUserID = userID
 				targetInfo.Source = req.Source
 				targetInfo.SourceID = oldGroupID
+
+				// 判断父级ID
+				if _, ok := targetIDMap[oldParentID]; ok {
+					targetInfo.ParentID = groupIDOldToNewMap[oldParentID]
+				}
+
 				if err := tx.Target.WithContext(ctx).Create(targetInfo); err != nil {
 					return err
 				}
-				groupIDMap[oldGroupID] = targetInfo.TargetID
 			}
 		}
 
@@ -107,64 +113,100 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 		for _, targetInfo := range targets {
 			if targetInfo.TargetType == consts.TargetTypeScene {
 				oldSceneID := targetInfo.TargetID
+				oldParentID := targetInfo.ParentID
 				targetInfo.ID = 0
 				targetInfo.TargetID = uuid.GetUUID()
 				targetInfo.PlanID = req.PlanID
-				targetInfo.ParentID = groupIDMap[targetInfo.ParentID]
+				targetInfo.ParentID = ""
 				targetInfo.CreatedUserID = userID
 				targetInfo.RecentUserID = userID
 				targetInfo.Source = req.Source
 				targetInfo.SourceID = oldSceneID
+
+				if _, ok := targetIDMap[oldParentID]; ok {
+					targetInfo.ParentID = groupIDOldToNewMap[oldParentID]
+				}
+
 				if err := tx.Target.WithContext(ctx).Create(targetInfo); err != nil {
 					return err
 				}
 				sceneIDMap[oldSceneID] = targetInfo.TargetID
 
 				// 复制场景里面的flow
-				var flow mao.Flow
+				flow := mao.Flow{}
 				err = collection.FindOne(ctx, bson.D{{"scene_id", oldSceneID}}).Decode(&flow)
 				if err != nil && err != mongo.ErrNoDocuments {
 					return err
 				}
+
 				if err != mongo.ErrNoDocuments {
-					var ns *mao.Node
+					ns := mao.Node{}
+					// 修改node来源from字段
 					if err := bson.Unmarshal(flow.Nodes, &ns); err != nil {
 						return err
 					}
-					for _, n := range ns.Nodes {
-						n.Data.From = dataFrom
+					for k := range ns.Nodes {
+						ns.Nodes[k].Data.From = dataFrom
 					}
 					nodes, err := bson.Marshal(ns)
+					if err != nil {
+						return err
+					}
+					flow.SceneID = targetInfo.TargetID
+					flow.Nodes = nodes
+
+					// 修改前置条件来源from字段
+					prepositions := mao.Preposition{}
+					if err := bson.Unmarshal(flow.Prepositions, &prepositions); err != nil {
+						return err
+					}
+					for k := range prepositions.Prepositions {
+						prepositions.Prepositions[k].Data.From = dataFrom
+					}
+					newPrepositions, err := bson.Marshal(prepositions)
 					if err != nil {
 						return err
 					}
 
 					flow.SceneID = targetInfo.TargetID
 					flow.Nodes = nodes
+					flow.Prepositions = newPrepositions
+
+					// 更新api的uuid
+					err = packer.ChangeSceneNodeUUID(&flow)
+					if err != nil {
+						log.Logger.Info("导入场景--替换event_id失败")
+						return err
+					}
 					if _, err := collection.InsertOne(ctx, flow); err != nil {
 						return err
 					}
+
+					// 保存引入接口和被引入地址的关系
+					_ = scene.SaveTargetCiteRelation(ctx, ns.Nodes, targetInfo.TargetID, req.PlanID, req.TeamID, "", req.Source)
 				}
 				targetList = append(targetList, targetInfo)
+
+				// 记录下引入场景的关系
+				_ = scene.SaveSceneCiteRelation(ctx, oldSceneID, targetInfo.TargetID, req.PlanID, req.TeamID, req.Source)
 			}
 		}
 
-		// 复制场景变量表
-		variableList, err := tx.Variable.WithContext(ctx).Where(tx.Variable.SceneID.In(oldSceneIDs...)).Find()
-		if err != nil {
-			return err
-		}
-		var variables []*model.Variable
-		for _, variable := range variableList {
-			if newSceneID, ok := sceneIDMap[variable.SceneID]; ok {
-				variable.ID = 0
-				variable.SceneID = newSceneID
-				variables = append(variables, variable)
-			}
-		}
-		if len(variables) > 0 {
-			if err := tx.Variable.WithContext(ctx).CreateInBatches(variables, 5); err != nil {
-				return err
+		// 复制场景变量
+		for _, sceneID := range oldSceneIDs {
+			collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+			cur, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}, {"scene_id", sceneID}})
+			var sceneParamDataArr []*mao.SceneParamData
+			if err == nil {
+				if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+					return fmt.Errorf("场景参数数据获取失败")
+				}
+				for _, sv := range sceneParamDataArr {
+					sv.SceneID = sceneIDMap[sceneID]
+					if _, err := collection.InsertOne(ctx, sv); err != nil {
+						return err
+					}
+				}
 			}
 		}
 
@@ -242,6 +284,15 @@ func ImportScene(ctx context.Context, userID string, req *rao.ImportSceneReq) ([
 					if err != nil {
 						return err
 					}
+
+					// 修改node来源from字段
+					ns := mao.Node{}
+					if err := bson.Unmarshal(sceneCaseFlowInfo.Nodes, &ns); err != nil {
+						return err
+					}
+
+					// 保存引入接口和被引入地址的关系
+					_ = scene.SaveTargetCiteRelation(ctx, ns.Nodes, sceneIDMap[sceneCaseFlowInfo.SceneID], req.PlanID, req.TeamID, oldNewCaseIDMap[sceneCaseFlowInfo.SceneCaseID], req.Source)
 				}
 
 			}

@@ -2,44 +2,41 @@ package caseAssemble
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/scene"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/target"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/public"
 	"github.com/gin-gonic/gin"
+	"github.com/goccy/go-json"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gen"
-	"gorm.io/gen/field"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/dal/runner"
-	"kp-management/internal/pkg/packer"
 	"strconv"
 	"strings"
 )
 
 func GetCaseAssembleList(ctx *gin.Context, req *rao.GetCaseAssembleListReq) ([]*rao.CaseAssembleDetailResp, error) {
-
 	// target表
 	targetTB := dal.GetQuery().Target
-
-	sort := make([]field.Expr, 0, 6)
 	conditions := make([]gen.Condition, 0)
 	if req.CaseName != "" {
 		conditions = append(conditions, targetTB.Name.Like(fmt.Sprintf("%%%s%%", req.CaseName)))
 	}
 	conditions = append(conditions, targetTB.TargetType.Eq(consts.TargetTypeTestCase))
 	conditions = append(conditions, targetTB.ParentID.Eq(req.SceneID))
-	//conditions = append(conditions, targetTB.Status.Eq(consts.TargetStatusNormal))
-
-	//list, total, err := targetTB.WithContext(ctx).Where(conditions...).Order(sort...).FindByPage(offset, limit)
-	list, err := targetTB.WithContext(ctx).Where(conditions...).Order(sort...).Find()
-
+	//conditions = append(conditions, targetTB.Source.Eq(consts.TargetSourceAutoPlan))
+	list, err := targetTB.WithContext(ctx).Where(conditions...).Order(targetTB.Sort).Find()
 	if err != nil {
 		log.Logger.Info("用例集列表--获取列表失败，err:", err)
 		return nil, err
@@ -48,13 +45,12 @@ func GetCaseAssembleList(ctx *gin.Context, req *rao.GetCaseAssembleListReq) ([]*
 	res := make([]*rao.CaseAssembleDetailResp, 0, len(list))
 	for _, detail := range list {
 		detailTmp := &rao.CaseAssembleDetailResp{
-			CaseID:    detail.TargetID,
-			TeamID:    detail.TeamID,
-			SceneID:   detail.ParentID,
-			CaseName:  detail.Name,
-			Sort:      detail.Sort,
-			IsChecked: detail.IsChecked,
-			//TypeSort: detail.TypeSort,
+			CaseID:      detail.TargetID,
+			TeamID:      detail.TeamID,
+			SceneID:     detail.ParentID,
+			CaseName:    detail.Name,
+			Sort:        detail.Sort,
+			IsChecked:   detail.IsChecked,
 			CreatedAt:   detail.CreatedAt.Unix(),
 			UpdatedAt:   detail.UpdatedAt.Unix(),
 			Status:      detail.Status,
@@ -62,7 +58,6 @@ func GetCaseAssembleList(ctx *gin.Context, req *rao.GetCaseAssembleListReq) ([]*
 		}
 		res = append(res, detailTmp)
 	}
-
 	return res, nil
 }
 
@@ -73,7 +68,6 @@ func GetCaseAssembleDetail(ctx *gin.Context, req *rao.CopyAssembleReq) (*rao.Cas
 	conditions := make([]gen.Condition, 0)
 	conditions = append(conditions, targetTB.TargetID.Eq(req.CaseID))
 	conditions = append(conditions, targetTB.TargetType.Eq(consts.TargetTypeTestCase))
-	//conditions = append(conditions, targetTB.Status.Eq(consts.TargetStatusNormal))
 
 	detail, err := targetTB.WithContext(ctx).Where(conditions...).First()
 	if err != nil {
@@ -131,6 +125,11 @@ func CopyCaseAssemble(ctx *gin.Context, req *rao.CopyAssembleReq) error {
 				}
 			}
 			newCaseName = oldCaseName + fmt.Sprintf("_%d", maxNum+1)
+		}
+
+		nameLength := public.GetStringNum(newCaseName)
+		if nameLength > 30 { // 场景名称限制30个字符
+			return fmt.Errorf("名称过长！不可超出30字符")
 		}
 
 		userID := jwt.GetUserIDByCtx(ctx)
@@ -208,44 +207,50 @@ func SceneCaseNameIsExist(ctx *gin.Context, req *rao.SaveCaseAssembleReq) (bool,
 }
 
 func SaveCaseAssemble(ctx *gin.Context, req *rao.SaveCaseAssembleReq) error {
-
 	userID := jwt.GetUserIDByCtx(ctx)
-
-	target := packer.TransSaveCaseAssembleToTargetModel(req, userID)
+	targetInfo := packer.TransSaveCaseAssembleToTargetModel(req, userID)
 
 	err := query.Use(dal.DB()).Transaction(func(tx *query.Query) error {
 		// 查询是否存在
 		_, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.CaseID)).First()
 		if err != nil {
-			if err := tx.Target.WithContext(ctx).Create(target); err != nil {
+			if err := tx.Target.WithContext(ctx).Create(targetInfo); err != nil {
 				return err
 			}
 
 			//获取场景的执行流flow 然后赋给用例执行流flow
-			var sceneFlow mao.Flow
+			sceneFlow := mao.Flow{}
 			collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
 			collectionErr := collection.FindOne(ctx, bson.D{{"scene_id", req.SceneID}}).Decode(&sceneFlow)
 			if collectionErr != nil && collectionErr != mongo.ErrNoDocuments {
 				return collectionErr
 			}
 
-			sceneCaseFlow := packer.TransMaoFlowToMaoSceneCaseFlow(&sceneFlow, target.TargetID)
+			sceneCaseFlow := packer.TransMaoFlowToMaoSceneCaseFlow(&sceneFlow, targetInfo.TargetID)
 			sceneCaseFlowCollection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
 			sceneCaseFlowErr := sceneCaseFlowCollection.FindOne(ctx, bson.D{{"scene_case_id", tx.Target.TargetID}}).Decode(&sceneFlow)
 			if sceneCaseFlowErr == mongo.ErrNoDocuments { // 新建
 				_, _ = sceneCaseFlowCollection.InsertOne(ctx, sceneCaseFlow)
+			} else {
+				_, _ = sceneCaseFlowCollection.UpdateOne(ctx, bson.D{
+					{"scene_id", sceneCaseFlow.SceneCaseID},
+				}, bson.M{"$set": sceneCaseFlow})
 			}
 
-			_, _ = sceneCaseFlowCollection.UpdateOne(ctx, bson.D{
-				{"scene_id", sceneCaseFlow.SceneCaseID},
-			}, bson.M{"$set": sceneCaseFlow})
-
-			return record.InsertCreate(ctx, target.TeamID, userID, record.OperationOperateCreateTestCase, target.Name)
+			nodes := mao.SceneCaseFlowNode{}
+			err = bson.Unmarshal(sceneCaseFlow.Nodes, &nodes)
+			if err == nil {
+				// 保存引入接口和被引入地址的关系
+				_ = scene.SaveTargetCiteRelation(ctx, nodes.Nodes, req.SceneID, req.PlanID, req.TeamID, req.CaseID, req.Source)
+			} else {
+				log.Logger.Info("同步case_flow数据与测试对象关系失败", err)
+			}
+			return record.InsertCreate(ctx, targetInfo.TeamID, userID, record.OperationOperateCreateTestCase, targetInfo.Name)
 		} else {
-			if _, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.CaseID)).Updates(target); err != nil {
+			if _, err := tx.Target.WithContext(ctx).Where(tx.Target.TargetID.Eq(req.CaseID)).Updates(targetInfo); err != nil {
 				return err
 			}
-			return record.InsertUpdate(ctx, target.TeamID, userID, record.OperationOperateUpdateSceneCase, target.Name)
+			return record.InsertUpdate(ctx, targetInfo.TeamID, userID, record.OperationOperateUpdateSceneCase, targetInfo.Name)
 		}
 	})
 	return err
@@ -270,16 +275,25 @@ func SaveSceneCaseFlow(ctx *gin.Context, req *rao.SaveSceneCaseFlowReq) error {
 }
 
 func GetSceneCaseFlow(ctx *gin.Context, req *rao.GetSceneCaseFlowReq) (*rao.GetSceneCaseFlowResp, error) {
-	var ret mao.SceneCaseFlow
-
-	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
-	err := collection.FindOne(ctx, bson.D{{"scene_case_id", req.CaseID}}).Decode(&ret)
-	if err != nil && err != mongo.ErrNoDocuments {
+	// 查询用例基本信息
+	tx := dal.GetQuery().Target
+	caseInfo, err := tx.WithContext(ctx).Where(tx.TargetID.Eq(req.CaseID)).First()
+	if err != nil {
 		return nil, err
 	}
 
-	if err == mongo.ErrNoDocuments {
-		return nil, nil
+	res := &rao.GetSceneCaseFlowResp{
+		SceneID:     caseInfo.ParentID,
+		SceneCaseID: caseInfo.TargetID,
+		TeamID:      caseInfo.TeamID,
+		Version:     caseInfo.Version,
+	}
+
+	ret := mao.SceneCaseFlow{}
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
+	err = collection.FindOne(ctx, bson.D{{"scene_case_id", req.CaseID}}).Decode(&ret)
+	if err != nil {
+		return res, nil
 	}
 
 	return packer.TransMaoSceneCaseFlowToRaoGetFowResp(&ret), nil
@@ -327,6 +341,13 @@ func DelCaseAssemble(ctx *gin.Context, req *rao.DelCaseAssembleReq) error {
 			return err
 		}
 
+		// 删除场景flow里面Node和接口的关系
+		collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectTargetCiteRelation)
+		_, err = collection.DeleteMany(ctx, bson.D{{"case_id", req.CaseID}})
+		if err != nil {
+			return err
+		}
+
 		if err := record.InsertDelete(ctx, caseInfo.TeamID, userID, record.OperationOperateDeleteTestCase, caseInfo.Name); err != nil {
 			return err
 		}
@@ -342,9 +363,16 @@ func SendSceneCase(ctx *gin.Context, teamID string, sceneID, sceneCaseID string,
 		return "", err
 	}
 
-	var f mao.Flow
-	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
-	err = collection.FindOne(ctx, bson.D{{"scene_case_id", sceneCaseID}}).Decode(&f)
+	var flow mao.Flow
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
+	err = collection.FindOne(ctx, bson.D{{"scene_id", sceneID}}).Decode(&flow)
+	if err != nil {
+		return "", err
+	}
+
+	var caseFlow mao.Flow
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
+	err = collection.FindOne(ctx, bson.D{{"scene_case_id", sceneCaseID}}).Decode(&caseFlow)
 	if err != nil {
 		return "", err
 	}
@@ -355,22 +383,102 @@ func SendSceneCase(ctx *gin.Context, teamID string, sceneID, sceneCaseID string,
 		return "", err
 	}
 
-	sv := dal.GetQuery().Variable
-	sceneVariables, err := sv.WithContext(ctx).Where(sv.SceneID.Eq(sceneID)).Find()
-	if err != nil {
-		return "", err
+	// 获取全局变量
+	globalVariable, _ := target.GetGlobalVariable(ctx, teamID)
+
+	// 获取场景变量
+	sceneVariable := rao.GlobalVariable{}
+	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+	cur, err := collection.Find(ctx, bson.D{{"team_id", teamID}, {"scene_id", sceneID}})
+	var sceneParamDataArr []*mao.SceneParamData
+	if err == nil {
+		if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+			return "", fmt.Errorf("场景参数数据获取失败")
+		}
 	}
 
-	variables, err := sv.WithContext(ctx).Where(sv.TeamID.Eq(teamID)).Find()
-	if err != nil {
-		return "", err
+	sceneCookieParam := make([]rao.CookieParam, 0, 100)
+	sceneHeaderParam := make([]rao.HeaderParam, 0, 100)
+	sceneVariableParam := make([]rao.VariableParam, 0, 100)
+	sceneAssertParam := make([]rao.AssertParam, 0, 100)
+	for _, sceneParamInfo := range sceneParamDataArr {
+		if sceneParamInfo.ParamType == 1 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneCookieParam)
+			if err != nil {
+				return "", err
+			}
+			parameter := make([]rao.Parameter, 0, len(sceneCookieParam))
+			for _, v := range sceneCookieParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Cookie.Parameter = parameter
+		}
+		if sceneParamInfo.ParamType == 2 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneHeaderParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.Parameter, 0, len(sceneHeaderParam))
+			for _, v := range sceneHeaderParam {
+				temp := rao.Parameter{
+					IsChecked: v.IsChecked,
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Header.Parameter = parameter
+
+		}
+		if sceneParamInfo.ParamType == 3 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneVariableParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.VarForm, 0, len(sceneVariableParam))
+			for _, v := range sceneVariableParam {
+				temp := rao.VarForm{
+					IsChecked: int64(v.IsChecked),
+					Key:       v.Key,
+					Value:     v.Value,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Variable = parameter
+		}
+		if sceneParamInfo.ParamType == 4 {
+			err = json.Unmarshal([]byte(sceneParamInfo.DataDetail), &sceneAssertParam)
+			if err != nil {
+				return "", err
+			}
+
+			parameter := make([]rao.AssertionText, 0, len(sceneAssertParam))
+			for _, v := range sceneAssertParam {
+				temp := rao.AssertionText{
+					IsChecked:    int(v.IsChecked),
+					ResponseType: int8(v.ResponseType),
+					Compare:      v.Compare,
+					Var:          v.Var,
+					Val:          v.Val,
+				}
+				parameter = append(parameter, temp)
+			}
+			sceneVariable.Assert = parameter
+		}
 	}
 
 	if err = record.InsertDebug(ctx, teamID, userID, record.OperationOperateRunSceneCase, t.Name); err != nil {
 		return "", err
 	}
 
-	req := packer.TransMaoFlowToRaoSceneCaseFlow(t, &f, vis, sceneVariables, variables)
-	return runner.RunSceneCaseFlow(ctx, req)
+	req := packer.TransMaoFlowToRaoSceneCaseFlow(t, &flow, &caseFlow, vis, sceneVariable, globalVariable)
+	return runner.RunSceneCaseFlow(req)
 
 }

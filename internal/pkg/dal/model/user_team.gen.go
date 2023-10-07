@@ -19,7 +19,9 @@ type UserTeam struct {
 	TeamID       string         `gorm:"column:team_id;not null" json:"team_id"`                         // 团队id
 	RoleID       int64          `gorm:"column:role_id;not null" json:"role_id"`                         // 角色id1:超级管理员，2成员，3管理员
 	InviteUserID string         `gorm:"column:invite_user_id;not null;default:0" json:"invite_user_id"` // 邀请人id
+	InviteTime   time.Time      `gorm:"column:invite_time" json:"invite_time"`                          // 邀请时间
 	Sort         int32          `gorm:"column:sort;not null" json:"sort"`
+	IsShow       int32          `gorm:"column:is_show;not null;default:1" json:"is_show"` // 是否展示到团队列表  1:展示   2:不展示
 	CreatedAt    time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt    time.Time      `gorm:"column:updated_at;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`

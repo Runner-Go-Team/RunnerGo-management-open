@@ -103,3 +103,31 @@ type UpdateImportSceneVariablesReq struct {
 	ID     int64 `json:"id"`
 	Status int32 `json:"status"`
 }
+
+type CookieParam struct {
+	IsChecked int32  `json:"is_checked" bson:"is_checked"`
+	Key       string `json:"key" bson:"key"`
+	Value     string `json:"value" bson:"value"`
+}
+
+type HeaderParam struct {
+	IsChecked   int32  `json:"is_checked" bson:"is_checked"`
+	Key         string `json:"key" bson:"key"`
+	Value       string `json:"value" bson:"value"`
+	Description string `json:"description" bson:"description"`
+}
+
+type VariableParam struct {
+	IsChecked   int32  `json:"is_checked" bson:"is_checked"`
+	Key         string `json:"key" bson:"key"`
+	Value       string `json:"value" bson:"value"`
+	Description string `json:"description" bson:"description"`
+}
+
+type AssertParam struct {
+	IsChecked    int32  `json:"is_checked" bson:"is_checked"`
+	ResponseType int32  `json:"response_type" bson:"response_type"`
+	Var          string `json:"var" bson:"var"`
+	Compare      string `json:"compare" bson:"compare"`
+	Val          string `json:"val" bson:"val"`
+}

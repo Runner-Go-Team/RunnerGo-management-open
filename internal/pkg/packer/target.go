@@ -1,9 +1,9 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func TransSaveFolderReqToTargetModel(folder *rao.SaveFolderReq, userID string) *model.Target {
@@ -20,7 +20,7 @@ func TransSaveFolderReqToTargetModel(folder *rao.SaveFolderReq, userID string) *
 		Version:       folder.Version,
 		CreatedUserID: userID,
 		RecentUserID:  userID,
-		Source:        consts.TargetSourceNormal,
+		Source:        folder.Source,
 		Description:   folder.Description,
 	}
 }
@@ -29,7 +29,7 @@ func TransSaveTargetReqToTargetModel(target *rao.SaveTargetReq, userID string) *
 	return &model.Target{
 		TargetID:      target.TargetID,
 		TeamID:        target.TeamID,
-		TargetType:    consts.TargetTypeAPI,
+		TargetType:    target.TargetType,
 		Name:          target.Name,
 		ParentID:      target.ParentID,
 		Method:        target.Method,
@@ -39,8 +39,9 @@ func TransSaveTargetReqToTargetModel(target *rao.SaveTargetReq, userID string) *
 		Version:       target.Version,
 		CreatedUserID: userID,
 		RecentUserID:  userID,
-		Source:        consts.TargetSourceNormal,
+		Source:        target.Source,
 		Description:   target.Description,
+		SourceID:      target.SourceID,
 	}
 }
 
@@ -54,7 +55,7 @@ func TransSaveImportFolderReqToTargetModel(folder rao.SaveTargetReq, teamID stri
 		Status:        consts.TargetStatusNormal,
 		CreatedUserID: userID,
 		RecentUserID:  userID,
-		Source:        consts.TargetSourceNormal,
+		Source:        consts.TargetSourceApi,
 		Description:   folder.Description,
 	}
 }
@@ -70,7 +71,7 @@ func TransSaveImportTargetReqToTargetModel(target rao.SaveTargetReq, teamID stri
 		Status:        consts.TargetStatusNormal,
 		CreatedUserID: userID,
 		RecentUserID:  userID,
-		Source:        consts.TargetSourceNormal,
+		Source:        consts.TargetSourceApi,
 		Description:   target.Request.Description,
 	}
 }
@@ -79,7 +80,7 @@ func TransSaveGroupReqToTargetModel(group *rao.SaveGroupReq, userID string) *mod
 	return &model.Target{
 		TargetID:      group.TargetID,
 		TeamID:        group.TeamID,
-		TargetType:    consts.TargetTypeGroup,
+		TargetType:    consts.TargetTypeFolder,
 		Name:          group.Name,
 		ParentID:      group.ParentID,
 		Method:        group.Method,

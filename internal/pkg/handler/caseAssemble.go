@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/caseAssemble"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/dal/runner"
-	"kp-management/internal/pkg/logic/caseAssemble"
 )
 
 // GetCaseAssembleList 获取用例集列表
@@ -51,7 +51,12 @@ func CopyCaseAssemble(ctx *gin.Context) {
 
 	CopyCaseAssembleErr := caseAssemble.CopyCaseAssemble(ctx, &req)
 	if CopyCaseAssembleErr != nil {
-		response.ErrorWithMsg(ctx, errno.ErrParam, CopyCaseAssembleErr.Error())
+		if CopyCaseAssembleErr.Error() == "名称过长！不可超出30字符" {
+			response.ErrorWithMsg(ctx, errno.ErrNameOverLength, CopyCaseAssembleErr.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrParam, CopyCaseAssembleErr.Error())
+		}
+
 		return
 	}
 
@@ -61,7 +66,6 @@ func CopyCaseAssemble(ctx *gin.Context) {
 
 // SaveCaseAssemble 新建用例
 func SaveCaseAssemble(ctx *gin.Context) {
-
 	var req rao.SaveCaseAssembleReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
@@ -74,13 +78,11 @@ func SaveCaseAssemble(ctx *gin.Context) {
 		response.ErrorWithMsg(ctx, errno.ErrSceneCaseNameIsExist, "")
 		return
 	}
-
 	saveCaseAssembleErr := caseAssemble.SaveCaseAssemble(ctx, &req)
 	if saveCaseAssembleErr != nil {
 		response.ErrorWithMsg(ctx, errno.ErrParam, saveCaseAssembleErr.Error())
 		return
 	}
-
 	response.SuccessWithData(ctx, req)
 	return
 }
@@ -143,7 +145,6 @@ func SaveSceneCaseFlow(ctx *gin.Context) {
 
 // GetSceneCaseFlow 获取用例执行流
 func GetSceneCaseFlow(ctx *gin.Context) {
-
 	var req rao.GetSceneCaseFlowReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
@@ -155,7 +156,6 @@ func GetSceneCaseFlow(ctx *gin.Context) {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, GetSceneCaseFlowErr.Error())
 		return
 	}
-
 	response.SuccessWithData(ctx, resp)
 	return
 }
@@ -187,6 +187,23 @@ func StopSceneCase(ctx *gin.Context) {
 	}
 
 	err := runner.StopSceneCase(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+		return
+	}
+
+	response.Success(ctx)
+	return
+}
+
+func ChangeCaseSort(ctx *gin.Context) {
+	var req rao.ChangeCaseSortReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := runner.ChangeCaseSort(ctx, &req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
 		return

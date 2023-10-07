@@ -3,13 +3,13 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/dal/runner"
-	"kp-management/internal/pkg/logic/scene"
-	"kp-management/internal/pkg/logic/target"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/scene"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/target"
 )
 
 // SendScene 调试场景
@@ -155,10 +155,9 @@ func GetFlow(ctx *gin.Context) {
 
 	resp, err := scene.GetFlow(ctx, req.SceneID)
 	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
 		return
 	}
-
 	response.SuccessWithData(ctx, resp)
 	return
 }
@@ -173,7 +172,7 @@ func BatchGetFlow(ctx *gin.Context) {
 
 	flows, err := scene.BatchGetFlow(ctx, req.SceneID)
 	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
 		return
 	}
 
@@ -195,5 +194,89 @@ func DeleteScene(ctx *gin.Context) {
 	}
 
 	response.Success(ctx)
+	return
+}
+
+// ChangeDisabledStatus 改变场景禁用状态
+func ChangeDisabledStatus(ctx *gin.Context) {
+	var req rao.ChangeDisabledStatusReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	if err := scene.ChangeDisabledStatus(ctx, &req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+
+	response.Success(ctx)
+	return
+}
+
+func SendMysql(ctx *gin.Context) {
+	var req rao.SendMysqlReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := scene.SendMysql(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+
+	response.SuccessWithData(ctx, rao.SendSceneAPIResp{RetID: retID})
+	return
+}
+
+func GetSceneCanSyncData(ctx *gin.Context) {
+	var req rao.GetSceneCanSyncDataReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	list, err := scene.GetSceneCanSyncData(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+
+	response.SuccessWithData(ctx, list)
+	return
+}
+
+func ExecSyncSceneData(ctx *gin.Context) {
+	var req rao.ExecSyncSceneDataReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := scene.ExecSyncSceneData(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+
+	response.Success(ctx)
+	return
+}
+
+func ExportScene(ctx *gin.Context) {
+	var req rao.ExportSceneReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	res, err := scene.ExportScene(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+
+	response.SuccessWithData(ctx, res)
 	return
 }

@@ -20,7 +20,7 @@ type AutoPlan struct {
 	TeamID       string         `gorm:"column:team_id;not null" json:"team_id"`                                 // 团队ID
 	PlanName     string         `gorm:"column:plan_name;not null" json:"plan_name"`                             // 计划名称
 	TaskType     int32          `gorm:"column:task_type;not null;default:1" json:"task_type"`                   // 计划类型：1-普通任务，2-定时任务
-	Status       int32          `gorm:"column:status;not null;default:1" json:"status"`                         // 计划状：1-未开始，2-进行中
+	Status       int32          `gorm:"column:status;not null;default:1" json:"status"`                         // 计划状态1:未开始,2:进行中
 	CreateUserID string         `gorm:"column:create_user_id;not null" json:"create_user_id"`                   // 创建人id
 	RunUserID    string         `gorm:"column:run_user_id;not null" json:"run_user_id"`                         // 运行人id
 	Remark       string         `gorm:"column:remark" json:"remark"`                                            // 备注

@@ -19,4 +19,7 @@ const (
 	// 团队是否可用
 	TeamNotCanUse = 0 // 不可用
 	TeamCanUse    = 1 // 可用
+
+	TeamIsShow      = 1 // 是否展示在列表中 1：展示   2：不展示
+	TeamIsShowFalse = 2 //
 )

@@ -5,7 +5,7 @@ import (
 
 	"github.com/olivere/elastic/v7"
 
-	"kp-management/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 )
 
 var (

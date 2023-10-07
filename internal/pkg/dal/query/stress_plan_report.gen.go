@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newStressPlanReport(db *gorm.DB, opts ...gen.DOOption) stressPlanReport {
@@ -29,6 +29,7 @@ func newStressPlanReport(db *gorm.DB, opts ...gen.DOOption) stressPlanReport {
 	_stressPlanReport.ALL = field.NewAsterisk(tableName)
 	_stressPlanReport.ID = field.NewInt64(tableName, "id")
 	_stressPlanReport.ReportID = field.NewString(tableName, "report_id")
+	_stressPlanReport.ReportName = field.NewString(tableName, "report_name")
 	_stressPlanReport.TeamID = field.NewString(tableName, "team_id")
 	_stressPlanReport.PlanID = field.NewString(tableName, "plan_id")
 	_stressPlanReport.RankID = field.NewInt64(tableName, "rank_id")
@@ -38,6 +39,8 @@ func newStressPlanReport(db *gorm.DB, opts ...gen.DOOption) stressPlanReport {
 	_stressPlanReport.TaskType = field.NewInt32(tableName, "task_type")
 	_stressPlanReport.TaskMode = field.NewInt32(tableName, "task_mode")
 	_stressPlanReport.ControlMode = field.NewInt32(tableName, "control_mode")
+	_stressPlanReport.DebugMode = field.NewString(tableName, "debug_mode")
+	_stressPlanReport.RunDurationTime = field.NewInt64(tableName, "run_duration_time")
 	_stressPlanReport.Status = field.NewInt32(tableName, "status")
 	_stressPlanReport.Remark = field.NewString(tableName, "remark")
 	_stressPlanReport.RunUserID = field.NewString(tableName, "run_user_id")
@@ -53,24 +56,27 @@ func newStressPlanReport(db *gorm.DB, opts ...gen.DOOption) stressPlanReport {
 type stressPlanReport struct {
 	stressPlanReportDo stressPlanReportDo
 
-	ALL         field.Asterisk
-	ID          field.Int64
-	ReportID    field.String // 报告ID
-	TeamID      field.String // 团队ID
-	PlanID      field.String // 计划ID
-	RankID      field.Int64  // 序号ID
-	PlanName    field.String // 计划名称
-	SceneID     field.String // 场景ID
-	SceneName   field.String // 场景名称
-	TaskType    field.Int32  // 任务类型
-	TaskMode    field.Int32  // 压测模式
-	ControlMode field.Int32  // 控制模式：0-集中模式，1-单独模式
-	Status      field.Int32  // 报告状态1:进行中，2:已完成
-	Remark      field.String // 备注
-	RunUserID   field.String // 启动人id
-	CreatedAt   field.Time   // 创建时间（执行时间）
-	UpdatedAt   field.Time   // 修改时间
-	DeletedAt   field.Field  // 删除时间
+	ALL             field.Asterisk
+	ID              field.Int64
+	ReportID        field.String // 报告ID
+	ReportName      field.String // 报告名称
+	TeamID          field.String // 团队ID
+	PlanID          field.String // 计划ID
+	RankID          field.Int64  // 序号ID
+	PlanName        field.String // 计划名称
+	SceneID         field.String // 场景ID
+	SceneName       field.String // 场景名称
+	TaskType        field.Int32  // 任务类型
+	TaskMode        field.Int32  // 压测模式
+	ControlMode     field.Int32  // 控制模式：0-集中模式，1-单独模式
+	DebugMode       field.String // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
+	RunDurationTime field.Int64  // 任务运行持续时长
+	Status          field.Int32  // 报告状态1:进行中，2:已完成
+	Remark          field.String // 备注
+	RunUserID       field.String // 启动人id
+	CreatedAt       field.Time   // 创建时间（执行时间）
+	UpdatedAt       field.Time   // 修改时间
+	DeletedAt       field.Field  // 删除时间
 
 	fieldMap map[string]field.Expr
 }
@@ -89,6 +95,7 @@ func (s *stressPlanReport) updateTableName(table string) *stressPlanReport {
 	s.ALL = field.NewAsterisk(table)
 	s.ID = field.NewInt64(table, "id")
 	s.ReportID = field.NewString(table, "report_id")
+	s.ReportName = field.NewString(table, "report_name")
 	s.TeamID = field.NewString(table, "team_id")
 	s.PlanID = field.NewString(table, "plan_id")
 	s.RankID = field.NewInt64(table, "rank_id")
@@ -98,6 +105,8 @@ func (s *stressPlanReport) updateTableName(table string) *stressPlanReport {
 	s.TaskType = field.NewInt32(table, "task_type")
 	s.TaskMode = field.NewInt32(table, "task_mode")
 	s.ControlMode = field.NewInt32(table, "control_mode")
+	s.DebugMode = field.NewString(table, "debug_mode")
+	s.RunDurationTime = field.NewInt64(table, "run_duration_time")
 	s.Status = field.NewInt32(table, "status")
 	s.Remark = field.NewString(table, "remark")
 	s.RunUserID = field.NewString(table, "run_user_id")
@@ -128,9 +137,10 @@ func (s *stressPlanReport) GetFieldByName(fieldName string) (field.OrderExpr, bo
 }
 
 func (s *stressPlanReport) fillFieldMap() {
-	s.fieldMap = make(map[string]field.Expr, 17)
+	s.fieldMap = make(map[string]field.Expr, 20)
 	s.fieldMap["id"] = s.ID
 	s.fieldMap["report_id"] = s.ReportID
+	s.fieldMap["report_name"] = s.ReportName
 	s.fieldMap["team_id"] = s.TeamID
 	s.fieldMap["plan_id"] = s.PlanID
 	s.fieldMap["rank_id"] = s.RankID
@@ -140,6 +150,8 @@ func (s *stressPlanReport) fillFieldMap() {
 	s.fieldMap["task_type"] = s.TaskType
 	s.fieldMap["task_mode"] = s.TaskMode
 	s.fieldMap["control_mode"] = s.ControlMode
+	s.fieldMap["debug_mode"] = s.DebugMode
+	s.fieldMap["run_duration_time"] = s.RunDurationTime
 	s.fieldMap["status"] = s.Status
 	s.fieldMap["remark"] = s.Remark
 	s.fieldMap["run_user_id"] = s.RunUserID

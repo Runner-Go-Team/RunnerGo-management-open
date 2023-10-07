@@ -1,13 +1,12 @@
 package packer
 
 import (
-	"github.com/satori/go.uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 	"go.mongodb.org/mongo-driver/bson"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
 )
 
 func TransSaveSceneCaseFlowReqToMaoFlow(req *rao.SaveSceneCaseFlowReq) *mao.SceneCaseFlow {
@@ -29,7 +28,6 @@ func TransSaveSceneCaseFlowReqToMaoFlow(req *rao.SaveSceneCaseFlowReq) *mao.Scen
 		Version:     req.Version,
 		Nodes:       nodes,
 		Edges:       edges,
-		//MultiLevelNodes: req.MultiLevelNodes,
 	}
 }
 
@@ -40,9 +38,7 @@ func TransSaveCaseAssembleToTargetModel(caseAssemble *rao.SaveCaseAssembleReq, u
 		TargetType:    consts.TargetTypeTestCase,
 		Name:          caseAssemble.Name,
 		ParentID:      caseAssemble.SceneID,
-		Method:        caseAssemble.Method,
 		Sort:          caseAssemble.Sort,
-		TypeSort:      caseAssemble.TypeSort,
 		Status:        consts.TargetStatusNormal,
 		Version:       caseAssemble.Version,
 		CreatedUserID: userID,
@@ -54,7 +50,6 @@ func TransSaveCaseAssembleToTargetModel(caseAssemble *rao.SaveCaseAssembleReq, u
 }
 
 func TransMaoSceneCaseFlowToRaoGetFowResp(f *mao.SceneCaseFlow) *rao.GetSceneCaseFlowResp {
-
 	var n mao.Node
 	if err := bson.Unmarshal(f.Nodes, &n); err != nil {
 		log.Logger.Errorf("flow.nodes bson unmarshal err %w", err)
@@ -72,17 +67,23 @@ func TransMaoSceneCaseFlowToRaoGetFowResp(f *mao.SceneCaseFlow) *rao.GetSceneCas
 		Version:     f.Version,
 		Nodes:       n.Nodes,
 		Edges:       e.Edges,
-		//MultiLevelNodes: f.MultiLevelNodes,
+		EnvID:       f.EnvID,
 	}
 }
 
-func TransMaoFlowToRaoSceneCaseFlow(t *model.Target, f *mao.Flow, vis []*model.VariableImport, sceneVariables, variables []*model.Variable) *rao.SceneCaseFlow {
-	var n mao.Node
-	if err := bson.Unmarshal(f.Nodes, &n); err != nil {
+func TransMaoFlowToRaoSceneCaseFlow(t *model.Target, flow *mao.Flow, caseFlow *mao.Flow,
+	vis []*model.VariableImport, sceneVariable rao.GlobalVariable, globalVariable rao.GlobalVariable) *rao.SceneCaseFlow {
+	nodes := mao.Node{}
+	if err := bson.Unmarshal(caseFlow.Nodes, &nodes); err != nil {
 		log.Logger.Errorf("flow.nodes bson unmarshal err %w", err)
 	}
 
-	var fileList []rao.FileList
+	edges := mao.Edge{}
+	if err := bson.Unmarshal(caseFlow.Edges, &edges); err != nil {
+		log.Logger.Errorf("flow.edges bson unmarshal err %w", err)
+	}
+
+	fileList := make([]rao.FileList, 0, len(vis))
 	for _, vi := range vis {
 		fileList = append(fileList, rao.FileList{
 			IsChecked: int64(vi.Status),
@@ -90,40 +91,56 @@ func TransMaoFlowToRaoSceneCaseFlow(t *model.Target, f *mao.Flow, vis []*model.V
 		})
 	}
 
-	var v []rao.KV
-	for _, variable := range sceneVariables {
-		v = append(v, rao.KV{
-			Key:   variable.Var,
-			Value: variable.Val,
-		})
+	// 前置条件
+	prepositions := mao.Preposition{}
+	if err := bson.Unmarshal(flow.Prepositions, &prepositions); err != nil {
+		log.Logger.Info("flow.prepositions bson unmarshal err %w", err)
 	}
 
-	var globalVariables []*rao.KVVariable
-	for _, variable := range variables {
-		globalVariables = append(globalVariables, &rao.KVVariable{
-			Key:   variable.Var,
-			Value: variable.Val,
-		})
+	prepositionsArr := make([]rao.Preposition, 0, len(prepositions.Prepositions))
+	for _, nodeInfo := range prepositions.Prepositions {
+		dbType := "mysql"
+		if nodeInfo.API.Method == "ORACLE" {
+			dbType = "oracle"
+		} else if nodeInfo.API.Method == "PgSQL" {
+			dbType = "postgresql"
+		}
+		nodeInfo.API.SqlDetail.SqlDatabaseInfo.Type = dbType
+		temp := rao.Preposition{
+			Type:       nodeInfo.Type,
+			Event:      nodeInfo,
+			IsDisabled: nodeInfo.IsDisabled,
+		}
+		prepositionsArr = append(prepositionsArr, temp)
 	}
 
+	for k, nodeInfo := range nodes.Nodes {
+		if caseFlow.EnvID != 0 {
+			nodes.Nodes[k].API.Request.PreUrl = nodeInfo.API.EnvInfo.PreUrl
+		} else {
+			nodes.Nodes[k].API.Request.PreUrl = ""
+		}
+	}
+
+	nodesRound := GetNodesByLevel(nodes.Nodes, edges.Edges)
 	return &rao.SceneCaseFlow{
 		SceneID:       t.ParentID,
 		SceneCaseID:   t.TargetID,
 		SceneCaseName: t.Name,
 		TeamID:        t.TeamID,
-		Nodes:         n.Nodes,
 		Configuration: rao.Configuration{
 			ParameterizedFile: rao.ParameterizedFile{
 				Paths: fileList,
 			},
-			Variable: v,
+			SceneVariable: sceneVariable,
 		},
-		Variable: globalVariables,
+		NodesRound:     nodesRound,
+		GlobalVariable: globalVariable,
+		Prepositions:   prepositionsArr,
 	}
 }
 
 func TransMaoFlowToMaoSceneCaseFlow(flow *mao.Flow, sceneID string) *mao.SceneCaseFlow {
-
 	if flow.Nodes != nil {
 		var n mao.Node
 		if err := bson.Unmarshal(flow.Nodes, &n); err != nil {
@@ -136,10 +153,7 @@ func TransMaoFlowToMaoSceneCaseFlow(flow *mao.Flow, sceneID string) *mao.SceneCa
 		}
 
 		for nodeInfoK := range n.Nodes {
-			//newUUID := GetUUID()
-			//n.Nodes[nodeInfoK].ID = newUUID
 			n.Nodes[nodeInfoK].Data.From = "case"
-			//n.Nodes[nodeInfoK].Data.ID = newUUID
 		}
 		flow.Nodes, _ = bson.Marshal(n)
 	}
@@ -151,7 +165,7 @@ func TransMaoFlowToMaoSceneCaseFlow(flow *mao.Flow, sceneID string) *mao.SceneCa
 		Version:     flow.Version,
 		Nodes:       flow.Nodes,
 		Edges:       flow.Edges,
-		//MultiLevelNodes: req.MultiLevelNodes,
+		EnvID:       flow.EnvID,
 	}
 
 	err := ChangeCaseNodeUUID(&sceneCaseFlow)
@@ -159,9 +173,4 @@ func TransMaoFlowToMaoSceneCaseFlow(flow *mao.Flow, sceneID string) *mao.SceneCa
 		log.Logger.Errorf("sceneCaseFlow change UUID err %w", err)
 	}
 	return &sceneCaseFlow
-}
-
-func GetUUID() string {
-	uuid := uuid.NewV4()
-	return uuid.String()
 }

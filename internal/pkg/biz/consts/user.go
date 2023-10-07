@@ -6,6 +6,8 @@ const (
 	RoleTypeAdmin  = 3 // 管理员
 
 	WechatQrCodeExpiresTime = 300 // 微信登录二维码过期时间，单位：秒
+
+	RedisResetLoginUsers = "ResetLoginUsers"
 )
 
 var (

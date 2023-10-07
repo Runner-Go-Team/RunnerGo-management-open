@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newAutoPlanTimedTaskConf(db *gorm.DB, opts ...gen.DOOption) autoPlanTimedTaskConf {
@@ -33,6 +33,10 @@ func newAutoPlanTimedTaskConf(db *gorm.DB, opts ...gen.DOOption) autoPlanTimedTa
 	_autoPlanTimedTaskConf.Frequency = field.NewInt32(tableName, "frequency")
 	_autoPlanTimedTaskConf.TaskExecTime = field.NewInt64(tableName, "task_exec_time")
 	_autoPlanTimedTaskConf.TaskCloseTime = field.NewInt64(tableName, "task_close_time")
+	_autoPlanTimedTaskConf.FixedIntervalStartTime = field.NewInt64(tableName, "fixed_interval_start_time")
+	_autoPlanTimedTaskConf.FixedIntervalTime = field.NewInt32(tableName, "fixed_interval_time")
+	_autoPlanTimedTaskConf.FixedRunNum = field.NewInt32(tableName, "fixed_run_num")
+	_autoPlanTimedTaskConf.FixedIntervalTimeType = field.NewInt32(tableName, "fixed_interval_time_type")
 	_autoPlanTimedTaskConf.TaskType = field.NewInt32(tableName, "task_type")
 	_autoPlanTimedTaskConf.TaskMode = field.NewInt32(tableName, "task_mode")
 	_autoPlanTimedTaskConf.SceneRunOrder = field.NewInt32(tableName, "scene_run_order")
@@ -51,22 +55,26 @@ func newAutoPlanTimedTaskConf(db *gorm.DB, opts ...gen.DOOption) autoPlanTimedTa
 type autoPlanTimedTaskConf struct {
 	autoPlanTimedTaskConfDo autoPlanTimedTaskConfDo
 
-	ALL              field.Asterisk
-	ID               field.Int32  // 表id
-	PlanID           field.String // 计划id
-	TeamID           field.String // 团队id
-	Frequency        field.Int32  // 任务执行频次: 0-一次，1-每天，2-每周，3-每月
-	TaskExecTime     field.Int64  // 任务执行时间
-	TaskCloseTime    field.Int64  // 任务结束时间
-	TaskType         field.Int32  // 任务类型：1-普通任务，2-定时任务
-	TaskMode         field.Int32  // 运行模式：1-按照用例执行
-	SceneRunOrder    field.Int32  // 场景运行次序：1-顺序执行，2-同时执行
-	TestCaseRunOrder field.Int32  // 测试用例运行次序：1-顺序执行，2-同时执行
-	Status           field.Int32  // 任务状态：0-未启用，1-运行中，2-已过期
-	RunUserID        field.String // 运行人用户ID
-	CreatedAt        field.Time   // 创建时间
-	UpdatedAt        field.Time   // 更新时间
-	DeletedAt        field.Field  // 删除时间
+	ALL                    field.Asterisk
+	ID                     field.Int32  // 表id
+	PlanID                 field.String // 计划id
+	TeamID                 field.String // 团队id
+	Frequency              field.Int32  // 任务执行频次: 0-一次，1-每天，2-每周，3-每月，4-固定时间间隔
+	TaskExecTime           field.Int64  // 任务执行时间
+	TaskCloseTime          field.Int64  // 任务结束时间
+	FixedIntervalStartTime field.Int64  // 固定时间间隔开始时间
+	FixedIntervalTime      field.Int32  // 固定间隔时间
+	FixedRunNum            field.Int32  // 固定执行次数
+	FixedIntervalTimeType  field.Int32  // 固定间隔时间类型：0-分钟，1-小时
+	TaskType               field.Int32  // 任务类型：1-普通任务，2-定时任务
+	TaskMode               field.Int32  // 运行模式：1-按照用例执行
+	SceneRunOrder          field.Int32  // 场景运行次序：1-顺序执行，2-同时执行
+	TestCaseRunOrder       field.Int32  // 测试用例运行次序：1-顺序执行，2-同时执行
+	Status                 field.Int32  // 任务状态：0-未启用，1-运行中，2-已过期
+	RunUserID              field.String // 运行人用户ID
+	CreatedAt              field.Time   // 创建时间
+	UpdatedAt              field.Time   // 更新时间
+	DeletedAt              field.Field  // 删除时间
 
 	fieldMap map[string]field.Expr
 }
@@ -89,6 +97,10 @@ func (a *autoPlanTimedTaskConf) updateTableName(table string) *autoPlanTimedTask
 	a.Frequency = field.NewInt32(table, "frequency")
 	a.TaskExecTime = field.NewInt64(table, "task_exec_time")
 	a.TaskCloseTime = field.NewInt64(table, "task_close_time")
+	a.FixedIntervalStartTime = field.NewInt64(table, "fixed_interval_start_time")
+	a.FixedIntervalTime = field.NewInt32(table, "fixed_interval_time")
+	a.FixedRunNum = field.NewInt32(table, "fixed_run_num")
+	a.FixedIntervalTimeType = field.NewInt32(table, "fixed_interval_time_type")
 	a.TaskType = field.NewInt32(table, "task_type")
 	a.TaskMode = field.NewInt32(table, "task_mode")
 	a.SceneRunOrder = field.NewInt32(table, "scene_run_order")
@@ -122,13 +134,17 @@ func (a *autoPlanTimedTaskConf) GetFieldByName(fieldName string) (field.OrderExp
 }
 
 func (a *autoPlanTimedTaskConf) fillFieldMap() {
-	a.fieldMap = make(map[string]field.Expr, 15)
+	a.fieldMap = make(map[string]field.Expr, 19)
 	a.fieldMap["id"] = a.ID
 	a.fieldMap["plan_id"] = a.PlanID
 	a.fieldMap["team_id"] = a.TeamID
 	a.fieldMap["frequency"] = a.Frequency
 	a.fieldMap["task_exec_time"] = a.TaskExecTime
 	a.fieldMap["task_close_time"] = a.TaskCloseTime
+	a.fieldMap["fixed_interval_start_time"] = a.FixedIntervalStartTime
+	a.fieldMap["fixed_interval_time"] = a.FixedIntervalTime
+	a.fieldMap["fixed_run_num"] = a.FixedRunNum
+	a.fieldMap["fixed_interval_time_type"] = a.FixedIntervalTimeType
 	a.fieldMap["task_type"] = a.TaskType
 	a.fieldMap["task_mode"] = a.TaskMode
 	a.fieldMap["scene_run_order"] = a.SceneRunOrder

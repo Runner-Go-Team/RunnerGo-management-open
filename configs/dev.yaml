@@ -23,14 +23,29 @@ jwt:
   issuer:
   secret:
 
+prometheus:
+  host:
+  port:
+
+es:
+  host:
+  username:
+  password:
+  index:
+  size:
 
 clients:
+  # 压力机相关接口
   runner:
-    run_api:
-    run_scene:
-    stop_scene:
-    run_plan:
-    stop_plan:
+    engine_domain:
+  # 权限接口相关
+  permission:
+    permission_domain:
+  # mock 服务
+  mock:
+    api_manager:
+      grpc_domain:
+    http_server:
 
 proof:
   info_log:
@@ -43,12 +58,12 @@ log:
 redis:
   address:
   password:
-  db:
+  db: 15
 
 redisReport:
   address:
   password:
-  db:
+  db: 15
 
 smtp:
   host:
@@ -64,15 +79,31 @@ inviteData:
   AesSecretKey:
 
 #初始化压力机可使用分区
-canUsePartitionTotalNum: 2
+canUsePartitionTotalNum:
 
 #单台压力机能快速负载的并发数
-oneMachineCanConcurrenceNum: 5000
+oneMachineCanConcurrenceNum:
 
 #运行计划相关配置
 machineConfig:
-  MachineAliveTime: 10      # 压力机上报心跳超时时间，单位：秒
-  InitPartitionTotalNum: 2  # 初始化可用kafka分区数量设置
-  CpuTopLimit: 65           # 可参与压测的压力机cpu使用率上限
-  MemoryTopLimit: 65        # 可参与压测的压力机memory使用率上限
-  DiskTopLimit: 55          # 可参与压测的压力机disk使用率上限
+  MachineAliveTime:       # 压力机上报心跳超时时间，单位：秒
+  InitPartitionTotalNum:   # 初始化可用kafka分区数量设置
+  CpuTopLimit:            # 可参与压测的压力机cpu使用率上限
+  MemoryTopLimit:         # 可参与压测的压力机memory使用率上限
+  DiskTopLimit:           # 可参与压测的压力机disk使用率上限
+
+
+# 一些时间相关的配置
+aboutTimeConfig:
+  defaultTokenExpireTime: 24  # 默认用户登录token的失效时间（单位：小时）
+  keepStressDebugLogTime: 1   # 保留性能测试的debug日志时间（单位：天）
+  keepMachineMonitorDataTime: 3 # 保存压力机监控数据时间（单位：天）
+
+# 企业初始化数据
+companyInitConfig:
+  Account: "runnergo"
+  Password: "runnergo"
+  Name: "企业名称"
+
+# 静态目录的相对路径
+static: "../static/"

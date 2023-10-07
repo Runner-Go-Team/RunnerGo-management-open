@@ -4,16 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
 	"github.com/gin-gonic/gin"
-	"github.com/go-omnibus/proof"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/logic/report"
 	"strconv"
 	"strings"
 	"time"
@@ -22,13 +20,13 @@ import (
 	"gorm.io/gen"
 	"gorm.io/gen/field"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 )
 
 func ListByStatus(ctx context.Context, teamID string) (int, error) {
@@ -47,67 +45,69 @@ func ListByStatus(ctx context.Context, teamID string) (int, error) {
 	return runPlanNum, nil
 }
 
-func CountByTeamID(ctx context.Context, teamID string) (int64, error) {
-	tx := query.Use(dal.DB()).StressPlan
-
-	return tx.WithContext(ctx).Where(tx.TeamID.Eq(teamID)).Count()
-}
-
-func ListByTeamID(ctx context.Context, teamID string, limit, offset int, keyword string, startTimeSec, endTimeSec int64, taskType, taskMode, status, sortTag int32) ([]*rao.StressPlan, int64, error) {
+func ListByTeamID(ctx context.Context, req *rao.ListPlansReq) ([]*rao.StressPlan, int64, error) {
 	tx := query.Use(dal.DB()).StressPlan
 	conditions := make([]gen.Condition, 0)
-	conditions = append(conditions, tx.TeamID.Eq(teamID))
+	conditions = append(conditions, tx.TeamID.Eq(req.TeamID))
+	if req.Keyword != "" {
+		planIDs := make([]string, 0, req.Size)
 
-	if keyword != "" {
-		conditions = append(conditions, tx.PlanName.Like(fmt.Sprintf("%%%s%%", keyword)))
-
-		u := query.Use(dal.DB()).User
-		users, err := u.WithContext(ctx).Where(u.Nickname.Like(fmt.Sprintf("%%%s%%", keyword))).Find()
-		if err != nil {
-			return nil, 0, err
+		planIDs1, err := KeywordFindPlanForPlanName(ctx, req.TeamID, req.Keyword)
+		if err == nil {
+			planIDs = append(planIDs, planIDs1...)
 		}
 
-		if len(users) > 0 {
-			conditions[1] = tx.RunUserID.Eq(users[0].UserID)
+		planIDs2, err := KeywordFindPlanForUserName(ctx, req.TeamID, req.Keyword)
+		if err == nil {
+			planIDs = append(planIDs, planIDs2...)
+		}
+
+		if len(planIDs) > 0 {
+			conditions = append(conditions, tx.PlanID.In(planIDs...))
+		} else {
+			conditions = append(conditions, tx.PlanID.In(""))
 		}
 	}
 
-	if startTimeSec > 0 && endTimeSec > 0 {
-		startTime := time.Unix(startTimeSec, 0)
-		endTime := time.Unix(endTimeSec, 0)
+	if req.StartTimeSec != 0 && req.EndTimeSec != 0 {
+		startTime := time.Unix(req.StartTimeSec, 0)
+		endTime := time.Unix(req.EndTimeSec, 0)
 		conditions = append(conditions, tx.CreatedAt.Between(startTime, endTime))
 	}
 
-	if taskType > 0 {
-		conditions = append(conditions, tx.TaskType.Eq(taskType))
+	if req.TaskType > 0 {
+		conditions = append(conditions, tx.TaskType.Eq(req.TaskType))
 	}
 
-	if taskMode > 0 {
-		conditions = append(conditions, tx.TaskMode.Eq(taskMode))
+	if req.TaskMode > 0 {
+		conditions = append(conditions, tx.TaskMode.Eq(req.TaskMode))
 	}
 
-	if status > 0 {
-		conditions = append(conditions, tx.Status.Eq(status))
+	if req.Status > 0 {
+		conditions = append(conditions, tx.Status.Eq(req.Status))
 	}
 
 	sort := make([]field.Expr, 0)
-	if sortTag == 0 { // 默认排序
+	if req.Sort == 0 { // 默认排序
+		sort = append(sort, tx.RankID.Desc())
+	}
+	if req.Sort == 1 { // 创建时间倒序
 		sort = append(sort, tx.CreatedAt.Desc())
 	}
-	if sortTag == 1 { // 创建时间倒序
-		sort = append(sort, tx.CreatedAt.Desc())
-	}
-	if sortTag == 2 { // 创建时间正序
+	if req.Sort == 2 { // 创建时间正序
 		sort = append(sort, tx.CreatedAt)
 	}
-	if sortTag == 3 { // 修改时间倒序
+	if req.Sort == 3 { // 修改时间倒序
 		sort = append(sort, tx.UpdatedAt.Desc())
 	}
-	if sortTag == 4 { // 修改时间正序
+	if req.Sort == 4 { // 修改时间正序
 		sort = append(sort, tx.UpdatedAt)
 	}
 
+	offset := (req.Page - 1) * req.Size
+	limit := req.Size
 	ret, cnt, err := tx.WithContext(ctx).Where(conditions...).Order(sort...).FindByPage(offset, limit)
+
 	if err != nil {
 		return nil, 0, err
 	}
@@ -124,6 +124,41 @@ func ListByTeamID(ctx context.Context, teamID string, limit, offset int, keyword
 	}
 
 	return packer.TransPlansToRaoPlanList(ret, users), cnt, nil
+}
+
+func KeywordFindPlanForPlanName(ctx context.Context, teamID string, keyword string) ([]string, error) {
+	planIDs := make([]string, 0, 100)
+
+	p := dal.GetQuery().StressPlan
+	err := p.WithContext(ctx).Where(p.TeamID.Eq(teamID), p.PlanName.Like(fmt.Sprintf("%%%s%%", keyword))).Pluck(p.PlanID, &planIDs)
+	if err != nil {
+		return planIDs, err
+	}
+
+	return planIDs, nil
+}
+
+func KeywordFindPlanForUserName(ctx context.Context, teamID string, keyword string) ([]string, error) {
+	userIDs := make([]string, 0, 100)
+
+	u := query.Use(dal.DB()).User
+	err := u.WithContext(ctx).Where(u.Nickname.Like(fmt.Sprintf("%%%s%%", keyword))).Pluck(u.UserID, &userIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(userIDs) == 0 {
+		return nil, fmt.Errorf("没有查到任何用户信息")
+	}
+
+	planIDs := make([]string, 0, 100)
+	sp := dal.GetQuery().StressPlan
+	err = sp.WithContext(ctx).Where(sp.TeamID.Eq(teamID), sp.RunUserID.In(userIDs...)).Pluck(sp.PlanID, &planIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return planIDs, nil
 }
 
 func Save(ctx *gin.Context, req *rao.SavePlanReq) (string, int, error) {
@@ -204,7 +239,9 @@ func Save(ctx *gin.Context, req *rao.SavePlanReq) (string, int, error) {
 	return planID, errno.Ok, nil
 }
 
-func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, error) {
+func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq) (int, error) {
+	userID := jwt.GetUserIDByCtx(ctx)
+
 	// 判断任务配置类型
 	var err error
 
@@ -235,31 +272,43 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 				return err2
 			}
 
+			// 压缩分布式压力机列表数据
+			machineDispatchModeConfString, err3 := json.Marshal(req.MachineDispatchModeConf)
+			if err3 != nil {
+				log.Logger.Info("保存任务配置--分布式压力机数据压缩失败")
+				return err3
+			}
+
 			if err == nil { // 已存在 则修改
-				updateData := model.StressPlanTaskConf{
-					TaskType:    req.TaskType,
-					TaskMode:    req.Mode,
-					ControlMode: req.ControlMode,
-					ModeConf:    string(modeConfString),
-					RunUserID:   userID,
-				}
 				_, err = tx.StressPlanTaskConf.WithContext(ctx).
 					Where(tx.StressPlanTaskConf.TeamID.Eq(req.TeamID),
 						tx.StressPlanTaskConf.PlanID.Eq(req.PlanID),
-						tx.StressPlanTaskConf.SceneID.Eq(req.SceneID)).Updates(updateData)
+						tx.StressPlanTaskConf.SceneID.Eq(req.SceneID)).UpdateSimple(
+					tx.StressPlanTaskConf.TaskType.Value(req.TaskType),
+					tx.StressPlanTaskConf.TaskMode.Value(req.Mode),
+					tx.StressPlanTaskConf.ControlMode.Value(req.ControlMode),
+					tx.StressPlanTaskConf.DebugMode.Value(req.DebugMode),
+					tx.StressPlanTaskConf.ModeConf.Value(string(modeConfString)),
+					tx.StressPlanTaskConf.IsOpenDistributed.Value(req.IsOpenDistributed),
+					tx.StressPlanTaskConf.MachineDispatchModeConf.Value(string(machineDispatchModeConfString)),
+					tx.StressPlanTaskConf.RunUserID.Value(userID),
+				)
 				if err != nil {
 					return err
 				}
 			} else { // 不存在，则新增
 				insertData := &model.StressPlanTaskConf{
-					PlanID:      req.PlanID,
-					TeamID:      req.TeamID,
-					SceneID:     req.SceneID,
-					TaskType:    req.TaskType,
-					TaskMode:    req.Mode,
-					ControlMode: req.ControlMode,
-					ModeConf:    string(modeConfString),
-					RunUserID:   userID,
+					PlanID:                  req.PlanID,
+					TeamID:                  req.TeamID,
+					SceneID:                 req.SceneID,
+					TaskType:                req.TaskType,
+					TaskMode:                req.Mode,
+					ControlMode:             req.ControlMode,
+					DebugMode:               req.DebugMode,
+					ModeConf:                string(modeConfString),
+					IsOpenDistributed:       req.IsOpenDistributed,
+					MachineDispatchModeConf: string(machineDispatchModeConfString),
+					RunUserID:               userID,
 				}
 				err = tx.StressPlanTaskConf.WithContext(ctx).Create(insertData)
 				if err != nil {
@@ -308,19 +357,29 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 					return err
 				}
 
+				// 把mode_conf压缩成字符串
+				machineDispatchModeConfString, err := json.Marshal(req.MachineDispatchModeConf)
+				if err != nil {
+					return err
+				}
+
 				// 修改配置
-				updateData := make(map[string]interface{}, 3)
-				updateData["user_id"] = userID
-				updateData["frequency"] = req.TimedTaskConf.Frequency
-				updateData["task_exec_time"] = req.TimedTaskConf.TaskExecTime
-				updateData["task_close_time"] = req.TimedTaskConf.TaskCloseTime
-				updateData["task_mode"] = req.Mode
-				updateData["control_mode"] = req.ControlMode
-				updateData["mode_conf"] = modeConfString
-				updateData["status"] = consts.TimedTaskWaitEnable
 				_, err = tx.StressPlanTimedTaskConf.WithContext(ctx).Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID)).
 					Where(tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID)).
-					Where(tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).Updates(updateData)
+					Where(tx.StressPlanTimedTaskConf.SceneID.Eq(req.SceneID)).UpdateSimple(
+					tx.StressPlanTimedTaskConf.UserID.Value(userID),
+					tx.StressPlanTimedTaskConf.Frequency.Value(req.TimedTaskConf.Frequency),
+					tx.StressPlanTimedTaskConf.TaskExecTime.Value(req.TimedTaskConf.TaskExecTime),
+					tx.StressPlanTimedTaskConf.TaskCloseTime.Value(req.TimedTaskConf.TaskCloseTime),
+					tx.StressPlanTimedTaskConf.TaskMode.Value(req.Mode),
+					tx.StressPlanTimedTaskConf.ControlMode.Value(req.ControlMode),
+					tx.StressPlanTimedTaskConf.DebugMode.Value(req.DebugMode),
+					tx.StressPlanTimedTaskConf.ModeConf.Value(string(modeConfString)),
+					tx.StressPlanTimedTaskConf.IsOpenDistributed.Value(req.IsOpenDistributed),
+					tx.StressPlanTimedTaskConf.MachineDispatchModeConf.Value(string(machineDispatchModeConfString)),
+					tx.StressPlanTimedTaskConf.Status.Value(consts.TimedTaskWaitEnable),
+					tx.StressPlanTimedTaskConf.RunUserID.Value(userID),
+				)
 				if err != nil {
 					log.Logger.Info("保存配置--更新定时任务配置失败，err:", err)
 					return err
@@ -380,36 +439,110 @@ func SaveTask(ctx *gin.Context, req *rao.SavePlanConfReq, userID string) (int, e
 func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskResp, error) {
 	// 初始化返回值
 	planTaskConf := &rao.PlanTaskResp{
-		PlanID:        req.PlanID,
-		SceneID:       req.SceneID,
-		TaskType:      req.TaskType,
-		Mode:          consts.PlanModeConcurrence,
-		ModeConf:      rao.ModeConf{},
-		TimedTaskConf: rao.TimedTaskConf{},
+		PlanID:            req.PlanID,
+		SceneID:           req.SceneID,
+		TaskType:          req.TaskType,
+		Mode:              consts.PlanModeConcurrence,
+		ModeConf:          rao.ModeConf{},
+		TimedTaskConf:     rao.TimedTaskConf{},
+		IsOpenDistributed: 0,
 	}
 
 	tx := dal.GetQuery()
+	// 获取当前所有可用机器列表
+	allMachineList, err := tx.Machine.WithContext(ctx).Where(tx.Machine.Status.Eq(consts.MachineStatusAvailable)).Find()
+	if err != nil {
+		return nil, err
+	}
+
+	defaultUsableMachineList := make([]rao.UsableMachineInfo, 0, len(allMachineList))
+	allMachineMap := make(map[string]rao.UsableMachineInfo, len(allMachineList))
+	for k, v := range allMachineList {
+		weight := 0
+		if k == 0 {
+			weight = 100
+		}
+		temp := rao.UsableMachineInfo{
+			MachineStatus:  v.Status,
+			MachineName:    v.Name,
+			Region:         v.Region,
+			Ip:             v.IP,
+			Weight:         weight,
+			CreatedTimeSec: v.CreatedAt.Unix(),
+		}
+		allMachineMap[v.IP] = temp
+		defaultUsableMachineList = append(defaultUsableMachineList, temp)
+	}
+	planTaskConf.MachineDispatchModeConf.UsableMachineList = defaultUsableMachineList
+
 	if req.TaskType == consts.PlanTaskTypeNormal { // 普通任务
 		taskConfInfo, err := tx.StressPlanTaskConf.WithContext(ctx).
 			Where(tx.StressPlanTaskConf.TeamID.Eq(req.TeamID), tx.StressPlanTaskConf.PlanID.Eq(req.PlanID),
 				tx.StressPlanTaskConf.SceneID.Eq(req.SceneID)).First()
 		if err == nil { // 查到了，普通任务
 			// 解析配置详情
-			var taskConfDetail rao.ModeConf
+			taskConfDetail := rao.ModeConf{}
 			err := json.Unmarshal([]byte(taskConfInfo.ModeConf), &taskConfDetail)
 			if err != nil {
 				log.Logger.Info("获取配置详情--解析数据失败")
 				return nil, err
 			}
 
+			// 解析分布式配置详情
+			machineDispatchModeConfDetail := rao.MachineDispatchModeConf{}
+			if taskConfInfo.MachineDispatchModeConf != "" {
+				err = json.Unmarshal([]byte(taskConfInfo.MachineDispatchModeConf), &machineDispatchModeConfDetail)
+				if err != nil {
+					log.Logger.Info("获取配置详情--解析分布式配置数据失败")
+					return nil, err
+				}
+			}
+
+			usableMachineList := make([]rao.UsableMachineInfo, 0, len(machineDispatchModeConfDetail.UsableMachineList))
+			if len(machineDispatchModeConfDetail.UsableMachineList) == 0 {
+				usableMachineList = defaultUsableMachineList
+			} else {
+				for _, v := range machineDispatchModeConfDetail.UsableMachineList {
+					temp := rao.UsableMachineInfo{
+						MachineStatus:    v.MachineStatus,
+						MachineName:      v.MachineName,
+						Region:           v.Region,
+						Ip:               v.Ip,
+						Weight:           v.Weight,
+						RoundNum:         v.RoundNum,
+						Concurrency:      v.Concurrency,
+						ThresholdValue:   v.ThresholdValue,
+						StartConcurrency: v.StartConcurrency,
+						Step:             v.Step,
+						StepRunTime:      v.StepRunTime,
+						MaxConcurrency:   v.MaxConcurrency,
+						Duration:         v.Duration,
+						CreatedTimeSec:   v.CreatedTimeSec,
+					}
+
+					// 判断配置过的压力机是否在全部压力机列表里面
+					if machineInfo, ok := allMachineMap[v.Ip]; ok {
+						temp.MachineStatus = machineInfo.MachineStatus
+						allMachineMap[v.Ip] = temp
+					} else {
+						temp.MachineStatus = 2 // 机器不可用
+						allMachineMap[v.Ip] = temp
+					}
+				}
+				for _, v := range allMachineMap {
+					usableMachineList = append(usableMachineList, v)
+				}
+			}
+
+			// 组装接口返回值
 			planTaskConf = &rao.PlanTaskResp{
 				PlanID:      req.PlanID,
 				SceneID:     req.SceneID,
 				TaskType:    req.TaskType,
 				Mode:        taskConfInfo.TaskMode,
 				ControlMode: taskConfInfo.ControlMode,
+				DebugMode:   taskConfInfo.DebugMode,
 				ModeConf: rao.ModeConf{
-					ReheatTime:       taskConfDetail.ReheatTime,
 					RoundNum:         taskConfDetail.RoundNum,
 					Concurrency:      taskConfDetail.Concurrency,
 					ThresholdValue:   taskConfDetail.ThresholdValue,
@@ -418,6 +551,11 @@ func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskRes
 					StepRunTime:      taskConfDetail.StepRunTime,
 					MaxConcurrency:   taskConfDetail.MaxConcurrency,
 					Duration:         taskConfDetail.Duration,
+				},
+				IsOpenDistributed: taskConfInfo.IsOpenDistributed,
+				MachineDispatchModeConf: rao.MachineDispatchModeConf{
+					MachineAllotType:  machineDispatchModeConfDetail.MachineAllotType,
+					UsableMachineList: usableMachineList,
 				},
 			}
 		}
@@ -433,24 +571,75 @@ func GetPlanTask(ctx context.Context, req *rao.GetPlanTaskReq) (*rao.PlanTaskRes
 				log.Logger.Info("获取任务配置详情--解析定时任务详细配置失败，err:", err)
 				return nil, err
 			}
+
+			// 解析分布式配置详情
+			machineDispatchModeConfDetail := rao.MachineDispatchModeConf{}
+			if timingTaskConfigInfo.MachineDispatchModeConf != "" {
+				err = json.Unmarshal([]byte(timingTaskConfigInfo.MachineDispatchModeConf), &machineDispatchModeConfDetail)
+				if err != nil {
+					log.Logger.Info("获取配置详情--解析分布式配置数据失败")
+					return nil, err
+				}
+			}
+			usableMachineList := make([]rao.UsableMachineInfo, 0, len(machineDispatchModeConfDetail.UsableMachineList))
+			if len(machineDispatchModeConfDetail.UsableMachineList) == 0 {
+				usableMachineList = defaultUsableMachineList
+			} else {
+				for _, v := range machineDispatchModeConfDetail.UsableMachineList {
+					temp := rao.UsableMachineInfo{
+						MachineStatus:    v.MachineStatus,
+						MachineName:      v.MachineName,
+						Region:           v.Region,
+						Ip:               v.Ip,
+						Weight:           v.Weight,
+						RoundNum:         v.RoundNum,
+						Concurrency:      v.Concurrency,
+						ThresholdValue:   v.ThresholdValue,
+						StartConcurrency: v.StartConcurrency,
+						Step:             v.Step,
+						StepRunTime:      v.StepRunTime,
+						MaxConcurrency:   v.MaxConcurrency,
+						Duration:         v.Duration,
+						CreatedTimeSec:   v.CreatedTimeSec,
+					}
+
+					// 判断配置过的压力机是否在全部压力机列表里面
+					if machineInfo, ok := allMachineMap[v.Ip]; ok {
+						temp.MachineStatus = machineInfo.MachineStatus
+						allMachineMap[v.Ip] = temp
+					} else {
+						temp.MachineStatus = 2 // 机器不可用
+						allMachineMap[v.Ip] = temp
+					}
+				}
+				for _, v := range allMachineMap {
+					usableMachineList = append(usableMachineList, v)
+				}
+			}
+
 			planTaskConf = &rao.PlanTaskResp{
 				PlanID:      req.PlanID,
 				SceneID:     req.SceneID,
 				TaskType:    req.TaskType,
 				Mode:        timingTaskConfigInfo.TaskMode,
 				ControlMode: timingTaskConfigInfo.ControlMode,
+				DebugMode:   timingTaskConfigInfo.DebugMode,
 				ModeConf:    modeConf,
 				TimedTaskConf: rao.TimedTaskConf{
 					Frequency:     timingTaskConfigInfo.Frequency,
 					TaskExecTime:  timingTaskConfigInfo.TaskExecTime,
 					TaskCloseTime: timingTaskConfigInfo.TaskCloseTime,
 				},
+				IsOpenDistributed: timingTaskConfigInfo.IsOpenDistributed,
+				MachineDispatchModeConf: rao.MachineDispatchModeConf{
+					MachineAllotType:  machineDispatchModeConfDetail.MachineAllotType,
+					UsableMachineList: usableMachineList,
+				},
 			}
 
 			if timingTaskConfigInfo.Frequency == 0 { // 频次一次
 				planTaskConf.TimedTaskConf.TaskCloseTime = 0
 			}
-
 		}
 	}
 
@@ -648,18 +837,20 @@ func ClonePlan(ctx context.Context, req *rao.ClonePlanReq, userID string) error 
 
 		if len(sceneIDs) > 0 {
 			// 克隆场景变量
-			v, err := tx.Variable.WithContext(ctx).Where(tx.Variable.SceneID.In(sceneIDs...)).Find()
-			if err != nil {
-				return err
-			}
-
-			for _, variable := range v {
-				variable.ID = 0
-				variable.SceneID = targetMemo[variable.SceneID]
-				variable.CreatedAt = time.Now()
-				variable.UpdatedAt = time.Now()
-				if err := tx.Variable.WithContext(ctx).Create(variable); err != nil {
-					return err
+			for _, sceneID := range sceneIDs {
+				collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+				cur, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}, {"scene_id", sceneID}})
+				var sceneParamDataArr []*mao.SceneParamData
+				if err == nil {
+					if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+						return fmt.Errorf("场景参数数据获取失败")
+					}
+					for _, sv := range sceneParamDataArr {
+						sv.SceneID = targetMemo[sceneID]
+						if _, err := collection.InsertOne(ctx, sv); err != nil {
+							return err
+						}
+					}
 				}
 			}
 
@@ -691,6 +882,12 @@ func ClonePlan(ctx context.Context, req *rao.ClonePlanReq, userID string) error 
 			}
 			for _, flow := range flows {
 				flow.SceneID = targetMemo[flow.SceneID]
+				// 更新api的uuid
+				err := packer.ChangeSceneNodeUUID(flow)
+				if err != nil {
+					log.Logger.Info("复制性能计划--替换event_id失败")
+					return err
+				}
 				if _, err := c1.InsertOne(ctx, flow); err != nil {
 					return err
 				}
@@ -740,8 +937,7 @@ func ClonePlan(ctx context.Context, req *rao.ClonePlanReq, userID string) error 
 				}
 			}
 		}
-		//return record.InsertCreate(ctx, req.TeamID, userID, record.OperationOperateClonePlan, newPlanName)
-		return nil
+		return record.InsertCreate(ctx, req.TeamID, userID, record.OperationOperateClonePlan, newPlanName)
 	})
 }
 
@@ -822,36 +1018,56 @@ func BatchDeletePlan(ctx *gin.Context, req *rao.BatchDeletePlanReq) error {
 }
 
 func InsertReportData(ctx *gin.Context, req *rao.NotifyStopStressReq) error {
-	var resultData report.ResultData
+	resultData := rao.ResultData{}
+	resultData.ReportRunTime = req.DurationTime
+
+	// 查询报告基本信息
+	tx := dal.GetQuery().StressPlanReport
+	reportInfo, err := tx.WithContext(ctx).Where(tx.ReportID.Eq(req.ReportID)).First()
+	if err != nil {
+		log.Logger.Info("NotifyStopStress--查询报告结果失败，err:", err)
+		return err
+	}
 
 	// 查询报告详情数据
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectReportData)
-	filter := bson.D{{"team_id", req.TeamID}, {"report_id", req.ReportID}}
-	var resultMsg report.SceneTestResultDataMsg
-	var dataMap = make(map[string]interface{})
-	err := collection.FindOne(ctx, filter).Decode(&dataMap)
+	filter := bson.D{{"team_id", reportInfo.TeamID}, {"report_id", req.ReportID}}
+	dataMap := make(map[string]interface{}, 1)
+	err = collection.FindOne(ctx, filter).Decode(&dataMap)
 	_, ok := dataMap["data"]
 	log.Logger.Info("NotifyStopStress--从MongoDB库查询报告详情结果为，err:", err, " ok:", ok)
 	if err != nil || !ok {
-		log.Logger.Info("NotifyStopStress--把redis数据写到mg库")
+		log.Logger.Info("mango数据为空，开始查询redis")
 		rdb := dal.GetRDBForReport()
 		key := fmt.Sprintf("reportData:%s", req.ReportID)
 		dataList := rdb.LRange(ctx, key, 0, -1).Val()
+		log.Logger.Info("查询redis报告数据，报告数据的Key:", key, "，数组长度为：", len(dataList), dataList)
 		if len(dataList) < 1 {
-			log.Logger.Info("NotifyStopStress--redis里面没有查到报告详情数据，err:", proof.WithError(err))
-			return nil
+			log.Logger.Info("redis里面没有查到报告详情数据")
+			err = nil
+			return err
 		}
-		log.Logger.Info("NotifyStopStress--redis报告队里里面的数据个数为：", len(dataList))
+
+		// 初始化几个报告线的数据
+		concurrencyListMap := make(map[string][]rao.TimeValue, 200)
+		rpsListMap := make(map[string][]rao.TimeValue, 200)
+		tpsListMap := make(map[string][]rao.TimeValue, 200)
+		avgListMap := make(map[string][]rao.TimeValue, 200)
+		fiftyListMap := make(map[string][]rao.TimeValue, 200)
+		ninetyListMap := make(map[string][]rao.TimeValue, 200)
+		ninetyFiveListMap := make(map[string][]rao.TimeValue, 200)
+		ninetyNineListMap := make(map[string][]rao.TimeValue, 200)
+
 		for i := len(dataList) - 1; i >= 0; i-- {
 			resultMsgString := dataList[i]
+
+			resultMsg := rao.SceneTestResultDataMsg{}
 			err = json.Unmarshal([]byte(resultMsgString), &resultMsg)
 			if err != nil {
-				log.Logger.Info("NotifyStopStress--json转换格式错误，err:", proof.WithError(err))
+				log.Logger.Info("json转换格式错误：", err)
+				continue
 			}
-			if resultData.Results == nil {
-				resultData.Results = make(map[string]*report.ResultDataMsg)
-			}
-			log.Logger.Info("NotifyStopStress--循环报告数据入库，报告id为：", resultMsg.ReportId)
+
 			resultData.ReportId = resultMsg.ReportId
 			resultData.End = resultMsg.End
 			resultData.ReportName = resultMsg.ReportName
@@ -860,132 +1076,147 @@ func InsertReportData(ctx *gin.Context, req *rao.NotifyStopStressReq) error {
 			resultData.SceneId = resultMsg.SceneId
 			resultData.SceneName = resultMsg.SceneName
 			resultData.TimeStamp = resultMsg.TimeStamp
+			resultsTemp := make(map[string]rao.ResultDataMsg, len(resultMsg.Results))
 			if resultMsg.Results != nil && len(resultMsg.Results) > 0 {
-				log.Logger.Info("NotifyStopStress--resultMsg.Results有值，end值为：", resultMsg.End)
 				for k, apiResult := range resultMsg.Results {
-					//log.Logger.Info("NotifyStopStress--组装添加数据开始")
-					if resultData.Results[k] == nil {
-						resultData.Results[k] = new(report.ResultDataMsg)
-					}
-					resultData.Results[k].ApiName = apiResult.Name
-					resultData.Results[k].Concurrency = apiResult.Concurrency
-					resultData.Results[k].TotalRequestNum = apiResult.TotalRequestNum
-					resultData.Results[k].TotalRequestTime, _ = decimal.NewFromFloat(float64(apiResult.TotalRequestTime) / float64(time.Second)).Round(2).Float64()
-					resultData.Results[k].SuccessNum = apiResult.SuccessNum
-					resultData.Results[k].ErrorNum = apiResult.ErrorNum
+					var errorRate float64 = 0
+					totalRequestTime, _ := decimal.NewFromFloat(float64(apiResult.TotalRequestTime) / float64(time.Second)).Round(2).Float64()
 					if apiResult.TotalRequestNum != 0 {
 						errRate := float64(apiResult.ErrorNum) / float64(apiResult.TotalRequestNum)
-						resultData.Results[k].ErrorRate, _ = strconv.ParseFloat(fmt.Sprintf("%0.2f", errRate), 64)
+						errorRate, _ = strconv.ParseFloat(fmt.Sprintf("%0.2f", errRate), 64)
 					}
-					resultData.Results[k].PercentAge = apiResult.PercentAge
-					resultData.Results[k].ErrorThreshold = apiResult.ErrorThreshold
-					resultData.Results[k].ResponseThreshold = apiResult.ResponseThreshold
-					resultData.Results[k].RequestThreshold = apiResult.RequestThreshold
-					resultData.Results[k].AvgRequestTime, _ = decimal.NewFromFloat(apiResult.AvgRequestTime / float64(time.Millisecond)).Round(1).Float64()
-					resultData.Results[k].MaxRequestTime, _ = decimal.NewFromFloat(apiResult.MaxRequestTime / float64(time.Millisecond)).Round(1).Float64()
-					resultData.Results[k].MinRequestTime, _ = decimal.NewFromFloat(apiResult.MinRequestTime / float64(time.Millisecond)).Round(1).Float64()
-					resultData.Results[k].CustomRequestTimeLine = apiResult.CustomRequestTimeLine
-					resultData.Results[k].CustomRequestTimeLineValue, _ = decimal.NewFromFloat(apiResult.CustomRequestTimeLineValue / float64(time.Millisecond)).Round(1).Float64()
-					resultData.Results[k].FiftyRequestTimelineValue, _ = decimal.NewFromFloat(apiResult.FiftyRequestTimelineValue / float64(time.Millisecond)).Round(1).Float64()
-					resultData.Results[k].NinetyRequestTimeLine = apiResult.NinetyRequestTimeLine
-					resultData.Results[k].NinetyRequestTimeLineValue, _ = decimal.NewFromFloat(apiResult.NinetyRequestTimeLineValue / float64(time.Millisecond)).Round(1).Float64()
-					resultData.Results[k].NinetyFiveRequestTimeLine = apiResult.NinetyFiveRequestTimeLine
-					resultData.Results[k].NinetyFiveRequestTimeLineValue, _ = decimal.NewFromFloat(apiResult.NinetyFiveRequestTimeLineValue / float64(time.Millisecond)).Round(1).Float64()
-					resultData.Results[k].NinetyNineRequestTimeLine = apiResult.NinetyNineRequestTimeLine
-					resultData.Results[k].NinetyNineRequestTimeLineValue, _ = decimal.NewFromFloat(apiResult.NinetyNineRequestTimeLineValue / float64(time.Millisecond)).Round(1).Float64()
-					resultData.Results[k].SendBytes, _ = decimal.NewFromFloat(apiResult.SendBytes).Round(1).Float64()
-					resultData.Results[k].ReceivedBytes, _ = decimal.NewFromFloat(apiResult.ReceivedBytes).Round(1).Float64()
-					resultData.Results[k].Rps = apiResult.Rps
-					resultData.Results[k].SRps = apiResult.SRps
-					resultData.Results[k].Tps = apiResult.Tps
-					resultData.Results[k].STps = apiResult.STps
-					if resultData.Results[k].RpsList == nil {
-						resultData.Results[k].RpsList = []report.TimeValue{}
-					}
-					var timeValue = report.TimeValue{}
-					timeValue.TimeStamp = resultData.TimeStamp
-					// qps列表
-					timeValue.Value = resultData.Results[k].Rps
-					resultData.Results[k].RpsList = append(resultData.Results[k].RpsList, timeValue)
-					timeValue.Value = resultData.Results[k].Tps
-					if resultData.Results[k].TpsList == nil {
-						resultData.Results[k].TpsList = []report.TimeValue{}
-					}
-					// 错误数列表
-					resultData.Results[k].TpsList = append(resultData.Results[k].TpsList, timeValue)
-					timeValue.Value = resultData.Results[k].Concurrency
-					if resultData.Results[k].ConcurrencyList == nil {
-						resultData.Results[k].ConcurrencyList = []report.TimeValue{}
-					}
-					// 并发数列表
-					resultData.Results[k].ConcurrencyList = append(resultData.Results[k].ConcurrencyList, timeValue)
+					avgRequestTime, _ := decimal.NewFromFloat(apiResult.AvgRequestTime / float64(time.Millisecond)).Round(1).Float64()
+					maxRequestTime, _ := decimal.NewFromFloat(apiResult.MaxRequestTime / float64(time.Millisecond)).Round(1).Float64()
+					minRequestTime, _ := decimal.NewFromFloat(apiResult.MinRequestTime / float64(time.Millisecond)).Round(1).Float64()
+					customRequestTimeLineValue, _ := decimal.NewFromFloat(apiResult.CustomRequestTimeLineValue / float64(time.Millisecond)).Round(1).Float64()
+					fiftyRequestTimelineValue, _ := decimal.NewFromFloat(apiResult.FiftyRequestTimelineValue / float64(time.Millisecond)).Round(1).Float64()
+					ninetyRequestTimeLineValue, _ := decimal.NewFromFloat(apiResult.NinetyRequestTimeLineValue / float64(time.Millisecond)).Round(1).Float64()
+					ninetyFiveRequestTimeLineValue, _ := decimal.NewFromFloat(apiResult.NinetyFiveRequestTimeLineValue / float64(time.Millisecond)).Round(1).Float64()
+					ninetyNineRequestTimeLineValue, _ := decimal.NewFromFloat(apiResult.NinetyNineRequestTimeLineValue / float64(time.Millisecond)).Round(1).Float64()
+					sendBytes, _ := decimal.NewFromFloat(apiResult.SendBytes).Round(1).Float64()
+					receivedBytes, _ := decimal.NewFromFloat(apiResult.ReceivedBytes).Round(1).Float64()
 
-					// 平均响应时间列表
-					timeValue.Value = resultData.Results[k].AvgRequestTime
-					if resultData.Results[k].AvgList == nil {
-						resultData.Results[k].AvgList = []report.TimeValue{}
-					}
-					resultData.Results[k].AvgList = append(resultData.Results[k].AvgList, timeValue)
+					// rps列表
+					rpsListMap[k] = append(rpsListMap[k], rao.TimeValue{
+						TimeStamp: resultMsg.TimeStamp,
+						Value:     apiResult.Rps,
+					})
 
-					// 50响应时间列表
-					timeValue.Value = resultData.Results[k].FiftyRequestTimelineValue
-					if resultData.Results[k].FiftyList == nil {
-						resultData.Results[k].FiftyList = []report.TimeValue{}
-					}
-					resultData.Results[k].FiftyList = append(resultData.Results[k].FiftyList, timeValue)
+					// tps列表
+					tpsListMap[k] = append(tpsListMap[k], rao.TimeValue{
+						TimeStamp: resultMsg.TimeStamp,
+						Value:     apiResult.Tps,
+					})
 
-					// 90响应时间列表
-					timeValue.Value = resultData.Results[k].NinetyNineRequestTimeLineValue
-					if resultData.Results[k].NinetyList == nil {
-						resultData.Results[k].NinetyList = []report.TimeValue{}
-					}
-					resultData.Results[k].NinetyList = append(resultData.Results[k].NinetyList, timeValue)
+					// 并发列表
+					concurrencyListMap[k] = append(concurrencyListMap[k], rao.TimeValue{
+						TimeStamp: resultMsg.TimeStamp,
+						Value:     apiResult.Concurrency,
+					})
 
-					// 95响应时间列表
-					timeValue.Value = resultData.Results[k].NinetyFiveRequestTimeLineValue
-					if resultData.Results[k].NinetyFiveList == nil {
-						resultData.Results[k].NinetyFiveList = []report.TimeValue{}
-					}
-					resultData.Results[k].NinetyFiveList = append(resultData.Results[k].NinetyFiveList, timeValue)
+					// 平均时长列表
+					avgListMap[k] = append(avgListMap[k], rao.TimeValue{
+						TimeStamp: resultMsg.TimeStamp,
+						Value:     avgRequestTime,
+					})
 
-					// 99响应时间列表
-					timeValue.Value = resultData.Results[k].NinetyNineRequestTimeLineValue
-					if resultData.Results[k].NinetyNineList == nil {
-						resultData.Results[k].NinetyNineList = []report.TimeValue{}
+					// 50线
+					fiftyListMap[k] = append(fiftyListMap[k], rao.TimeValue{
+						TimeStamp: resultMsg.TimeStamp,
+						Value:     fiftyRequestTimelineValue,
+					})
+
+					// 90线
+					ninetyListMap[k] = append(ninetyListMap[k], rao.TimeValue{
+						TimeStamp: resultMsg.TimeStamp,
+						Value:     ninetyRequestTimeLineValue,
+					})
+
+					// 95线
+					ninetyFiveListMap[k] = append(ninetyFiveListMap[k], rao.TimeValue{
+						TimeStamp: resultMsg.TimeStamp,
+						Value:     ninetyFiveRequestTimeLineValue,
+					})
+
+					// 99线
+					ninetyNineListMap[k] = append(ninetyNineListMap[k], rao.TimeValue{
+						TimeStamp: resultMsg.TimeStamp,
+						Value:     ninetyNineRequestTimeLineValue,
+					})
+
+					resultsTemp[k] = rao.ResultDataMsg{
+						ApiName:                        apiResult.Name,
+						Concurrency:                    apiResult.Concurrency,
+						TotalRequestNum:                apiResult.TotalRequestNum,
+						TotalRequestTime:               totalRequestTime,
+						SuccessNum:                     apiResult.SuccessNum,
+						ErrorRate:                      errorRate,
+						ErrorNum:                       apiResult.ErrorNum,
+						AvgRequestTime:                 avgRequestTime,
+						MaxRequestTime:                 maxRequestTime,
+						MinRequestTime:                 minRequestTime,
+						PercentAge:                     apiResult.PercentAge,
+						ErrorThreshold:                 apiResult.ErrorThreshold,
+						RequestThreshold:               apiResult.RequestThreshold,
+						ResponseThreshold:              apiResult.ResponseThreshold,
+						CustomRequestTimeLine:          apiResult.CustomRequestTimeLine,
+						FiftyRequestTimeline:           apiResult.FiftyRequestTimeline,
+						NinetyRequestTimeLine:          apiResult.NinetyRequestTimeLine,
+						NinetyFiveRequestTimeLine:      apiResult.NinetyFiveRequestTimeLine,
+						NinetyNineRequestTimeLine:      apiResult.NinetyNineRequestTimeLine,
+						CustomRequestTimeLineValue:     customRequestTimeLineValue,
+						FiftyRequestTimelineValue:      fiftyRequestTimelineValue,
+						NinetyRequestTimeLineValue:     ninetyRequestTimeLineValue,
+						NinetyFiveRequestTimeLineValue: ninetyFiveRequestTimeLineValue,
+						NinetyNineRequestTimeLineValue: ninetyNineRequestTimeLineValue,
+						SendBytes:                      sendBytes,
+						ReceivedBytes:                  receivedBytes,
+						Rps:                            apiResult.Rps,
+						SRps:                           apiResult.SRps,
+						Tps:                            apiResult.Tps,
+						STps:                           apiResult.STps,
+						ConcurrencyList:                concurrencyListMap[k],
+						RpsList:                        rpsListMap[k],
+						TpsList:                        tpsListMap[k],
+						AvgList:                        avgListMap[k],
+						FiftyList:                      fiftyListMap[k],
+						NinetyList:                     ninetyListMap[k],
+						NinetyFiveList:                 ninetyFiveListMap[k],
+						NinetyNineList:                 ninetyNineListMap[k],
 					}
-					resultData.Results[k].NinetyNineList = append(resultData.Results[k].NinetyNineList, timeValue)
 				}
-				log.Logger.Info("NotifyStopStress--组装添加数据完成")
+				resultData.Results = resultsTemp
 			}
 			if resultMsg.End {
-				log.Logger.Info("NotifyStopStress--报告已完成，准备入库")
-				var by []byte
-				by, err = json.Marshal(resultData)
+				resultDataByte := make([]byte, 0, len(resultData.Results))
+				resultDataByte, err = json.Marshal(resultData)
 				if err != nil {
-					log.Logger.Info("NotifyStopStress--resultData转字节失败，err:", proof.WithError(err))
+					log.Logger.Info("resultData转字节失败：：    ", err)
 					return err
 				}
-				var apiResultTotalMsg = make(map[string]string)
+
+				analysisByte := make([]byte, 0, len(resultData.Results))
+				apiResultTotalMsg := make(map[string]string, len(resultData.Results))
 				for _, value := range resultData.Results {
 					apiResultTotalMsg[value.ApiName] = fmt.Sprintf("平均响应时间为%0.1fms； 百分之五十响应时间线的值为%0.1fms; 百分之九十响应时间线的值为%0.1fms; 百分之九十五响应时间线的值为%0.1fms; 百分之九十九响应时间线的值为%0.1fms; RPS为%0.1f; SRPS为%0.1f; TPS为%0.1f; STPS为%0.1f",
 						value.AvgRequestTime, value.FiftyRequestTimelineValue, value.NinetyRequestTimeLineValue, value.NinetyFiveRequestTimeLineValue, value.NinetyNineRequestTimeLineValue, value.Rps, value.SRps, value.Tps, value.STps)
 				}
 				dataMap["report_id"] = resultData.ReportId
-				dataMap["team_id"] = req.TeamID
-				dataMap["plan_id"] = req.PlanID
-				dataMap["data"] = string(by)
-				by, _ = json.Marshal(apiResultTotalMsg)
-				dataMap["analysis"] = string(by)
+				dataMap["team_id"] = reportInfo.TeamID
+				dataMap["plan_id"] = reportInfo.PlanID
+				dataMap["data"] = string(resultDataByte)
+				analysisByte, _ = json.Marshal(apiResultTotalMsg)
+				dataMap["analysis"] = string(analysisByte)
+				dataMap["report_run_time"] = req.DurationTime
 				dataMap["description"] = ""
 				_, err = collection.InsertOne(ctx, dataMap)
-				log.Logger.Info("NotifyStopStress--报告数据插入mg库结果，err:", proof.WithError(err))
 				if err != nil {
-					log.Logger.Info("NotifyStopStress--测试数据写入mongo失败，err:", proof.WithError(err))
+					log.Logger.Info("测试数据写入mongo失败:", err)
 					return err
 				}
 				err = rdb.Del(ctx, key).Err()
 				if err != nil {
-					log.Logger.Info("NotifyStopStress--删除redis的key：", key, " err:", proof.WithError(err))
+					log.Logger.Info(fmt.Sprintf("删除redis的key：%s:", key), err)
 					return err
 				}
 			}
@@ -993,4 +1224,55 @@ func InsertReportData(ctx *gin.Context, req *rao.NotifyStopStressReq) error {
 	}
 
 	return nil
+}
+
+func GetPublicFunctionList(ctx *gin.Context) ([]*rao.GetPublicFunctionListResp, error) {
+	tx := dal.GetQuery().PublicFunction
+	list, err := tx.WithContext(ctx).Find()
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*rao.GetPublicFunctionListResp, 0, len(list))
+	for _, functionInfo := range list {
+		tempData := &rao.GetPublicFunctionListResp{
+			Function:     functionInfo.Function,
+			FunctionName: functionInfo.FunctionName,
+			Remark:       functionInfo.Remark,
+		}
+		res = append(res, tempData)
+	}
+	return res, nil
+}
+
+func GetNewestStressPlanList(ctx context.Context, req *rao.GetNewestStressPlanListReq) ([]rao.GetNewestStressPlanListResp, error) {
+	res := make([]rao.GetNewestStressPlanListResp, 0, req.Size)
+	_ = dal.GetQuery().Transaction(func(tx *query.Query) error {
+		conditions := make([]gen.Condition, 0)
+		conditions = append(conditions, tx.StressPlan.TeamID.Eq(req.TeamID))
+
+		sort := make([]field.Expr, 0)
+		sort = append(sort, tx.StressPlan.CreatedAt.Desc())
+
+		planList, _, err := tx.StressPlan.WithContext(ctx).Select(tx.StressPlan.TeamID, tx.StressPlan.PlanID, tx.StressPlan.PlanName,
+			tx.StressPlan.CreateUserID, tx.StressPlan.UpdatedAt).Where(conditions...).Order(sort...).FindByPage((req.Page-1)*req.Size, req.Size)
+		if err != nil {
+			return err
+		}
+
+		//统计用户id
+		var userIDs []string
+		for _, planInfo := range planList {
+			userIDs = append(userIDs, planInfo.CreateUserID)
+		}
+
+		users, err := tx.User.WithContext(ctx).Select(tx.User.UserID, tx.User.Nickname, tx.User.Avatar).Where(tx.User.UserID.In(userIDs...)).Find()
+		if err != nil {
+			return err
+		}
+
+		res = packer.TransNewestPlansToRaoPlanList(planList, users)
+		return nil
+	})
+	return res, nil
 }

@@ -1,7 +1,7 @@
 package rao
 
 import (
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 type StressPlan struct {
@@ -32,7 +32,6 @@ type PlanTask struct {
 }
 
 type ModeConf struct {
-	ReheatTime       int64 `json:"reheat_time"`       // 预热时长
 	RoundNum         int64 `json:"round_num"`         // 轮次
 	Concurrency      int64 `json:"concurrency"`       // 并发数
 	ThresholdValue   int64 `json:"threshold_value"`   // 阈值
@@ -42,6 +41,31 @@ type ModeConf struct {
 	MaxConcurrency   int64 `json:"max_concurrency"`   // 最大并发数
 	Duration         int64 `json:"duration"`          // 稳定持续时长，持续时长
 	CreatedTimeSec   int64 `json:"created_time_sec"`  // 创建时间
+}
+
+type SendEditModeConf struct {
+	RoundNum         int64 `json:"round_num"`         // 轮次
+	Concurrency      int64 `json:"concurrency"`       // 并发数
+	ThresholdValue   int64 `json:"threshold_value"`   // 阈值
+	StartConcurrency int64 `json:"start_concurrency"` // 起始并发数
+	Step             int64 `json:"step"`              // 步长
+	StepRunTime      int64 `json:"step_run_time"`     // 步长执行时长
+	MaxConcurrency   int64 `json:"max_concurrency"`   // 最大并发数
+	Duration         int64 `json:"duration"`          // 稳定持续时长，持续时长
+	CreatedTimeSec   int64 `json:"created_time_sec"`  // 创建时间
+}
+
+type ChangeTakeConf struct {
+	RoundNum          int64               `json:"round_num"`           // 轮次
+	Concurrency       int64               `json:"concurrency"`         // 并发数
+	ThresholdValue    int64               `json:"threshold_value"`     // 阈值
+	StartConcurrency  int64               `json:"start_concurrency"`   // 起始并发数
+	Step              int64               `json:"step"`                // 步长
+	StepRunTime       int64               `json:"step_run_time"`       // 步长执行时长
+	MaxConcurrency    int64               `json:"max_concurrency"`     // 最大并发数
+	Duration          int64               `json:"duration"`            // 稳定持续时长，持续时长
+	CreatedTimeSec    int64               `json:"created_time_sec"`    // 创建时间
+	UsableMachineList []UsableMachineInfo `json:"usable_machine_list"` // 可选机器列表
 }
 
 type RunPlanReq struct {
@@ -111,16 +135,41 @@ type SavePlanReq struct {
 }
 
 type SavePlanConfReq struct {
-	PlanID        string         `json:"plan_id" binding:"required,gt=0"`
-	SceneID       string         `json:"scene_id" binding:"required,gt=0"`
-	TeamID        string         `json:"team_id" binding:"required,gt=0"`
-	Name          string         `json:"name" binding:"required"`
-	TaskType      int32          `json:"task_type" binding:"required,gt=0"`
-	Mode          int32          `json:"mode" binding:"required,gt=0"`
-	ControlMode   int32          `json:"control_mode"`
-	Remark        string         `json:"remark"`
-	ModeConf      *ModeConf      `json:"mode_conf"`
-	TimedTaskConf *TimedTaskConf `json:"timed_task_conf"`
+	PlanID                  string                  `json:"plan_id" binding:"required,gt=0"`
+	SceneID                 string                  `json:"scene_id" binding:"required,gt=0"`
+	TeamID                  string                  `json:"team_id" binding:"required,gt=0"`
+	Name                    string                  `json:"name" binding:"required"`
+	TaskType                int32                   `json:"task_type" binding:"required,gt=0"`
+	Mode                    int32                   `json:"mode" binding:"required,gt=0"`
+	ControlMode             int32                   `json:"control_mode"`
+	DebugMode               string                  `json:"debug_mode"`
+	Remark                  string                  `json:"remark"`
+	ModeConf                *ModeConf               `json:"mode_conf"`
+	TimedTaskConf           *TimedTaskConf          `json:"timed_task_conf"`
+	IsOpenDistributed       int32                   `json:"is_open_distributed"`        // 是否开启分布式调度：0-关闭，1-开启
+	MachineDispatchModeConf MachineDispatchModeConf `json:"machine_dispatch_mode_conf"` // 分布式压力机配置
+}
+
+type MachineDispatchModeConf struct {
+	MachineAllotType  int32               `json:"machine_allot_type"`  // 机器分配方式：0-权重，1-自定义
+	UsableMachineList []UsableMachineInfo `json:"usable_machine_list"` // 可选机器列表
+}
+
+type UsableMachineInfo struct {
+	MachineStatus    int32  `json:"machine_status"`    // 是否可用：1-使用中，2-已卸载
+	MachineName      string `json:"machine_name"`      // 机器名称
+	Region           string `json:"region"`            // 区域
+	Ip               string `json:"ip"`                // ip
+	Weight           int    `json:"weight"`            // 权重
+	RoundNum         int64  `json:"round_num"`         // 轮次
+	Concurrency      int64  `json:"concurrency"`       // 并发数
+	ThresholdValue   int64  `json:"threshold_value"`   // 阈值
+	StartConcurrency int64  `json:"start_concurrency"` // 起始并发数
+	Step             int64  `json:"step"`              // 步长
+	StepRunTime      int64  `json:"step_run_time"`     // 步长执行时长
+	MaxConcurrency   int64  `json:"max_concurrency"`   // 最大并发数
+	Duration         int64  `json:"duration"`          // 稳定持续时长，持续时长
+	CreatedTimeSec   int64  `json:"created_time_sec"`  // 创建时间
 }
 
 type TimedTaskConf struct {
@@ -141,13 +190,16 @@ type GetPlanTaskReq struct {
 }
 
 type PlanTaskResp struct {
-	PlanID        string        `json:"plan_id"`
-	SceneID       string        `json:"scene_id"`
-	TaskType      int32         `json:"task_type"`
-	Mode          int32         `json:"mode"`
-	ControlMode   int32         `json:"control_mode"`
-	ModeConf      ModeConf      `json:"mode_conf"`
-	TimedTaskConf TimedTaskConf `json:"timed_task_conf"`
+	PlanID                  string                  `json:"plan_id"`
+	SceneID                 string                  `json:"scene_id"`
+	TaskType                int32                   `json:"task_type"`
+	Mode                    int32                   `json:"mode"`
+	ControlMode             int32                   `json:"control_mode"`
+	DebugMode               string                  `json:"debug_mode"`
+	ModeConf                ModeConf                `json:"mode_conf"`
+	TimedTaskConf           TimedTaskConf           `json:"timed_task_conf"`
+	IsOpenDistributed       int32                   `json:"is_open_distributed"`        // 是否开启分布式调度：0-关闭，1-开启
+	MachineDispatchModeConf MachineDispatchModeConf `json:"machine_dispatch_mode_conf"` // 分布式压力机配置
 }
 
 type GetPlanTaskResp struct {
@@ -249,6 +301,44 @@ type SubscriptionStressPlanStatusChange struct {
 }
 
 type MachineModeConf struct {
-	Machine  string   `json:"machine"`
-	ModeConf ModeConf `json:"mode_conf"`
+	Machine  string         `json:"machine"`
+	ModeConf ChangeTakeConf `json:"mode_conf"`
+}
+
+type GetPublicFunctionListResp struct {
+	Function     string `json:"function"`
+	FunctionName string `json:"function_name"`
+	Remark       string `json:"remark"`
+}
+
+type GetNewestStressPlanListReq struct {
+	TeamID string `json:"team_id"`
+	Page   int    `json:"page,default=1"`
+	Size   int    `json:"size,default=10"`
+}
+
+type GetNewestStressPlanListResp struct {
+	TeamID     string `json:"team_id"`
+	PlanID     string `json:"plan_id"`
+	PlanName   string `json:"plan_name"`
+	PlanType   string `json:"plan_type"`
+	Username   string `json:"username"`
+	UserAvatar string `json:"user_avatar"`
+	UpdatedAt  int64  `json:"updated_at"`
+}
+
+type GetNewestAutoPlanListReq struct {
+	TeamID string `json:"team_id"`
+	Page   int    `json:"page,default=1"`
+	Size   int    `json:"size,default=10"`
+}
+
+type GetNewestAutoPlanListResp struct {
+	TeamID     string `json:"team_id"`
+	PlanID     string `json:"plan_id"`
+	PlanName   string `json:"plan_name"`
+	PlanType   string `json:"plan_type"`
+	Username   string `json:"username"`
+	UserAvatar string `json:"user_avatar"`
+	UpdatedAt  int64  `json:"updated_at"`
 }

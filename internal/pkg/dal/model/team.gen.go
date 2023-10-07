@@ -17,6 +17,8 @@ type Team struct {
 	ID                  int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`                            // 主键ID
 	TeamID              string         `gorm:"column:team_id;not null" json:"team_id"`                                       // 团队ID
 	Name                string         `gorm:"column:name;not null" json:"name"`                                             // 团队名称
+	Description         string         `gorm:"column:description" json:"description"`                                        // 团队描述
+	CompanyID           string         `gorm:"column:company_id;not null" json:"company_id"`                                 // 所属企业id
 	Type                int32          `gorm:"column:type;not null" json:"type"`                                             // 团队类型 1: 私有团队；2: 普通团队
 	TrialExpirationDate time.Time      `gorm:"column:trial_expiration_date;not null" json:"trial_expiration_date"`           // 试用有效期
 	IsVip               int32          `gorm:"column:is_vip;not null;default:1" json:"is_vip"`                               // 是否为付费团队 1-否 2-是

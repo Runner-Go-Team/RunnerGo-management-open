@@ -3,24 +3,25 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/notice"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/plan"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/stress"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/mail"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/plan"
-	"kp-management/internal/pkg/logic/stress"
 	"strings"
 	"sync"
 	"time"
 
-	"kp-management/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
 )
 
 type RunStressReq struct {
@@ -47,88 +48,83 @@ func RunPlan(ctx *gin.Context) {
 		RunType: 1,
 	}
 
-	errnoNum, runErr := RunStress(ctx, runStressParams)
+	errnoNum, newReportIDs, runErr := RunStress(ctx, runStressParams)
 	if runErr != nil {
 		response.ErrorWithMsg(ctx, errnoNum, runErr.Error())
 		return
 	}
 
 	px := dal.GetQuery().StressPlan
-	p, err := px.WithContext(ctx).Where(px.TeamID.Eq(req.TeamID), px.PlanID.Eq(req.PlanID)).First()
+	planInfo, err := px.WithContext(ctx).Where(px.TeamID.Eq(req.TeamID), px.PlanID.Eq(req.PlanID)).First()
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return
 	}
 
 	// 插入操作日志
-	if p.TaskType == consts.PlanTaskTypeNormal || runStressParams.RunType == 2 {
-		if err := record.InsertRun(ctx, req.TeamID, jwt.GetUserIDByCtx(ctx), record.OperationOperateRunPlan, p.PlanName); err != nil {
+	if planInfo.TaskType == consts.PlanTaskTypeNormal || runStressParams.RunType == 2 {
+		if err := record.InsertRun(ctx, req.TeamID, jwt.GetUserIDByCtx(ctx), record.OperationOperateRunPlan, planInfo.PlanName); err != nil {
 			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 			return
 		}
 	} else {
-		if err := record.InsertExecute(ctx, req.TeamID, jwt.GetUserIDByCtx(ctx), record.OperationOperateExecPlan, p.PlanName); err != nil {
+		if err := record.InsertExecute(ctx, req.TeamID, jwt.GetUserIDByCtx(ctx), record.OperationOperateExecPlan, planInfo.PlanName); err != nil {
 			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 			return
 		}
 	}
 
-	tx := dal.GetQuery().StressPlanEmail
-	emails, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(req.TeamID), tx.PlanID.Eq(req.PlanID)).Find()
-	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
-		return
+	// 执行计划当次操作和报告的关系
+	planRunUUID := uuid.GetUUID()
+	planRunUUIDRedisKey := consts.RedisPlanRunUUIDRelateReports + planRunUUID
+	_ = dal.GetRDB().SAdd(ctx, planRunUUIDRedisKey, newReportIDs).Err()
+	_ = dal.GetRDB().Expire(ctx, planRunUUIDRedisKey, time.Second*86400).Err()
+	for _, r := range newReportIDs {
+		reportPlanRunRedisKey := consts.RedisReportPlanRunUUID + r
+		_ = dal.GetRDB().Set(ctx, reportPlanRunRedisKey, planRunUUID, time.Second*86400).Err()
 	}
-	if len(emails) > 0 {
-		px := dal.GetQuery().StressPlan
-		planInfo, err := px.WithContext(ctx).Where(px.TeamID.Eq(req.TeamID), px.PlanID.Eq(req.PlanID)).First()
-		if err != nil {
-			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-			return
-		}
 
-		ttx := dal.GetQuery().Team
-		team, err := ttx.WithContext(ctx).Where(ttx.TeamID.Eq(req.TeamID)).First()
-		if err != nil {
-			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-			return
-		}
-
-		rx := dal.GetQuery().StressPlanReport
-		reports, err := rx.WithContext(ctx).Where(rx.TeamID.Eq(req.TeamID), rx.PlanID.Eq(req.PlanID), rx.CreatedAt.Gt(emails[0].CreatedAt)).Find()
-		if err != nil {
-			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-			return
-		}
-
-		ux := dal.GetQuery().User
-		user, err := ux.WithContext(ctx).Where(ux.UserID.Eq(jwt.GetUserIDByCtx(ctx))).First()
-		if err != nil {
-			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-			return
-		}
-
-		var userIDs []string
-		for _, report := range reports {
-			userIDs = append(userIDs, report.RunUserID)
-		}
-		runUsers, err := ux.WithContext(ctx).Where(ux.UserID.In(userIDs...)).Find()
-		if err != nil {
-			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-			return
-		}
-
-		for _, email := range emails {
-			if err := mail.SendPlanEmail(email.Email, planInfo.PlanName, team.Name, user.Nickname, reports, runUsers); err != nil {
-				if err.Error() == "请配置邮件相关环境变量" {
-					response.ErrorWithMsg(ctx, errno.ErrNotEmailConfig, err.Error())
-				} else {
-					response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
-				}
-				return
-			}
-		}
-	}
+	//tx := dal.GetQuery().StressPlanEmail
+	//emails, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(req.TeamID), tx.PlanID.Eq(req.PlanID)).Find()
+	//if err != nil {
+	//	response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+	//	return
+	//}
+	//if len(emails) > 0 {
+	//	ttx := dal.GetQuery().Team
+	//	team, err := ttx.WithContext(ctx).Where(ttx.TeamID.Eq(req.TeamID)).First()
+	//	if err != nil {
+	//		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+	//		return
+	//	}
+	//
+	//	rx := dal.GetQuery().StressPlanReport
+	//	reports, err := rx.WithContext(ctx).Where(rx.ReportID.In(newReportIDs...)).Find()
+	//	if err != nil {
+	//		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+	//		return
+	//	}
+	//
+	//	ux := dal.GetQuery().User
+	//	userInfo, err := ux.WithContext(ctx).Where(ux.UserID.Eq(jwt.GetUserIDByCtx(ctx))).First()
+	//	if err != nil {
+	//		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+	//		return
+	//	}
+	//
+	//	if len(reports) > 0 {
+	//		for _, email := range emails {
+	//			if err := mail.SendPlanEmail(email.Email, planInfo.PlanName, team.Name, userInfo.Nickname, reports, userInfo); err != nil {
+	//				if err.Error() == "请配置邮件相关环境变量" {
+	//					response.ErrorWithMsg(ctx, errno.ErrNotEmailConfig, err.Error())
+	//				} else {
+	//					response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+	//				}
+	//				return
+	//			}
+	//		}
+	//	}
+	//}
 
 	response.Success(ctx)
 	return
@@ -240,8 +236,7 @@ func ListPlans(ctx *gin.Context) {
 		return
 	}
 
-	plans, total, err := plan.ListByTeamID(ctx, req.TeamID, req.Size, (req.Page-1)*req.Size,
-		req.Keyword, req.StartTimeSec, req.EndTimeSec, req.TaskType, req.TaskMode, req.Status, req.Sort)
+	plans, total, err := plan.ListByTeamID(ctx, &req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return
@@ -279,23 +274,6 @@ func SavePlanTask(ctx *gin.Context) {
 		return
 	}
 
-	// 必填项判断
-	if (req.ModeConf.Duration == 0 && req.ModeConf.RoundNum == 0) || (req.Mode == 1 && req.ModeConf.Concurrency == 0) {
-		response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
-		return
-	}
-
-	if req.Mode != 1 { // 非并发模式参数校验
-		if req.ModeConf.StartConcurrency == 0 || req.ModeConf.Step == 0 || req.ModeConf.StepRunTime == 0 || req.ModeConf.MaxConcurrency == 0 || req.ModeConf.Duration == 0 {
-			response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
-			return
-		}
-		if req.ModeConf.MaxConcurrency < req.ModeConf.StartConcurrency {
-			response.ErrorWithMsg(ctx, errno.ErrMaxConcurrencyLessThanStartConcurrency, "")
-			return
-		}
-	}
-
 	if req.TaskType == 2 {
 		if req.TimedTaskConf.Frequency == 0 {
 			if req.TimedTaskConf.TaskExecTime == 0 {
@@ -311,7 +289,94 @@ func SavePlanTask(ctx *gin.Context) {
 		}
 	}
 
-	errNum, err := plan.SaveTask(ctx, &req, jwt.GetUserIDByCtx(ctx))
+	// 判断是否是分布式
+	if req.IsOpenDistributed == 1 { // 分布式
+		if req.MachineDispatchModeConf.MachineAllotType == 0 { // 权重
+			// 校验权重之和
+			totalWeight := 0
+			for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+				totalWeight = totalWeight + v.Weight
+			}
+			if totalWeight != 100 {
+				response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "所有压力机权重值相加必须等于100")
+				return
+			}
+			// 校验必填项
+			if req.Mode == consts.PlanModeConcurrence || req.Mode == consts.PlanModeRound { // 并发模式或轮次模式
+				if (req.ModeConf.Duration == 0 && req.ModeConf.RoundNum == 0) || req.ModeConf.Concurrency == 0 {
+					response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
+					return
+				}
+			} else { // 非并发模式
+				if req.ModeConf.StartConcurrency == 0 || req.ModeConf.Step == 0 || req.ModeConf.StepRunTime == 0 || req.ModeConf.MaxConcurrency == 0 || req.ModeConf.Duration == 0 {
+					response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
+					return
+				}
+			}
+		} else { // 自定义
+			// 校验必填项
+			if req.Mode == consts.PlanModeConcurrence || req.Mode == consts.PlanModeRound { // 并发模式或轮次模式
+				// 校验总并发数之和
+				var totalConcurrency int64 = 0
+				for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+					totalConcurrency = totalConcurrency + v.Concurrency
+				}
+				if totalConcurrency == 0 {
+					response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "所有压力机并发数相加不能等于0")
+					return
+				}
+
+				// 校验持续时长或轮次之和
+				for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+					if v.MachineStatus == 1 {
+						if v.RoundNum == 0 && v.Duration == 0 {
+							response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
+							return
+						}
+					}
+				}
+			} else { // 非并发模式
+				// 校验持续时长或轮次之和
+				for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+					if v.StartConcurrency == 0 || v.Step == 0 || v.StepRunTime == 0 || v.MaxConcurrency == 0 || v.Duration == 0 {
+						response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
+						return
+					}
+				}
+			}
+		}
+		if len(req.MachineDispatchModeConf.UsableMachineList) == 0 {
+			response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "分布式配置下，必须选择至少一个可用压力机")
+			return
+		}
+	} else { // 智能调度
+		if req.Mode == 1 { // 并发模式
+			if req.ModeConf.Duration == 0 || req.ModeConf.Concurrency == 0 {
+				response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
+				return
+			}
+		}
+
+		if req.Mode == 6 { // 轮次模式
+			if req.ModeConf.RoundNum == 0 || req.ModeConf.Concurrency == 0 {
+				response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
+				return
+			}
+		}
+
+		if req.Mode > 1 && req.Mode < 6 { // 非并发模式参数校验
+			if req.ModeConf.StartConcurrency == 0 || req.ModeConf.Step == 0 || req.ModeConf.StepRunTime == 0 || req.ModeConf.MaxConcurrency == 0 || req.ModeConf.Duration == 0 {
+				response.ErrorWithMsg(ctx, errno.ErrMustTaskInit, "必填项不能为空")
+				return
+			}
+			if req.ModeConf.MaxConcurrency < req.ModeConf.StartConcurrency {
+				response.ErrorWithMsg(ctx, errno.ErrMaxConcurrencyLessThanStartConcurrency, "")
+				return
+			}
+		}
+	}
+
+	errNum, err := plan.SaveTask(ctx, &req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errNum, err.Error())
 		return
@@ -391,10 +456,10 @@ func ImportScene(ctx *gin.Context) {
 		return
 	}
 
-	scenes, err := plan.ImportScene(ctx, jwt.GetUserIDByCtx(ctx), &req)
+	scenes, err := plan.ImportScene(ctx, &req)
 	if err != nil {
-		if err.Error() == "计划内分组不可重名" {
-			response.ErrorWithMsg(ctx, errno.ErrInPlanGroupNameAlreadyExist, err.Error())
+		if err.Error() == "计划内目录不可重名" {
+			response.ErrorWithMsg(ctx, errno.ErrInPlanFolderNameAlreadyExist, err.Error())
 		} else if err.Error() == "计划内场景不可重名" {
 			response.ErrorWithMsg(ctx, errno.ErrInPlanSceneNameAlreadyExist, err.Error())
 		} else {
@@ -495,11 +560,8 @@ func PlanDeleteEmail(ctx *gin.Context) {
 }
 
 // RunStress 调度压力测试机进行压测的方法
-func RunStress(ctx context.Context, req RunStressReq) (int, error) {
+func RunStress(ctx context.Context, req RunStressReq) (int, []string, error) {
 	rms := &stress.RunMachineStress{}
-
-	//siv := &stress.SplitImportVariable{}
-	//siv.SetNext(rms)
 
 	ss := &stress.SplitStress{}
 	ss.SetNext(rms)
@@ -537,16 +599,17 @@ func RunStress(ctx context.Context, req RunStressReq) (int, error) {
 	ctt := &stress.CheckStressPlanTaskType{}
 	ctt.SetNext(m)
 
-	errnoNum, err := ctt.Execute(&stress.Baton{
+	batonData := &stress.Baton{
 		Ctx:      ctx,
 		PlanID:   req.PlanID,
 		TeamID:   req.TeamID,
 		UserID:   req.UserID,
 		SceneIDs: req.SceneID,
 		RunType:  req.RunType,
-	})
+	}
+	errnoNum, err := ctt.Execute(batonData)
 
-	return errnoNum, err
+	return errnoNum, batonData.ReportIDs, err
 }
 
 // NotifyStopStress 压力机回调压测状态和结果
@@ -559,27 +622,50 @@ func NotifyStopStress(ctx *gin.Context) {
 
 	log.Logger.Info("NotifyStopStress--性能测试回调接口参数：", req)
 
-	reportInfo := new(model.StressPlanReport)
+	// 设置锁，防止同一个计划下的报告，并发回调当前接口
+	notifyStopStressKey := "NotifyStopStress:" + req.PlanID
+	defer func() {
+		dal.GetRDB().Del(ctx, notifyStopStressKey)
+	}()
+	// 设置锁
+	for i := 0; i < 3; i++ {
+		err := dal.GetRDB().SetNX(ctx, notifyStopStressKey, 1, 3*time.Second).Err()
+		if err != nil {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
+	}
 
+	// 修改报告状态
+	tx := dal.GetQuery().StressPlanReport
+	_, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(req.TeamID),
+		tx.PlanID.Eq(req.PlanID),
+		tx.ReportID.Eq(req.ReportID)).UpdateSimple(tx.Status.Value(consts.ReportStatusFinish),
+		tx.RunDurationTime.Value(req.DurationTime))
+	if err != nil {
+		log.Logger.Info("NotifyStopStress--修改报告状态失败")
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+	// 是否发送通知
+	var (
+		isSendNotice bool
+		newReportIDs []string
+	)
+
+	reportInfo := new(model.StressPlanReport)
 	allErr := query.Use(dal.DB()).Transaction(func(tx *query.Query) error {
 		// 查询当前计划信息
-		planTable := tx.StressPlan
-		planInfo, err := planTable.WithContext(ctx).Where(planTable.TeamID.Eq(req.TeamID),
-			planTable.PlanID.Eq(req.PlanID)).First()
+		planInfo, err := tx.StressPlan.WithContext(ctx).Where(tx.StressPlan.TeamID.Eq(req.TeamID),
+			tx.StressPlan.PlanID.Eq(req.PlanID)).First()
 		if err != nil {
-			return err
-		}
-
-		r := tx.StressPlanReport
-		// 修改报告状态
-		_, err = r.WithContext(ctx).Where(r.TeamID.Eq(req.TeamID), r.PlanID.Eq(req.PlanID), r.ReportID.Eq(req.ReportID)).UpdateSimple(r.Status.Value(consts.ReportStatusFinish))
-		if err != nil {
-			log.Logger.Info("NotifyStopStress--修改报告状态失败")
 			return err
 		}
 
 		// 查找报告对应计划
-		report, err := r.WithContext(ctx).Where(r.TeamID.Eq(req.TeamID), r.PlanID.Eq(req.PlanID), r.ReportID.Eq(req.ReportID)).First()
+		report, err := tx.StressPlanReport.WithContext(ctx).Where(tx.StressPlanReport.TeamID.Eq(req.TeamID),
+			tx.StressPlanReport.PlanID.Eq(req.PlanID), tx.StressPlanReport.ReportID.Eq(req.ReportID)).First()
 		if err != nil {
 			log.Logger.Info("NotifyStopStress--查找报告对应计划失败")
 			return err
@@ -588,36 +674,49 @@ func NotifyStopStress(ctx *gin.Context) {
 
 		if planInfo.TaskType == consts.PlanTaskTypeNormal {
 			// 统计报告是否全部完成
-			reportCnt, err := r.WithContext(ctx).Where(r.TeamID.Eq(req.TeamID), r.PlanID.Eq(req.PlanID)).Count()
+			reportCnt, err := tx.StressPlanReport.WithContext(ctx).Where(tx.StressPlanReport.TeamID.Eq(req.TeamID),
+				tx.StressPlanReport.PlanID.Eq(req.PlanID)).Count()
 			if err != nil {
 				log.Logger.Info("NotifyStopStress--统计当前计划下所有的报告数量--失败")
 				return err
 			}
-			finishReportCnt, err := r.WithContext(ctx).Where(r.TeamID.Eq(req.TeamID), r.PlanID.Eq(report.PlanID), r.Status.Eq(consts.ReportStatusFinish)).Count()
+			finishReportCnt, err := tx.StressPlanReport.WithContext(ctx).Where(tx.StressPlanReport.TeamID.Eq(req.TeamID),
+				tx.StressPlanReport.PlanID.Eq(report.PlanID), tx.StressPlanReport.Status.Eq(consts.ReportStatusFinish)).Count()
 			if err != nil {
 				log.Logger.Info("NotifyStopStress--统计当前计划下所有成功的报告--失败")
 				return err
 			}
 
 			if finishReportCnt == reportCnt { // 报告全部完成则计划也完成
-				_, err := planTable.WithContext(ctx).Where(planTable.TeamID.Eq(req.TeamID), planTable.PlanID.Eq(report.PlanID)).UpdateSimple(planTable.Status.Value(consts.PlanStatusNormal))
+				_, err := tx.StressPlan.WithContext(ctx).Where(tx.StressPlan.TeamID.Eq(req.TeamID),
+					tx.StressPlan.PlanID.Eq(report.PlanID)).UpdateSimple(tx.StressPlan.Status.Value(consts.PlanStatusNormal))
 				if err != nil {
 					log.Logger.Info("NotifyStopStress计划下所有报告并未全部完成")
 					return err
 				}
+				isSendNotice = true
+				reportPlanRunRedisKey := consts.RedisReportPlanRunUUID + req.ReportID
+				planRunUUID, err := dal.GetRDB().Get(ctx, reportPlanRunRedisKey).Result()
+				if err != nil {
+					log.Logger.Info("NotifyStopStress--获取报告执行的操作ID失败：", err)
+				}
+				planRunUUIDRedisKey := consts.RedisPlanRunUUIDRelateReports + planRunUUID
+				planRunReportIDs, err := dal.GetRDB().SMembers(ctx, planRunUUIDRedisKey).Result()
+				if err != nil {
+					log.Logger.Info("NotifyStopStress--获取执行操作ID报告失败：", err)
+				}
+				newReportIDs = append(newReportIDs, planRunReportIDs...)
 			}
 		} else { // 定时任务
 			// 判断定时任务频次
-			ttc := dal.GetQuery().StressPlanTimedTaskConf
-			TimedTaskConfInfo, err := ttc.WithContext(ctx).Where(ttc.TeamID.Eq(req.TeamID),
-				ttc.PlanID.Eq(req.PlanID), ttc.SceneID.Neq(reportInfo.SceneID)).First()
+			TimedTaskConfInfo, err := tx.StressPlanTimedTaskConf.WithContext(ctx).Where(tx.StressPlanTimedTaskConf.TeamID.Eq(req.TeamID),
+				tx.StressPlanTimedTaskConf.PlanID.Eq(req.PlanID), tx.StressPlanTimedTaskConf.SceneID.Neq(reportInfo.SceneID)).First()
 			nowTime := time.Now().Unix()
 			if err == nil {
 				if TimedTaskConfInfo.Frequency == 0 || (TimedTaskConfInfo.Frequency != 0 && TimedTaskConfInfo.TaskCloseTime <= nowTime) {
 					// 查到定时任务配置了,如果任务配置过期时间小于当前时间，则把计划状态改为未运行
-					p := dal.GetQuery().StressPlan
-					_, err := p.WithContext(ctx).Where(p.TeamID.Eq(reportInfo.TeamID),
-						p.PlanID.Eq(reportInfo.PlanID)).UpdateSimple(p.Status.Value(consts.PlanStatusNormal))
+					_, err := tx.StressPlan.WithContext(ctx).Where(tx.StressPlan.TeamID.Eq(reportInfo.TeamID),
+						tx.StressPlan.PlanID.Eq(reportInfo.PlanID)).UpdateSimple(tx.StressPlan.Status.Value(consts.PlanStatusNormal))
 					if err != nil {
 						log.Logger.Info("NotifyStopStress--修改定时计划状态失败")
 						response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
@@ -625,8 +724,8 @@ func NotifyStopStress(ctx *gin.Context) {
 					}
 				}
 			}
+			isSendNotice = true
 		}
-
 		return nil
 	})
 
@@ -641,7 +740,7 @@ func NotifyStopStress(ctx *gin.Context) {
 
 	if allErr != nil {
 		log.Logger.Info("NotifyStopStress整体事务失败")
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, allErr.Error())
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, allErr.Error())
 		return
 	}
 	log.Logger.Info("NotifyStopStress--性能测试回调接口结果：", allErr)
@@ -656,6 +755,38 @@ func NotifyStopStress(ctx *gin.Context) {
 		wg.Done()
 	}(&wg)
 	wg.Wait()
+
+	// 发送通知
+	if isSendNotice {
+		noticeGroupIDs := make([]string, 0)
+		nge := dal.GetQuery().ThirdNoticeGroupEvent
+		if err := nge.WithContext(ctx).Where(
+			nge.TeamID.Eq(req.TeamID),
+			nge.PlanID.Eq(req.PlanID),
+			nge.EventID.Eq(consts.NoticeEventStressPlan)).Pluck(nge.GroupID, &noticeGroupIDs); err != nil {
+			log.Logger.Error("NotifyStopStress--查询通知组失败：", err)
+		}
+		if len(noticeGroupIDs) > 0 {
+			if len(newReportIDs) <= 0 {
+				newReportIDs = append(newReportIDs, req.ReportID)
+			}
+			sendNoticeReq := &rao.SendNoticeParams{
+				EventID:        consts.NoticeEventStressPlan,
+				TeamID:         req.TeamID,
+				ReportIDs:      newReportIDs,
+				NoticeGroupIDs: noticeGroupIDs,
+			}
+			params, err := notice.GetSendCardParamsByReq(ctx, sendNoticeReq)
+			if err != nil {
+				log.Logger.Error("NotifyStopStress--获取通知参数失败：", err)
+			}
+			for _, groupID := range noticeGroupIDs {
+				if err := notice.SendNoticeByGroup(ctx, groupID, params); err != nil {
+					log.Logger.Error("NotifyStopStress--发送通知失败：", err)
+				}
+			}
+		}
+	}
 
 	response.Success(ctx)
 	return
@@ -679,5 +810,16 @@ func BatchDeletePlan(ctx *gin.Context) {
 		return
 	}
 	response.Success(ctx)
+	return
+}
+
+// GetPublicFunctionList 获取公共函数列表
+func GetPublicFunctionList(ctx *gin.Context) {
+	res, err := plan.GetPublicFunctionList(ctx)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, res)
 	return
 }

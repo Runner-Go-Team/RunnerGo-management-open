@@ -1,27 +1,39 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func TransMaoAPIDebugToRaoAPIDebug(m *mao.APIDebug) *rao.APIDebug {
-
-	var as []*rao.DebugAssertion
-	for _, a := range m.Assertion {
-		as = append(as, &rao.DebugAssertion{
+	as := make([]rao.AssertionMsg, 0, len(m.Assert.AssertionMsgs))
+	for _, a := range m.Assert.AssertionMsgs {
+		as = append(as, rao.AssertionMsg{
+			Type:      a.Type,
 			Code:      a.Code,
 			IsSucceed: a.IsSucceed,
 			Msg:       a.Msg,
 		})
 	}
 
+	regexArr := make([]rao.Reg, 0, len(m.Regex.Regs))
+	for _, regInfo := range m.Regex.Regs {
+		regexArr = append(regexArr, rao.Reg{
+			Key:   regInfo.Key,
+			Value: regInfo.Value,
+		})
+	}
+
 	return &rao.APIDebug{
-		ApiID:                 m.ApiID,
-		APIName:               m.APIName,
-		Assertion:             as,
-		EventID:               m.EventID,
-		Regex:                 m.Regex,
+		ApiID:   m.ApiID,
+		APIName: m.APIName,
+		EventID: m.EventID,
+		Assert: rao.AssertObj{
+			AssertionMsgs: as,
+		},
+		Regex: rao.RegexObj{
+			Regs: regexArr,
+		},
 		RequestBody:           m.RequestBody,
 		RequestCode:           m.RequestCode,
 		RequestHeader:         m.RequestHeader,
@@ -33,5 +45,6 @@ func TransMaoAPIDebugToRaoAPIDebug(m *mao.APIDebug) *rao.APIDebug {
 		ResponseLen:           m.ResponseLen,
 		ResponseStatusMessage: m.ResponseStatusMessage,
 		UUID:                  m.UUID,
+		Status:                m.Status,
 	}
 }

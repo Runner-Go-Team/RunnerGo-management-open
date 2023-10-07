@@ -1,23 +1,22 @@
 package handler
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/machine"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/stress"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
-	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/net/context"
 	"gorm.io/gorm"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/machine"
-	"kp-management/internal/pkg/logic/stress"
-	"kp-management/internal/pkg/packer"
 	"strconv"
 	"strings"
 	"time"
@@ -62,8 +61,8 @@ func ChangeMachineOnOff(ctx *gin.Context) {
 
 // MachineDataInsert 把压力机上报的机器数据插入数据库
 func MachineDataInsert() {
-	ctx := context.Background()
 	for {
+		ctx := context.Background()
 		// 从Redis获取压力机列表
 		machineListRes := dal.GetRDB().HGetAll(ctx, consts.MachineListRedisKey)
 		if len(machineListRes.Val()) == 0 || machineListRes.Err() != nil {
@@ -85,6 +84,13 @@ func MachineDataInsert() {
 			err := json.Unmarshal([]byte(machineDetail), &runnerMachineInfo)
 			if err != nil {
 				log.Logger.Info("压力机数据入库--压力机详情数据解析失败，err：", err)
+				continue
+			}
+
+			// 当前时间
+			nowTime := time.Now().Unix()
+			if runnerMachineInfo.CreateTime < nowTime-60 {
+				dal.GetRDB().HDel(ctx, consts.MachineListRedisKey, machineAddr)
 				continue
 			}
 
@@ -158,9 +164,9 @@ func MachineDataInsert() {
 
 // MachineMonitorInsert 压力机监控数据入库
 func MachineMonitorInsert() {
-	ctx := context.Background()
 	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectMachineMonitorData)
 	for {
+		ctx := context.Background()
 		machineList, _ := dal.GetRDB().Keys(ctx, consts.MachineMonitorPrefix+"*").Result()
 
 		for _, MachineMonitorKey := range machineList {
@@ -197,13 +203,6 @@ func MachineMonitorInsert() {
 			}
 		}
 
-		// 删除半个月前的压力机监控数据
-		deleteTime := time.Now().Unix() - (15 * 24 * 3600)
-		_, err := collection.DeleteMany(ctx, bson.D{{"created_at", bson.D{{"$lte", deleteTime}}}})
-		if err != nil {
-			log.Logger.Info("压力机监控数据入库--删除半个月前的压力机监控数据失败")
-		}
-
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -214,40 +213,33 @@ func InitTotalKafkaPartition() {
 
 	dal.GetRDB().Del(ctx, consts.TotalKafkaPartitionKey)
 
-	// 从redis查询当前
-	StressBelongPartitionInfo := dal.GetRDB().HGetAll(ctx, consts.StressBelongPartitionKey)
-
-	// 已经使用的分数切片
-	usedPartitionMap := make(map[int]int)
-
-	if StressBelongPartitionInfo.Err() == nil && len(StressBelongPartitionInfo.Val()) > 0 { // 查到数据了
-		for _, partitionInfo := range StressBelongPartitionInfo.Val() {
-			var tempData []int
-			err := json.Unmarshal([]byte(partitionInfo), &tempData)
-			if err != nil {
-				continue
-			}
-			if len(tempData) > 0 {
-				for _, partitionNum := range tempData {
-					usedPartitionMap[partitionNum] = 1
-				}
-			}
-		}
-	}
-
 	//组装总共需要初始化的分区数组
 	canUsePartitionTotalNum := conf.Conf.CanUsePartitionTotalNum
 	totalKafkaPartitionArr := make([]interface{}, 0, conf.Conf.MachineConfig.InitPartitionTotalNum)
 	for i := 0; i < canUsePartitionTotalNum; i++ {
-		if _, ok := usedPartitionMap[i]; !ok {
-			totalKafkaPartitionArr = append(totalKafkaPartitionArr, i)
-		}
+		totalKafkaPartitionArr = append(totalKafkaPartitionArr, i)
 
 	}
-	// 初始化总的分区数（排除已经使用过的）
+	// 初始化总的分区数
 	_, err := dal.GetRDB().LPush(ctx, consts.TotalKafkaPartitionKey, totalKafkaPartitionArr...).Result()
 	if err != nil {
 		log.Logger.Info("初始化压力机分区总数失败")
 	}
 	return
+}
+
+// DeleteLostConnectMachine 删除失去连接的压力机
+func DeleteLostConnectMachine() {
+	for {
+		ctx := context.Background()
+		currentTime := time.Now()
+		m, _ := time.ParseDuration("-1m")
+		oldTime := currentTime.Add(m)
+		tx := dal.GetQuery().Machine
+		_, err := tx.WithContext(ctx).Where(tx.UpdatedAt.Lt(oldTime)).Unscoped().Delete()
+		if err != nil {
+			log.Logger.Info("删除失效的压力机--删除压力机数据失败")
+		}
+		time.Sleep(60 * time.Second)
+	}
 }

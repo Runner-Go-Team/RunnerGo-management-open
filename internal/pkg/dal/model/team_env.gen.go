@@ -14,16 +14,13 @@ const TableNameTeamEnv = "team_env"
 
 // TeamEnv mapped from table <team_env>
 type TeamEnv struct {
-	ID            int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`      // ID
-	TeamID        string         `gorm:"column:team_id;not null" json:"team_id"`                 // 团队ID
-	Name          string         `gorm:"column:name;not null" json:"name"`                       // 环境名称
-	Sort          int32          `gorm:"column:sort;not null" json:"sort"`                       // 排序
-	Status        int32          `gorm:"column:status;not null;default:1" json:"status"`         // 状态：1-正常 2-删除
-	CreatedUserID string         `gorm:"column:created_user_id;not null" json:"created_user_id"` // 创建人ID
-	RecentUserID  int64          `gorm:"column:recent_user_id;not null" json:"recent_user_id"`
-	CreatedAt     time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"column:updated_at;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`
+	ID            int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`                      // 主键id
+	TeamID        string         `gorm:"column:team_id;not null" json:"team_id"`                                 // 团队id
+	Name          string         `gorm:"column:name;not null" json:"name"`                                       // 环境名称
+	CreatedUserID string         `gorm:"column:created_user_id;not null" json:"created_user_id"`                 // 创建人id
+	CreatedAt     time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"` // 创建时间
+	UpdatedAt     time.Time      `gorm:"column:updated_at;not null;default:CURRENT_TIMESTAMP" json:"updated_at"` // 修改时间
+	DeletedAt     gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`                                    // 删除时间
 }
 
 // TableName TeamEnv's table name

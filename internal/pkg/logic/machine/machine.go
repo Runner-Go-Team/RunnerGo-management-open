@@ -2,12 +2,12 @@ package machine
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/rao"
 	"time"
 )
 

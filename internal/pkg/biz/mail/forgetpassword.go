@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/smtp"
 
-	"kp-management/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 )
 
 const (

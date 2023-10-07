@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
 	"gorm.io/gen"
 	"gorm.io/gorm"
-	"kp-management/internal/pkg/conf"
 )
 
 func MustInitConf() {
@@ -35,7 +35,6 @@ func main() {
 	}
 
 	g := gen.NewGenerator(gen.Config{
-		//OutPath: "./internal/pkg/dal/query",
 		OutPath: "../../internal/pkg/dal/query",
 	})
 
@@ -43,7 +42,6 @@ func main() {
 
 	g.ApplyBasic(
 		g.GenerateModel("target"),
-		g.GenerateModel("operation"),
 		g.GenerateModel("user"),
 		g.GenerateModel("team"),
 		g.GenerateModel("team_env"),
@@ -68,8 +66,33 @@ func main() {
 		g.GenerateModel("stress_plan_report"),
 		g.GenerateModel("stress_plan_email"),
 		g.GenerateModel("stress_plan_timed_task_conf"),
-		g.GenerateModel("target_debug_log"),
 		g.GenerateModel("user_collect_info"),
+		g.GenerateModel("public_function"),
+		g.GenerateModel("team_env_database"),
+		g.GenerateModel("company"),
+		g.GenerateModel("permission"),
+		g.GenerateModel("role_permission"),
+		g.GenerateModel("role_type_permission"),
+		g.GenerateModel("user_company"),
+		g.GenerateModel("role"),
+		g.GenerateModel("user_role"),
+		g.GenerateModel("user_team_collection"),
+		g.GenerateModel("mock_target"),
+		g.GenerateModel("third_notice"),
+		g.GenerateModel("third_notice_channel"),
+		g.GenerateModel("third_notice_group"),
+		g.GenerateModel("third_notice_group_relate"),
+		g.GenerateModel("third_notice_group_event"),
+		g.GenerateModel("element"),
+		g.GenerateModel("ui_scene"),
+		g.GenerateModel("ui_scene_operator"),
+		g.GenerateModel("ui_scene_trash"),
+		g.GenerateModel("ui_scene_element"),
+		g.GenerateModel("ui_plan"),
+		g.GenerateModel("ui_scene_sync"),
+		g.GenerateModel("ui_plan_task_conf"),
+		g.GenerateModel("ui_plan_timed_task_conf"),
+		g.GenerateModel("ui_plan_report"),
 	)
 
 	g.Execute()

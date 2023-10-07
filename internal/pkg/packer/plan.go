@@ -2,10 +2,10 @@ package packer
 
 import (
 	"encoding/json"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 	"time"
 )
 
@@ -40,7 +40,6 @@ func TransPlansToRaoPlanList(plans []*model.StressPlan, users []*model.User) []*
 
 func TransTaskToRaoPlan(p *model.StressPlan, t rao.ModeConf, u *model.User) *rao.StressPlan {
 	mc := rao.ModeConf{
-		ReheatTime:       t.ReheatTime,
 		RoundNum:         t.RoundNum,
 		Concurrency:      t.Concurrency,
 		ThresholdValue:   t.ThresholdValue,
@@ -74,29 +73,60 @@ func TransSaveTimingTaskConfigReqToModelData(req *rao.SavePlanConfReq, userID st
 	if err != nil {
 		return nil, err
 	}
+
+	// 把mode_conf压缩成字符串
+	machineDispatchModeConfString, err := json.Marshal(req.MachineDispatchModeConf)
+	if err != nil {
+		return nil, err
+	}
+
 	return &model.StressPlanTimedTaskConf{
-		PlanID:        req.PlanID,
-		SceneID:       req.SceneID,
-		TeamID:        req.TeamID,
-		UserID:        userID,
-		Frequency:     req.TimedTaskConf.Frequency,
-		TaskExecTime:  req.TimedTaskConf.TaskExecTime,
-		TaskCloseTime: req.TimedTaskConf.TaskCloseTime,
-		TaskType:      req.TaskType,
-		TaskMode:      req.Mode,
-		ControlMode:   req.ControlMode,
-		ModeConf:      string(modeConfString),
-		Status:        consts.TimedTaskWaitEnable,
+		PlanID:                  req.PlanID,
+		SceneID:                 req.SceneID,
+		TeamID:                  req.TeamID,
+		UserID:                  userID,
+		Frequency:               req.TimedTaskConf.Frequency,
+		TaskExecTime:            req.TimedTaskConf.TaskExecTime,
+		TaskCloseTime:           req.TimedTaskConf.TaskCloseTime,
+		TaskType:                req.TaskType,
+		TaskMode:                req.Mode,
+		ControlMode:             req.ControlMode,
+		DebugMode:               req.DebugMode,
+		ModeConf:                string(modeConfString),
+		IsOpenDistributed:       req.IsOpenDistributed,
+		MachineDispatchModeConf: string(machineDispatchModeConfString),
+		Status:                  consts.TimedTaskWaitEnable,
+		RunUserID:               userID,
 	}, nil
 }
 
-func TransChangeReportConfRunToMao(req rao.ChangeTaskConfReq) *mao.ChangeTaskConf {
-	return &mao.ChangeTaskConf{
+func TransChangeReportConfRunToMao(req rao.ChangeTaskConfReq) mao.ChangeTaskConf {
+	usableMachineList := make([]mao.UsableMachineInfo, 0, len(req.MachineDispatchModeConf.UsableMachineList))
+	for _, v := range req.MachineDispatchModeConf.UsableMachineList {
+		temp := mao.UsableMachineInfo{
+			MachineStatus:    v.MachineStatus,
+			MachineName:      v.MachineName,
+			Region:           v.Region,
+			Ip:               v.Ip,
+			Weight:           v.Weight,
+			RoundNum:         v.RoundNum,
+			Concurrency:      v.Concurrency,
+			ThresholdValue:   v.ThresholdValue,
+			StartConcurrency: v.StartConcurrency,
+			Step:             v.Step,
+			StepRunTime:      v.StepRunTime,
+			MaxConcurrency:   v.MaxConcurrency,
+			Duration:         v.Duration,
+			CreatedTimeSec:   v.CreatedTimeSec,
+		}
+		usableMachineList = append(usableMachineList, temp)
+	}
+
+	return mao.ChangeTaskConf{
 		ReportID: req.ReportID,
 		TeamID:   req.TeamID,
 		PlanID:   req.PlanID,
 		ModeConf: &mao.ModeConf{
-			ReheatTime:       req.ModeConf.ReheatTime,
 			RoundNum:         req.ModeConf.RoundNum,
 			Concurrency:      req.ModeConf.Concurrency,
 			ThresholdValue:   req.ModeConf.ThresholdValue,
@@ -107,5 +137,32 @@ func TransChangeReportConfRunToMao(req rao.ChangeTaskConfReq) *mao.ChangeTaskCon
 			Duration:         req.ModeConf.Duration,
 			CreatedTimeSec:   time.Now().Unix(),
 		},
+		IsOpenDistributed: req.IsOpenDistributed,
+		MachineDispatchModeConf: mao.MachineDispatchModeConf{
+			MachineAllotType:  req.MachineDispatchModeConf.MachineAllotType,
+			UsableMachineList: usableMachineList,
+		},
 	}
+}
+
+func TransNewestPlansToRaoPlanList(plans []*model.StressPlan, users []*model.User) []rao.GetNewestStressPlanListResp {
+	ret := make([]rao.GetNewestStressPlanListResp, 0)
+
+	userMap := make(map[string]*model.User)
+	for _, user := range users {
+		userMap[user.UserID] = user
+	}
+
+	for _, planInfo := range plans {
+		ret = append(ret, rao.GetNewestStressPlanListResp{
+			TeamID:     planInfo.TeamID,
+			PlanID:     planInfo.PlanID,
+			PlanName:   planInfo.PlanName,
+			PlanType:   "stress",
+			Username:   userMap[planInfo.CreateUserID].Nickname,
+			UserAvatar: userMap[planInfo.CreateUserID].Avatar,
+			UpdatedAt:  planInfo.UpdatedAt.Unix(),
+		})
+	}
+	return ret
 }

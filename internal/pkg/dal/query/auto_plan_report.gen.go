@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newAutoPlanReport(db *gorm.DB, opts ...gen.DOOption) autoPlanReport {
@@ -29,6 +29,7 @@ func newAutoPlanReport(db *gorm.DB, opts ...gen.DOOption) autoPlanReport {
 	_autoPlanReport.ALL = field.NewAsterisk(tableName)
 	_autoPlanReport.ID = field.NewInt64(tableName, "id")
 	_autoPlanReport.ReportID = field.NewString(tableName, "report_id")
+	_autoPlanReport.ReportName = field.NewString(tableName, "report_name")
 	_autoPlanReport.PlanID = field.NewString(tableName, "plan_id")
 	_autoPlanReport.RankID = field.NewInt64(tableName, "rank_id")
 	_autoPlanReport.PlanName = field.NewString(tableName, "plan_name")
@@ -57,6 +58,7 @@ type autoPlanReport struct {
 	ALL              field.Asterisk
 	ID               field.Int64
 	ReportID         field.String // 报告ID
+	ReportName       field.String // 报告名称
 	PlanID           field.String // 计划ID
 	RankID           field.Int64  // 序号ID
 	PlanName         field.String // 计划名称
@@ -91,6 +93,7 @@ func (a *autoPlanReport) updateTableName(table string) *autoPlanReport {
 	a.ALL = field.NewAsterisk(table)
 	a.ID = field.NewInt64(table, "id")
 	a.ReportID = field.NewString(table, "report_id")
+	a.ReportName = field.NewString(table, "report_name")
 	a.PlanID = field.NewString(table, "plan_id")
 	a.RankID = field.NewInt64(table, "rank_id")
 	a.PlanName = field.NewString(table, "plan_name")
@@ -131,9 +134,10 @@ func (a *autoPlanReport) GetFieldByName(fieldName string) (field.OrderExpr, bool
 }
 
 func (a *autoPlanReport) fillFieldMap() {
-	a.fieldMap = make(map[string]field.Expr, 18)
+	a.fieldMap = make(map[string]field.Expr, 19)
 	a.fieldMap["id"] = a.ID
 	a.fieldMap["report_id"] = a.ReportID
+	a.fieldMap["report_name"] = a.ReportName
 	a.fieldMap["plan_id"] = a.PlanID
 	a.fieldMap["rank_id"] = a.RankID
 	a.fieldMap["plan_name"] = a.PlanName

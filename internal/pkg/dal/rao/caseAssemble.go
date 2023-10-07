@@ -1,13 +1,9 @@
 package rao
 
 type GetCaseAssembleListReq struct {
-	//PlanID  int64 `json:"plan_id"`
-	//TeamID  int64 `json:"team_id"`
 	SceneID  string `json:"scene_id" binding:"required,gt=0"`
 	CaseName string `json:"case_name"`
-	//Page     int    `json:"page" form:"page,default=1"`
-	//Size     int    `json:"size" form:"size,default=10"`
-	Sort int32 `form:"sort"`
+	Sort     int32  `form:"sort"`
 }
 
 type CaseAssembleListResp struct {
@@ -42,9 +38,7 @@ type SaveCaseAssembleReq struct {
 	TeamID      string `json:"team_id" binding:"required,gt=0"`
 	SceneID     string `json:"scene_id" binding:"required,gt=0"`
 	Name        string `json:"name" binding:"required,min=1"`
-	Method      string `json:"method"`
 	Sort        int32  `json:"sort"`
-	TypeSort    int32  `json:"type_sort"`
 	Version     int32  `json:"version"`
 	Source      int32  `json:"source"`
 	PlanID      string `json:"plan_id"`
@@ -57,9 +51,9 @@ type SaveSceneCaseFlowReq struct {
 	TeamID      string `json:"team_id" binding:"required,gt=0"`
 	Version     int32  `json:"version"`
 
-	Nodes           []*Node `json:"nodes"`
-	Edges           []*Edge `json:"edges"`
-	MultiLevelNodes string  `json:"multi_level_nodes"`
+	Nodes           []Node `json:"nodes"`
+	Edges           []Edge `json:"edges"`
+	MultiLevelNodes string `json:"multi_level_nodes"`
 }
 
 type GetSceneCaseFlowReq struct {
@@ -67,14 +61,14 @@ type GetSceneCaseFlowReq struct {
 }
 
 type GetSceneCaseFlowResp struct {
-	SceneID     string `json:"scene_id"`
-	SceneCaseID string `json:"scene_case_id"`
-	TeamID      string `json:"team_id"`
-	Version     int32  `json:"version"`
-
-	Nodes           []*Node `json:"nodes"`
-	Edges           []*Edge `json:"edges"`
-	MultiLevelNodes []byte  `json:"multi_level_nodes"`
+	SceneID         string `json:"scene_id"`
+	SceneCaseID     string `json:"scene_case_id"`
+	TeamID          string `json:"team_id"`
+	Version         int32  `json:"version"`
+	Nodes           []Node `json:"nodes"`
+	Edges           []Edge `json:"edges"`
+	MultiLevelNodes []byte `json:"multi_level_nodes"`
+	EnvID           int64  `json:"env_id"`
 }
 
 type DelCaseAssembleReq struct {
@@ -108,11 +102,24 @@ type StopSceneCaseResp struct {
 }
 
 type SceneCaseFlow struct {
-	SceneID       string        `json:"scene_id"`
-	SceneCaseID   string        `bson:"scene_case_id"`
-	SceneCaseName string        `json:"scene_case_name"`
-	TeamID        string        `json:"team_id"`
-	Nodes         []*Node       `json:"nodes"`
-	Configuration Configuration `json:"configuration"`
-	Variable      []*KVVariable `json:"variable"` // 全局变量
+	SceneID        string         `json:"scene_id"`
+	SceneCaseID    string         `bson:"scene_case_id"`
+	SceneCaseName  string         `json:"scene_case_name"`
+	TeamID         string         `json:"team_id"`
+	Configuration  Configuration  `json:"configuration"`
+	Variable       []KVVariable   `json:"variable"` // 全局变量
+	NodesRound     [][]Node       `json:"nodes_round"`
+	GlobalVariable GlobalVariable `json:"global_variable"`
+	Prepositions   []Preposition  `json:"prepositions"` // 前置条件
+}
+
+type ChangeCaseSortReq struct {
+	CaseList []SortCase `json:"case_list"`
+}
+
+type SortCase struct {
+	TeamID  string `json:"team_id"`
+	CaseID  string `json:"case_id"`
+	Sort    int32  `json:"sort"`
+	SceneID string `json:"scene_id"`
 }

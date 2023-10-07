@@ -1,8 +1,8 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func TransTargetToRaoFolderAPIList(targets []*model.Target) []*rao.FolderAPI {
@@ -18,6 +18,7 @@ func TransTargetToRaoFolderAPIList(targets []*model.Target) []*rao.FolderAPI {
 			Sort:          t.Sort,
 			TypeSort:      t.TypeSort,
 			Version:       t.Version,
+			Source:        t.Source,
 			CreatedUserID: t.CreatedUserID,
 			RecentUserID:  t.RecentUserID,
 		})

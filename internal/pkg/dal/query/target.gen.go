@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newTarget(db *gorm.DB, opts ...gen.DOOption) target {
@@ -45,6 +45,7 @@ func newTarget(db *gorm.DB, opts ...gen.DOOption) target {
 	_target.PlanID = field.NewString(tableName, "plan_id")
 	_target.SourceID = field.NewString(tableName, "source_id")
 	_target.IsChecked = field.NewInt32(tableName, "is_checked")
+	_target.IsDisabled = field.NewInt32(tableName, "is_disabled")
 	_target.CreatedAt = field.NewTime(tableName, "created_at")
 	_target.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_target.DeletedAt = field.NewField(tableName, "deleted_at")
@@ -72,10 +73,11 @@ type target struct {
 	CreatedUserID field.String // 创建人ID
 	RecentUserID  field.String // 最近修改人ID
 	Description   field.String // 备注
-	Source        field.Int32  // 数据来源：1-正常来源，2-性能，3-自动化测试
+	Source        field.Int32  // 数据来源：0-测试对象，1-场景管理，2-性能，3-自动化测试， 4-mock
 	PlanID        field.String // 计划id
 	SourceID      field.String // 引用来源ID
 	IsChecked     field.Int32  // 是否开启：1-开启，2-关闭
+	IsDisabled    field.Int32  // 运行计划时是否禁用：0-不禁用，1-禁用
 	CreatedAt     field.Time   // 创建时间
 	UpdatedAt     field.Time   // 更新时间
 	DeletedAt     field.Field  // 删除时间
@@ -113,6 +115,7 @@ func (t *target) updateTableName(table string) *target {
 	t.PlanID = field.NewString(table, "plan_id")
 	t.SourceID = field.NewString(table, "source_id")
 	t.IsChecked = field.NewInt32(table, "is_checked")
+	t.IsDisabled = field.NewInt32(table, "is_disabled")
 	t.CreatedAt = field.NewTime(table, "created_at")
 	t.UpdatedAt = field.NewTime(table, "updated_at")
 	t.DeletedAt = field.NewField(table, "deleted_at")
@@ -138,7 +141,7 @@ func (t *target) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (t *target) fillFieldMap() {
-	t.fieldMap = make(map[string]field.Expr, 21)
+	t.fieldMap = make(map[string]field.Expr, 22)
 	t.fieldMap["id"] = t.ID
 	t.fieldMap["target_id"] = t.TargetID
 	t.fieldMap["team_id"] = t.TeamID
@@ -157,6 +160,7 @@ func (t *target) fillFieldMap() {
 	t.fieldMap["plan_id"] = t.PlanID
 	t.fieldMap["source_id"] = t.SourceID
 	t.fieldMap["is_checked"] = t.IsChecked
+	t.fieldMap["is_disabled"] = t.IsDisabled
 	t.fieldMap["created_at"] = t.CreatedAt
 	t.fieldMap["updated_at"] = t.UpdatedAt
 	t.fieldMap["deleted_at"] = t.DeletedAt

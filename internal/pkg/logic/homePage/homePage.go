@@ -2,14 +2,15 @@ package homePage
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
 	"time"
 )
 
@@ -20,7 +21,8 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 	err := query.Use(dal.DB()).Transaction(func(tx *query.Query) error {
 		// 1、接口管理数量统计
 		targetTable := tx.Target
-		targetList, err := targetTable.WithContext(ctx).Where(targetTable.TeamID.Eq(req.TeamID), targetTable.Status.Eq(consts.TargetStatusNormal),
+		targetList, err := targetTable.WithContext(ctx).Where(targetTable.TeamID.Eq(req.TeamID),
+			targetTable.Status.Eq(consts.TargetStatusNormal),
 			targetTable.TargetType.In(consts.TargetTypeAPI, consts.TargetTypeScene, consts.TargetTypeTestCase)).Find()
 		if err != nil {
 			return err
@@ -72,7 +74,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" && nodeTemp.API.TargetID != "" {
+						if nodeTemp.API.TargetType == "api" && nodeTemp.API.TargetID != "" {
 							allSiteApiMap[nodeTemp.API.TargetID]++
 						}
 					}
@@ -90,7 +92,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" {
+						if nodeTemp.API.TargetType == "api" {
 							if nodeTemp.API.TargetID != "" {
 								autoPlanSiteApiMap[nodeTemp.API.TargetID]++
 							}
@@ -112,7 +114,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" {
+						if nodeTemp.API.TargetType == "api" {
 							if nodeTemp.API.TargetID != "" {
 								stressPlanSiteApiMap[nodeTemp.API.TargetID]++
 							}
@@ -132,7 +134,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err3 := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err3 == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" && nodeTemp.API.TargetID != "" {
+						if nodeTemp.API.TargetType == "api" && nodeTemp.API.TargetID != "" {
 							allSiteApiMap[nodeTemp.API.TargetID]++
 						}
 					}
@@ -148,7 +150,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err3 := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err3 == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" {
+						if nodeTemp.API.TargetType == "api" {
 							if nodeTemp.API.TargetID != "" {
 								autoPlanSiteApiMap[nodeTemp.API.TargetID]++
 							}
@@ -167,7 +169,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				err3 := bson.Unmarshal(flowInfo.Nodes, &node)
 				if err3 == nil {
 					for _, nodeTemp := range node.Nodes {
-						if nodeTemp.API != nil && nodeTemp.API.TargetType == "api" {
+						if nodeTemp.API.TargetType == "api" {
 							if nodeTemp.API.TargetID != "" {
 								stressPlanSiteApiMap[nodeTemp.API.TargetID]++
 							}
@@ -254,7 +256,6 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 
 		currentTeamTotalCaseNum := 0 // 当前团队下总用例数
 
-		stressTotalApiNum := 0             // 性能计划下所有接口数量
 		stressTotalSceneNum := 0           // 性能计划下所有场景数量
 		stressPlanTotalImportSceneNum := 0 // 性能所有引入进来的场景数量
 
@@ -290,8 +291,8 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 		for _, targetInfo := range targetList {
 			targetDataTime := targetInfo.CreatedAt.Unix()
 
-			if targetInfo.TargetType == "api" {
-				if targetInfo.Source == consts.TargetSourceNormal {
+			if targetInfo.TargetType == consts.TargetTypeAPI { // 所有测试对象
+				if targetInfo.Source == consts.TargetSourceApi {
 					apiTotalCount++
 					if targetDataTime >= startTime && targetDataTime <= endTime {
 						apiStartTime := startTime
@@ -307,15 +308,10 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 						}
 					}
 				}
-
-				if targetInfo.Source == consts.TargetSourcePlan && targetInfo.PlanID != "" { // 性能计划
-					stressTotalApiNum++
-				}
-
 			}
 
 			if targetInfo.TargetType == "scene" {
-				if targetInfo.Source == consts.TargetSourceNormal {
+				if targetInfo.Source == consts.TargetSourceScene {
 					scentTotalCount++
 					// 获取最近7日内数据
 					if targetDataTime >= startTime && targetDataTime <= endTime {
@@ -333,7 +329,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 					}
 				}
 
-				if targetInfo.Source != consts.TargetSourceNormal {
+				if targetInfo.Source != consts.TargetSourceScene {
 					sceneCiteMap[targetInfo.SourceID]++
 				}
 
@@ -354,7 +350,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 			}
 
 			if targetInfo.TargetType == "test_case" { // 用例统计
-				if targetInfo.Source == consts.TargetSourceNormal || targetInfo.Source == consts.TargetSourceAutoPlan {
+				if targetInfo.Source == consts.TargetSourceScene || targetInfo.Source == consts.TargetSourceAutoPlan {
 					if targetDataTime >= startTime && targetDataTime <= endTime {
 						caseStartTime := startTime
 						for i := 1; i <= 7; i++ {
@@ -494,8 +490,15 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 		}
 
 		// 查询调试日志
-		debugLog := tx.TargetDebugLog
-		debugLogList, err := debugLog.WithContext(ctx).Where(debugLog.TeamID.Eq(req.TeamID)).Find()
+		collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectTargetDebugLog)
+		cursor, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}})
+		debugLogList := make([]mao.TargetDebugLog, 0, 100)
+		if err == nil {
+			if err := cursor.All(ctx, &debugLogList); err != nil {
+				log.Logger.Error("调试日志数据获取失败")
+			}
+		}
+
 		debugStartTimeTmp := startTime
 		sevenDayDebugApiMap := make(map[string]int, len(debugLogList))
 		sevenDayDebugSceneMap := make(map[string]int, len(debugLogList))
@@ -510,7 +513,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 
 		for _, debugInfo := range debugLogList {
 			targetDataTime := debugInfo.CreatedAt.Unix()
-			if debugInfo.TargetType == 1 && targetDataTime >= startTime && targetDataTime <= endTime {
+			if debugInfo.TargetType == consts.TargetTypeAPI && targetDataTime >= startTime && targetDataTime <= endTime {
 				debugApiStartTime := startTime
 				for i := 1; i <= 7; i++ {
 					if targetDataTime >= debugApiStartTime && targetDataTime < debugApiStartTime+(24*3600) {
@@ -524,7 +527,7 @@ func HomePage(ctx *gin.Context, req *rao.HomePageReq) (*rao.HomePageResp, error)
 				}
 			}
 
-			if debugInfo.TargetType == 2 && targetDataTime >= startTime && targetDataTime <= endTime {
+			if debugInfo.TargetType == consts.TargetTypeScene && targetDataTime >= startTime && targetDataTime <= endTime {
 				debugSceneStartTime := startTime
 				for i := 1; i <= 7; i++ {
 					if targetDataTime >= debugSceneStartTime && targetDataTime < debugSceneStartTime+(24*3600) {

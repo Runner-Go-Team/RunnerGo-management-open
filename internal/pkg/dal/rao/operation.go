@@ -7,8 +7,8 @@ type ListOperationReq struct {
 }
 
 type ListOperationResp struct {
-	Operations []*Operation `json:"operations"`
-	Total      int64        `json:"total"`
+	Operations []Operation `json:"operations"`
+	Total      int64       `json:"total"`
 }
 
 type Operation struct {

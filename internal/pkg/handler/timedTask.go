@@ -2,12 +2,12 @@ package handler
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 	"golang.org/x/net/context"
 	"gorm.io/gen"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/model"
 	"time"
 )
 
@@ -20,7 +20,8 @@ func TimedTaskExec() {
 		conditions := make([]gen.Condition, 0)
 		conditions = append(conditions, tx.Status.Eq(consts.TimedTaskInExec))
 		// 从数据库当中，查出当前需要执行的定时任务
-		timedTaskData, err := tx.WithContext(ctx).Where(conditions...).Find()
+		timedTaskData, err := tx.WithContext(ctx).Where(conditions...).Select(tx.TeamID, tx.PlanID, tx.SceneID,
+			tx.Frequency, tx.TaskExecTime, tx.TaskCloseTime, tx.RunUserID).Find()
 
 		if err != nil {
 			log.Logger.Info("性能测试--定时任务查询数据库出错，err：", err)
@@ -28,11 +29,12 @@ func TimedTaskExec() {
 		}
 
 		if len(timedTaskData) == 0 {
+			// 睡眠一分钟，再循环执行
+			time.Sleep(60 * time.Second)
 			continue
 		}
 
 		// 当前时间的 时，分
-		// 当前时间
 		nowTime := time.Now().Unix()
 		nowTimeInfo := time.Unix(nowTime, 0)
 		nowYear := nowTimeInfo.Year()
@@ -57,9 +59,7 @@ func TimedTaskExec() {
 			// 排除过期的定时任务
 			if timedTaskInfo.TaskCloseTime < nowTime {
 				// 把当前定时任务状态变成未开始状态
-				_, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(timedTaskInfo.TeamID)).
-					Where(tx.PlanID.Eq(timedTaskInfo.PlanID)).
-					Where(tx.SceneID.Eq(timedTaskInfo.SceneID)).
+				_, err := tx.WithContext(ctx).Where(tx.PlanID.Eq(timedTaskInfo.PlanID), tx.SceneID.Eq(timedTaskInfo.SceneID)).
 					UpdateColumn(tx.Status, consts.TimedTaskWaitEnable)
 				if err != nil {
 					log.Logger.Info("定时任务过期状态修改失败，err：", err)
@@ -67,8 +67,7 @@ func TimedTaskExec() {
 
 				// 把当前定时计划的状态变成未运行
 				planTable := dal.GetQuery().StressPlan
-				_, err = planTable.WithContext(ctx).Where(planTable.TeamID.Eq(timedTaskInfo.TeamID)).
-					Where(planTable.PlanID.Eq(timedTaskInfo.PlanID)).
+				_, err = planTable.WithContext(ctx).Where(planTable.PlanID.Eq(timedTaskInfo.PlanID)).
 					UpdateColumn(planTable.Status, consts.PlanStatusNormal)
 				if err != nil {
 					log.Logger.Info("定时计划修改为未运行状态失败，err：", err)
@@ -84,7 +83,6 @@ func TimedTaskExec() {
 				if taskYear != nowYear || taskMonth != nowMonth || taskDay != nowDay || taskHour != nowHour || taskMinute != nowMinute {
 					continue
 				}
-				log.Logger.Info("定时任务--频次一次：通过可运行")
 			case 1: // 每天
 				// 比较当前时间是否等于定时任务的时间
 				if taskHour != nowHour || taskMinute != nowMinute {
@@ -118,7 +116,7 @@ func TimedTaskExec() {
 			}
 		}
 
-		//// 睡眠一分钟，再循环执行
+		// 睡眠一分钟，再循环执行
 		time.Sleep(60 * time.Second)
 	}
 }
@@ -130,13 +128,13 @@ func runTimedTask(ctx context.Context, timedTaskInfo *model.StressPlanTimedTaskC
 	runStressParams := RunStressReq{
 		PlanID:  timedTaskInfo.PlanID,
 		TeamID:  timedTaskInfo.TeamID,
-		UserID:  timedTaskInfo.UserID,
+		UserID:  timedTaskInfo.RunUserID,
 		SceneID: sceneIDs,
 		RunType: 2,
 	}
 	log.Logger.Info("定时任务--开始执行计划，参数：", runStressParams)
 	// 进入执行计划方法
-	_, runErr := RunStress(ctx, runStressParams)
+	_, _, runErr := RunStress(ctx, runStressParams)
 	log.Logger.Info("定时任务--执行结果，runErr：", runErr)
 	if runErr != nil {
 		return runErr

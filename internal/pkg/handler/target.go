@@ -1,12 +1,13 @@
 package handler
 
 import (
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/api"
-	"kp-management/internal/pkg/logic/target"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/api"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/target"
 
 	"github.com/gin-gonic/gin"
 )
@@ -59,18 +60,83 @@ func SaveTarget(ctx *gin.Context) {
 		return
 	}
 
-	targetID, err := api.Save(ctx, &req, jwt.GetUserIDByCtx(ctx))
-	if err != nil {
-		if err.Error() == "名称已存在" {
-			response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
-		} else {
-			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
-		}
+	targetID := req.TargetID
+	var err error
 
+	if req.TargetType == consts.TargetTypeSql { // sql
+		targetID, err = api.SaveSql(ctx, &req)
+		if err != nil {
+			if err.Error() == "名称已存在" {
+				response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+			} else {
+				response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+			}
+			return
+		}
+	} else if req.TargetType == consts.TargetTypeTcp { // tcp
+		targetID, err = api.SaveTcp(ctx, &req)
+		if err != nil {
+			if err.Error() == "名称已存在" {
+				response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+			} else {
+				response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+			}
+			return
+		}
+	} else if req.TargetType == consts.TargetTypeWebsocket { // websocket
+		targetID, err = api.SaveWebsocket(ctx, &req)
+		if err != nil {
+			if err.Error() == "名称已存在" {
+				response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+			} else {
+				response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+			}
+			return
+		}
+	} else if req.TargetType == consts.TargetTypeMQTT { // Mqtt
+		targetID, err = api.SaveMQTT(ctx, &req)
+		if err != nil {
+			if err.Error() == "名称已存在" {
+				response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+			} else {
+				response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+			}
+			return
+		}
+	} else if req.TargetType == consts.TargetTypeDubbo { // Dubbo
+		targetID, err = api.SaveDubbo(ctx, &req)
+		if err != nil {
+			if err.Error() == "名称已存在" {
+				response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+			} else {
+				response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+			}
+			return
+		}
+	} else { // api
+		targetID, err = api.Save(ctx, &req, jwt.GetUserIDByCtx(ctx))
+		if err != nil {
+			if err.Error() == "名称已存在" {
+				response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+			} else {
+				response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+			}
+			return
+		}
+	}
+
+	// 保存历史记录
+	historyRecordUuid, isSaveTag, err := target.SaveTargetHistoryRecord(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return
 	}
 
-	response.SuccessWithData(ctx, rao.SaveTargetResp{TargetID: targetID})
+	response.SuccessWithData(ctx, rao.SaveTargetResp{
+		TargetID:          targetID,
+		HistoryRecordUuid: historyRecordUuid,
+		IsSaveTag:         isSaveTag,
+	})
 	return
 }
 
@@ -99,8 +165,13 @@ func SortTarget(ctx *gin.Context) {
 		return
 	}
 
-	if err := target.SortTarget(ctx, &req); err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+	err := target.SortTarget(ctx, &req)
+	if err != nil {
+		if err.Error() == "存在重名，无法操作" {
+			response.ErrorWithMsg(ctx, errno.ErrTargetSortNameAlreadyExist, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
 		return
 	}
 
@@ -195,7 +266,7 @@ func ListFolderAPI(ctx *gin.Context) {
 		return
 	}
 
-	targets, err := target.ListFolderAPI(ctx, req.TeamID)
+	targets, err := target.ListFolderAPI(ctx, &req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return
@@ -235,13 +306,443 @@ func BatchGetTarget(ctx *gin.Context) {
 		return
 	}
 
-	targets, err := api.DetailByTargetIDs(ctx, req.TeamID, req.TargetIDs)
+	targets, err := api.DetailByTargetIDs(ctx, &req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return
 	}
 
 	response.SuccessWithData(ctx, rao.BatchGetDetailResp{
+		Targets: targets,
+	})
+	return
+}
+
+func GetSqlDatabaseList(ctx *gin.Context) {
+	var req rao.GetSqlDatabaseListReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	dbList, err := api.GetSqlDatabaseList(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, dbList)
+	return
+}
+
+func SendSql(ctx *gin.Context) {
+	var req rao.SendSqlReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := target.SendSql(ctx, &req)
+	if err != nil {
+		if err.Error() == "调试接口返回非200状态" {
+			response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
+		return
+	}
+
+	response.SuccessWithData(ctx, rao.SendSqlResp{RetID: retID})
+	return
+}
+
+func ConnectionDatabase(ctx *gin.Context) {
+	var req rao.ConnectionDatabaseReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	res, err := target.ConnectionDatabase(&req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+		return
+	}
+
+	response.SuccessWithData(ctx, res)
+	return
+}
+
+func GetSendSqlResult(ctx *gin.Context) {
+	var req rao.GetSendSqlResultReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	res, err, sqlErr := target.GetSendSqlResult(ctx, &req)
+	if err != nil {
+		if err.Error() == "sql执行失败" {
+			response.ErrorWithMsg(ctx, errno.ErrExecSqlErr, sqlErr)
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
+		}
+		return
+	}
+	response.SuccessWithData(ctx, res)
+	return
+}
+
+func SendTcp(ctx *gin.Context) {
+	var req rao.SendTcpReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := target.SendTcp(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, rao.SendTcpResp{
+		RetID: retID,
+	})
+	return
+}
+
+func GetSendTcpResult(ctx *gin.Context) {
+	var req rao.GetSendTcpResultReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	res, err := target.GetSendTcpResult(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsgAndData(ctx, errno.ErrMongoFailed, err.Error(), res)
+		return
+	}
+	response.SuccessWithData(ctx, res)
+	return
+}
+
+func TcpSendOrStopMessage(ctx *gin.Context) {
+	var req rao.TcpSendOrStopMessageReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := target.TcpSendOrStopMessage(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+	response.Success(ctx)
+	return
+}
+
+func SendWebsocket(ctx *gin.Context) {
+	var req rao.SendWebsocketReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := target.SendWebsocket(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, rao.SendTcpResp{
+		RetID: retID,
+	})
+	return
+}
+
+func GetSendWebsocketResult(ctx *gin.Context) {
+	var req rao.GetSendWebsocketResultReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	res, err := target.GetSendWebsocketResult(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsgAndData(ctx, errno.ErrMongoFailed, err.Error(), res)
+		return
+	}
+	response.SuccessWithData(ctx, res)
+	return
+}
+
+func WsSendOrStopMessage(ctx *gin.Context) {
+	var req rao.WsSendOrStopMessageReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	err := target.WsSendOrStopMessage(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMongoFailed, err.Error())
+		return
+	}
+	response.Success(ctx)
+	return
+}
+
+func SendDubbo(ctx *gin.Context) {
+	var req rao.SendDubboReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := target.SendDubbo(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, rao.SendTcpResp{
+		RetID: retID,
+	})
+	return
+}
+
+func GetSendDubboResult(ctx *gin.Context) {
+	var req rao.GetSendDubboResultReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	res, err := target.GetSendDubboResult(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsgAndData(ctx, errno.ErrMongoFailed, err.Error(), res)
+		return
+	}
+	response.SuccessWithData(ctx, res)
+	return
+}
+
+func SendMqtt(ctx *gin.Context) {
+	var req rao.SendMqttReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := target.SendMqtt(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, rao.SendTcpResp{
+		RetID: retID,
+	})
+	return
+}
+
+func GetSendMqttResult(ctx *gin.Context) {
+	var req rao.GetSendMqttResultReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	res, err := target.GetSendMqttResult(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsgAndData(ctx, errno.ErrMongoFailed, err.Error(), res)
+		return
+	}
+	response.SuccessWithData(ctx, res)
+	return
+}
+
+func JustSendTarget(ctx *gin.Context) {
+	var req rao.SaveTargetReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := target.JustSendTarget(ctx, &req)
+	if err != nil {
+		if err.Error() == "调试接口返回非200状态" {
+			response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
+		return
+	}
+
+	response.SuccessWithData(ctx, rao.SendTargetResp{RetID: retID})
+	return
+}
+
+func GetHistoryRecord(ctx *gin.Context) {
+	var req rao.GetHistoryRecordReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	res, err := target.GetHistoryRecord(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+
+	response.SuccessWithData(ctx, res)
+	return
+}
+
+func MarkTagVersion(ctx *gin.Context) {
+	var req rao.MarkTagVersionReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := target.MarkTagVersion(ctx, &req)
+	if err != nil {
+		if err.Error() == "名称已存在" {
+			response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+		} else if err.Error() == "已经打过tag版本" {
+			response.ErrorWithMsg(ctx, errno.ErrAlreadyMarkTag, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		}
+		return
+	}
+
+	response.Success(ctx)
+	return
+}
+
+func GetTagVersionList(ctx *gin.Context) {
+	var req rao.GetTagVersionListReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	list, err := target.GetTagVersionList(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+
+	response.SuccessWithData(ctx, list)
+	return
+}
+
+func UpdateTagVersion(ctx *gin.Context) {
+	var req rao.UpdateTagVersionReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := target.UpdateTagVersion(ctx, &req)
+	if err != nil {
+		if err.Error() == "名称已存在" {
+			response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
+		return
+	}
+
+	response.Success(ctx)
+	return
+}
+
+func DeleteTagVersion(ctx *gin.Context) {
+	var req rao.DeleteTagVersionReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := target.DeleteTagVersion(ctx, &req)
+	if err != nil {
+		if err.Error() == "名称已存在" {
+			response.ErrorWithMsg(ctx, errno.ErrApiNameAlreadyExist, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
+		return
+	}
+
+	response.Success(ctx)
+	return
+}
+
+func RestoreHistoryOrTag(ctx *gin.Context) {
+	var req rao.RestoreHistoryOrTagReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := target.RestoreHistoryOrTag(ctx, &req)
+	if err != nil {
+		if err.Error() == "名称已存在" {
+			response.ErrorWithMsg(ctx, errno.ErrNameAlreadyExist, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		}
+		return
+	}
+	response.Success(ctx)
+	return
+}
+
+func GetCanSyncData(ctx *gin.Context) {
+	var req rao.GetCanSyncDataReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	res, err := target.GetCanSyncData(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, res)
+	return
+}
+
+func ExecSyncData(ctx *gin.Context) {
+	var req rao.ExecSyncDataReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	err := target.ExecSyncData(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+		return
+	}
+	response.Success(ctx)
+	return
+}
+
+// ExportTarget 获取接口详情
+func ExportTarget(ctx *gin.Context) {
+	var req rao.ExportTargetReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	targets, err := api.ExportTarget(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+
+	response.SuccessWithData(ctx, rao.ExportTargetResp{
 		Targets: targets,
 	})
 	return

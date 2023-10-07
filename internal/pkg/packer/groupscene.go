@@ -1,8 +1,8 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func TransTargetsToRaoGroupSceneList(targets []*model.Target) []*rao.GroupScene {
@@ -21,6 +21,8 @@ func TransTargetsToRaoGroupSceneList(targets []*model.Target) []*rao.GroupScene 
 			CreatedUserID: t.CreatedUserID,
 			RecentUserID:  t.RecentUserID,
 			Description:   t.Description,
+			Source:        t.Source,
+			IsDisabled:    t.IsDisabled,
 		})
 	}
 	return ret

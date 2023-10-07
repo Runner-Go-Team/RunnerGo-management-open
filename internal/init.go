@@ -1,11 +1,11 @@
 package internal
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/proof"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
 	"go.uber.org/zap"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/proof"
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal"
 )
 
 func InitProjects(readConfMode int, configFile string) {
@@ -25,6 +25,7 @@ func InitProjects(readConfMode int, configFile string) {
 	dal.MustInitRedis()
 	dal.MustInitRedisForReport()
 	dal.MustInitBigCache()
+	_ = dal.InitTrans("zh")
 	// 初始化logger
 	zap.S().Debug("初始化logger")
 	log.InitLogger()

@@ -3,26 +3,27 @@ package autoPlan
 import (
 	"context"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/mao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/runner"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/notice"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/public"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gorm.io/gen"
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/biz/mail"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/mao"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
 	"math"
 	"strconv"
 	"strings"
@@ -87,7 +88,7 @@ func SaveAutoPlan(ctx *gin.Context, req *rao.SaveAutoPlanReq) (string, int, erro
 			return err
 		}
 
-		if err := record.InsertDelete(ctx, req.TeamID, userID, record.OperationOperateCreatePlan, req.PlanName); err != nil {
+		if err := record.InsertCreate(ctx, req.TeamID, userID, record.OperationOperateCreatePlan, req.PlanName); err != nil {
 			return err
 		}
 		return nil
@@ -121,32 +122,25 @@ func GetAutoPlanList(ctx *gin.Context, req *rao.GetAutoPlanListReq) ([]*rao.Auto
 	}
 
 	conditions := make([]gen.Condition, 0)
-	conditions = append(conditions, tx.TeamID.Eq(req.TeamId))
+	conditions = append(conditions, tx.TeamID.Eq(req.TeamID))
 
 	if req.PlanName != "" {
-		conditions = append(conditions, tx.PlanName.Like(fmt.Sprintf("%%%s%%", req.PlanName)))
-		// 先查询出来用户id
-		userTable := dal.GetQuery().User
-		userList, err := userTable.WithContext(ctx).Where(userTable.Nickname.Like(fmt.Sprintf("%%%s%%", req.PlanName))).Find()
-		if err == nil {
-			tempUserIDs := make([]string, 0, len(userList))
-			for _, userInfo := range userList {
-				tempUserIDs = append(tempUserIDs, userInfo.UserID)
-			}
+		planIDs := make([]string, 0, req.Size)
 
-			// 查询属于当前团队的用户
-			userTeamTable := dal.GetQuery().UserTeam
-			userTeamList, err := userTeamTable.WithContext(ctx).Where(userTeamTable.TeamID.Eq(req.TeamId),
-				userTeamTable.UserID.In(tempUserIDs...)).Find()
-			if err == nil {
-				userIDs := make([]string, 0, len(userList))
-				for _, vutInfo := range userTeamList {
-					userIDs = append(userIDs, vutInfo.UserID)
-				}
-				if len(userIDs) > 0 {
-					conditions[1] = tx.RunUserID.In(userIDs...)
-				}
-			}
+		planIDs1, err := KeywordFindPlanForPlanName(ctx, req.TeamID, req.PlanName)
+		if err == nil {
+			planIDs = append(planIDs, planIDs1...)
+		}
+
+		planIDs2, err := KeywordFindPlanForUserName(ctx, req.TeamID, req.PlanName)
+		if err == nil {
+			planIDs = append(planIDs, planIDs2...)
+		}
+
+		if len(planIDs) > 0 {
+			conditions = append(conditions, tx.PlanID.In(planIDs...))
+		} else {
+			conditions = append(conditions, tx.PlanID.In(""))
 		}
 	}
 
@@ -204,6 +198,41 @@ func GetAutoPlanList(ctx *gin.Context, req *rao.GetAutoPlanListReq) ([]*rao.Auto
 		res = append(res, detailTmp)
 	}
 	return res, total, nil
+}
+
+func KeywordFindPlanForPlanName(ctx context.Context, teamID string, keyword string) ([]string, error) {
+	planIDs := make([]string, 0, 100)
+
+	p := dal.GetQuery().AutoPlan
+	err := p.WithContext(ctx).Where(p.TeamID.Eq(teamID), p.PlanName.Like(fmt.Sprintf("%%%s%%", keyword))).Pluck(p.PlanID, &planIDs)
+	if err != nil {
+		return planIDs, err
+	}
+
+	return planIDs, nil
+}
+
+func KeywordFindPlanForUserName(ctx context.Context, teamID string, keyword string) ([]string, error) {
+	userIDs := make([]string, 0, 100)
+
+	u := dal.GetQuery().User
+	err := u.WithContext(ctx).Where(u.Nickname.Like(fmt.Sprintf("%%%s%%", keyword))).Pluck(u.UserID, &userIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(userIDs) == 0 {
+		return nil, fmt.Errorf("没有查到任何用户信息")
+	}
+
+	planIDs := make([]string, 0, 100)
+	ap := dal.GetQuery().AutoPlan
+	err = ap.WithContext(ctx).Where(ap.TeamID.Eq(teamID), ap.RunUserID.In(userIDs...)).Pluck(ap.PlanID, &planIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return planIDs, nil
 }
 
 func DeleteAutoPlan(ctx *gin.Context, req *rao.DeleteAutoPlanReq) error {
@@ -381,6 +410,11 @@ func CopyAutoPlan(ctx *gin.Context, req *rao.CopyAutoPlanReq) error {
 			newPlanName = oldPlanName + fmt.Sprintf("_%d", maxNum+1)
 		}
 
+		nameLength := public.GetStringNum(newPlanName)
+		if nameLength > 30 { // 场景名称限制30个字符
+			return fmt.Errorf("名称过长！不可超出30字符")
+		}
+
 		// 查询当前团队内的计划最大
 		var rankID int64 = 1
 		autoPlanInfo, err := autoPlanTable.WithContext(ctx).Where(autoPlanTable.TeamID.Eq(req.TeamID)).Order(autoPlanTable.RankID.Desc()).Limit(1).First()
@@ -412,7 +446,7 @@ func CopyAutoPlan(ctx *gin.Context, req *rao.CopyAutoPlanReq) error {
 		targetTable := tx.Target
 		oldTargetList, err := targetTable.WithContext(ctx).Where(targetTable.TeamID.Eq(req.TeamID),
 			targetTable.PlanID.Eq(req.PlanID), targetTable.Source.Eq(consts.TargetSourceAutoPlan),
-			targetTable.Status.Eq(consts.TargetStatusNormal), targetTable.TargetType.In(consts.TargetTypeScene, consts.TargetTypeGroup),
+			targetTable.Status.Eq(consts.TargetStatusNormal), targetTable.TargetType.In(consts.TargetTypeScene, consts.TargetTypeFolder),
 		).Order(targetTable.ParentID).Find()
 
 		oldSceneIDs := make([]string, 0, len(oldTargetList))
@@ -445,7 +479,7 @@ func CopyAutoPlan(ctx *gin.Context, req *rao.CopyAutoPlanReq) error {
 
 		// 复制场景详情flow
 		for _, oldSceneID := range oldSceneIDs {
-			var flow mao.Flow
+			flow := mao.Flow{}
 			c1 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
 			err = c1.FindOne(ctx, bson.D{{"scene_id", oldSceneID}}).Decode(&flow)
 			if err == nil {
@@ -514,16 +548,19 @@ func CopyAutoPlan(ctx *gin.Context, req *rao.CopyAutoPlanReq) error {
 		}
 
 		// 克隆场景变量
-		variableTable := tx.Variable
-		variableList, err := variableTable.WithContext(ctx).Where(variableTable.SceneID.In(oldSceneIDs...)).Find()
-		if err == nil {
-			for _, variableInfo := range variableList {
-				variableInfo.ID = 0
-				variableInfo.SceneID = sceneIDOldNewMap[variableInfo.SceneID]
-				variableInfo.CreatedAt = time.Now()
-				variableInfo.UpdatedAt = time.Now()
-				if err := tx.Variable.WithContext(ctx).Create(variableInfo); err != nil {
-					return err
+		for _, oldSceneID := range oldSceneIDs {
+			collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+			cur, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}, {"scene_id", oldSceneID}})
+			var sceneParamDataArr []*mao.SceneParamData
+			if err == nil {
+				if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+					return fmt.Errorf("场景参数数据获取失败")
+				}
+				for _, sv := range sceneParamDataArr {
+					sv.SceneID = sceneIDOldNewMap[oldSceneID]
+					if _, err := collection.InsertOne(ctx, sv); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -849,7 +886,7 @@ func SaveTaskConf(ctx *gin.Context, req *rao.SaveTaskConfReq) error {
 			}
 		}
 
-		// 修改计划状态
+		// 修改计划类型
 		_, err := tx.AutoPlan.WithContext(ctx).Where(tx.AutoPlan.TeamID.Eq(req.TeamID), tx.AutoPlan.PlanID.Eq(req.PlanID)).UpdateSimple(tx.AutoPlan.TaskType.Value(req.TaskType))
 		if err != nil {
 			return err
@@ -1003,6 +1040,7 @@ func GetAutoPlanReportList(ctx *gin.Context, req *rao.GetAutoPlanReportListReq) 
 		detailTmp := &rao.GetAutoPlanReportList{
 			RankID:           detail.RankID,
 			ReportID:         detail.ReportID,
+			ReportName:       detail.ReportName,
 			PlanID:           detail.PlanID,
 			TeamID:           detail.TeamID,
 			PlanName:         detail.PlanName,
@@ -1037,14 +1075,14 @@ func BatchDeleteAutoPlanReport(ctx *gin.Context, req *rao.BatchDeleteAutoPlanRep
 
 		// 获取所有用例运行结果
 		collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAutoReport)
-		_, err = collection.DeleteMany(ctx, bson.D{{"team_id", req.TeamID}, {"report_id", bson.D{{"$in", reportStringSLice}}}})
+		_, err = collection.DeleteMany(ctx, bson.D{{"report_id", bson.D{{"$in", reportStringSLice}}}})
 		if err != nil {
 			return err
 		}
 
 		// 获取所有用例运行结果
 		collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAutoReportDetailData)
-		_, err = collection.DeleteMany(ctx, bson.D{{"team_id", req.TeamID}, {"report_id", bson.D{{"$in", reportStringSLice}}}})
+		_, err = collection.DeleteMany(ctx, bson.D{{"report_id", bson.D{{"$in", reportStringSLice}}}})
 		if err != nil {
 			return err
 		}
@@ -1109,6 +1147,11 @@ func CloneAutoPlanScene(ctx *gin.Context, req *rao.CloneAutoPlanSceneReq) error 
 			newSceneName = oldSceneName + fmt.Sprintf("_%d", maxNum+1)
 		}
 
+		nameLength := public.GetStringNum(newSceneName)
+		if nameLength > 30 { // 场景名称限制30个字符
+			return fmt.Errorf("名称过长！不可超出30字符")
+		}
+
 		// 组装新场景基本信息数据
 		oldSceneInfo.ID = 0
 		oldSceneInfo.TargetID = uuid.GetUUID()
@@ -1127,15 +1170,17 @@ func CloneAutoPlanScene(ctx *gin.Context, req *rao.CloneAutoPlanSceneReq) error 
 		// 新的场景ID
 		newSceneID := oldSceneInfo.TargetID
 
-		// 2、克隆场景变量
-		variableList, err := tx.Variable.WithContext(ctx).Where(tx.Variable.SceneID.Eq(req.SceneID)).Find()
+		// 获取场景变量
+		collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneParam)
+		cur, err := collection.Find(ctx, bson.D{{"team_id", req.TeamID}, {"scene_id", req.SceneID}})
+		var sceneParamDataArr []*mao.SceneParamData
 		if err == nil {
-			for _, variable := range variableList {
-				variable.ID = 0
-				variable.SceneID = newSceneID
-				variable.CreatedAt = time.Now()
-				variable.UpdatedAt = time.Now()
-				if err := tx.Variable.WithContext(ctx).Create(variable); err != nil {
+			if err := cur.All(ctx, &sceneParamDataArr); err != nil {
+				return fmt.Errorf("场景参数数据获取失败")
+			}
+			for _, sv := range sceneParamDataArr {
+				sv.SceneID = newSceneID
+				if _, err := collection.InsertOne(ctx, sv); err != nil {
 					return err
 				}
 			}
@@ -1156,7 +1201,7 @@ func CloneAutoPlanScene(ctx *gin.Context, req *rao.CloneAutoPlanSceneReq) error 
 		}
 
 		// 4、克隆流程
-		var flow mao.Flow
+		flow := mao.Flow{}
 		c1 := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectFlow)
 		err = c1.FindOne(ctx, bson.D{{"scene_id", req.SceneID}}).Decode(&flow)
 		if err == nil {
@@ -1173,7 +1218,7 @@ func CloneAutoPlanScene(ctx *gin.Context, req *rao.CloneAutoPlanSceneReq) error 
 		}
 
 		// 场景管理和自动化测试复制测试用例
-		if req.Source == consts.TargetSourceNormal || req.Source == consts.TargetSourceAutoPlan {
+		if req.Source == consts.TargetSourceScene || req.Source == consts.TargetSourceAutoPlan {
 			// 7、克隆测试用例
 			testCaseList, err := targetTable.WithContext(ctx).Where(targetTable.ParentID.Eq(req.SceneID), targetTable.TargetType.Eq(consts.TargetTypeTestCase)).Find()
 			if err == nil && len(testCaseList) > 0 {
@@ -1319,40 +1364,68 @@ func NotifyRunFinish(ctx *gin.Context, req *rao.NotifyRunFinishReq) error {
 			return err
 		}
 
-		// 发邮件
-		rx := dal.GetQuery().AutoPlanReport
-		reportInfo, err := rx.WithContext(ctx).Where(rx.TeamID.Eq(req.TeamID), rx.PlanID.Eq(req.PlanID)).Order(rx.CreatedAt.Desc()).First()
-		if err != nil {
-			return err
+		// 发送通知
+		noticeGroupIDs := make([]string, 0)
+		nge := dal.GetQuery().ThirdNoticeGroupEvent
+		if err := nge.WithContext(ctx).Where(
+			nge.TeamID.Eq(req.TeamID),
+			nge.PlanID.Eq(req.PlanID),
+			nge.EventID.Eq(consts.NoticeEventAuthPlan)).Pluck(nge.GroupID, &noticeGroupIDs); err != nil {
+			log.Logger.Error("NotifyRunFinish--query noticeGroupIDs err:", err)
 		}
-
-		autoPlanInfo, err := tx.AutoPlan.WithContext(ctx).Where(tx.AutoPlan.TeamID.Eq(req.TeamID), tx.AutoPlan.PlanID.Eq(req.PlanID)).First()
-		if err != nil {
-			return err
-		}
-
-		emails, err := tx.AutoPlanEmail.WithContext(ctx).Where(tx.AutoPlanEmail.TeamID.Eq(req.TeamID),
-			tx.AutoPlanEmail.PlanID.Eq(req.PlanID)).Find()
-		if err == nil && len(emails) > 0 {
-			ttx := dal.GetQuery().Team
-			teamInfo, err := ttx.WithContext(ctx).Where(ttx.TeamID.Eq(req.TeamID)).First()
-			if err != nil {
-				return err
+		if len(noticeGroupIDs) > 0 {
+			var reportIDs = make([]string, 0, 1)
+			sendNoticeReq := &rao.SendNoticeParams{
+				EventID:        consts.NoticeEventAuthPlan,
+				TeamID:         req.TeamID,
+				ReportIDs:      append(reportIDs, req.ReportID),
+				NoticeGroupIDs: noticeGroupIDs,
 			}
-
-			ux := dal.GetQuery().User
-			user, err := ux.WithContext(ctx).Where(ux.UserID.Eq(reportInfo.RunUserID)).First()
+			params, err := notice.GetSendCardParamsByReq(ctx, sendNoticeReq)
 			if err != nil {
-				return err
+				log.Logger.Error("NotifyRunFinish--GetSendCardParamsByReq err:", err)
 			}
-
-			for _, email := range emails {
-				if err := mail.SendAutoPlanEmail(email.Email, autoPlanInfo, teamInfo, user.Nickname, reportInfo.ReportID); err != nil {
-					log.Logger.Info("自动化计划回调--发送邮件失败")
-					//return err
+			for _, groupID := range noticeGroupIDs {
+				if err := notice.SendNoticeByGroup(ctx, groupID, params); err != nil {
+					log.Logger.Error("NotifyRunFinish--SendNoticeByGroup err:", err)
 				}
 			}
 		}
+
+		// 发邮件
+		//rx := dal.GetQuery().AutoPlanReport
+		//reportInfo, err := rx.WithContext(ctx).Where(rx.TeamID.Eq(req.TeamID), rx.PlanID.Eq(req.PlanID)).Order(rx.CreatedAt.Desc()).First()
+		//if err != nil {
+		//	return err
+		//}
+		//
+		//autoPlanInfo, err := tx.AutoPlan.WithContext(ctx).Where(tx.AutoPlan.TeamID.Eq(req.TeamID), tx.AutoPlan.PlanID.Eq(req.PlanID)).First()
+		//if err != nil {
+		//	return err
+		//}
+		//
+		//emails, err := tx.AutoPlanEmail.WithContext(ctx).Where(tx.AutoPlanEmail.TeamID.Eq(req.TeamID),
+		//	tx.AutoPlanEmail.PlanID.Eq(req.PlanID)).Find()
+		//if err == nil && len(emails) > 0 {
+		//	ttx := dal.GetQuery().Team
+		//	teamInfo, err := ttx.WithContext(ctx).Where(ttx.TeamID.Eq(req.TeamID)).First()
+		//	if err != nil {
+		//		return err
+		//	}
+		//
+		//	ux := dal.GetQuery().User
+		//	user, err := ux.WithContext(ctx).Where(ux.UserID.Eq(reportInfo.RunUserID)).First()
+		//	if err != nil {
+		//		return err
+		//	}
+		//
+		//	for _, email := range emails {
+		//		if err := mail.SendAutoPlanEmail(email.Email, autoPlanInfo, teamInfo, user.Nickname, reportInfo.ReportID); err != nil {
+		//			log.Logger.Info("自动化计划回调--发送邮件失败")
+		//			//return err
+		//		}
+		//	}
+		//}
 
 		return nil
 	})
@@ -1414,7 +1487,7 @@ func StopAutoPlan(ctx *gin.Context, req *rao.StopAutoPlanReq) error {
 	return err
 }
 
-func GetAutoPlanReportDetail(ctx *gin.Context, req *rao.GetAutoPlanReportDetailReq) (*GetReportDetailResp, error) {
+func GetAutoPlanReportDetail(ctx *gin.Context, req *rao.GetAutoPlanReportDetailReq) (*rao.GetReportDetailResp, error) {
 	// 查询当前团队是否解散或删除
 	teamTable := dal.GetQuery().Team
 	_, err := teamTable.WithContext(ctx).Where(teamTable.TeamID.Eq(req.TeamID)).First()
@@ -1441,96 +1514,17 @@ func GetAutoPlanReportDetail(ctx *gin.Context, req *rao.GetAutoPlanReportDetailR
 		return nil, fmt.Errorf("计划正在运行中")
 	}
 
-	var res GetReportDetailResp
+	var res rao.GetReportDetailResp
 	err = bson.Unmarshal(reportDetailData.ReportDetailData, &res)
 	if err != nil {
 		return nil, err
 	}
+	res.ReportName = reportInfo.ReportName
+	res.PlanID = reportInfo.PlanID
 	return &res, nil
 }
 
-type TestCaseResult struct {
-	CaseName   string    `json:"case_name" bson:"case_name"`
-	SucceedNum int64     `json:"succeed_num" bson:"succeed_num"`
-	TotalNum   int64     `json:"total_num" bson:"total_num"`
-	ApiList    []ApiList `json:"api_list" bson:"api_list"`
-}
-type ApiList struct {
-	EventID        string         `json:"event_id" bson:"event_id"`
-	ApiName        string         `json:"api_name" bson:"api_name"`
-	Method         string         `json:"method" bson:"method"`
-	Url            string         `json:"url" bson:"url"`
-	Status         string         `json:"status" bson:"status"`
-	ResponseBytes  float64        `json:"response_bytes" bson:"response_bytes"`
-	RequestTime    int64          `json:"request_time" bson:"request_time"`
-	RequestCode    int32          `json:"request_code" bson:"request_code"`
-	RequestHeader  string         `json:"request_header" bson:"request_header"`
-	RequestBody    string         `json:"request_body" bson:"request_body"`
-	ResponseHeader string         `json:"response_header" bson:"response_header"`
-	ResponseBody   string         `json:"response_body" bson:"response_body"`
-	AssertionMsg   []AssertionMsg `json:"assertion_msg" bson:"assertion_msg"`
-}
-
-type AssertionMsg struct {
-	Type      string `json:"type"`
-	Code      int64  `json:"code" bson:"code"`
-	IsSucceed bool   `json:"isSucceed" bson:"isSucceed"`
-	Msg       string `json:"msg" bson:"msg"`
-}
-
-// SceneResult 场景结果
-type SceneResult struct {
-	SceneID      string `json:"scene_id" bson:"scene_id"`
-	SceneName    string `json:"scene_name" bson:"scene_name"`
-	CaseFailNum  int    `json:"case_fail_num" bson:"case_fail_num"`
-	CaseTotalNum int    `json:"case_total_num" bson:"case_total_num"`
-	State        int    `json:"state" bson:"state"` // 1-成功，2-失败
-}
-
-// GetReportDetailResp 获取报告详情返回值
-type GetReportDetailResp struct {
-	PlanName             string                      `json:"plan_name" bson:"plan_name"`
-	Avatar               string                      `json:"avatar" bson:"avatar"`
-	Nickname             string                      `json:"nickname" bson:"nickname"`
-	Remark               string                      `json:"remark" bson:"remark"`
-	TaskMode             int32                       `json:"task_mode" bson:"task_mode"`
-	SceneRunOrder        int32                       `json:"scene_run_order" bson:"scene_run_order"`
-	TestCaseRunOrder     int32                       `json:"test_case_run_order" bson:"test_case_run_order"`
-	ReportStatus         int32                       `json:"report_status" bson:"report_status"`
-	ReportStartTime      int64                       `json:"report_start_time" bson:"report_start_time"`
-	ReportEndTime        int64                       `json:"report_end_time" bson:"report_end_time"`
-	ReportRunTime        int64                       `json:"report_run_time" bson:"report_run_time"`
-	SceneBaseInfo        SceneBaseInfo               `json:"scene_base_info" bson:"scene_base_info"`
-	CaseBaseInfo         CaseBaseInfo                `json:"case_base_info" bson:"case_base_info"`
-	ApiBaseInfo          ApiBaseInfo                 `json:"api_base_info" bson:"api_base_info"`
-	AssertionBaseInfo    AssertionBaseInfo           `json:"assertion_base_info" bson:"assertion_base_info"`
-	SceneResult          []SceneResult               `json:"scene_result" bson:"scene_result"`
-	SceneIDCaseResultMap map[string][]TestCaseResult `json:"scene_id_case_result_map" bson:"scene_id_case_result_map"`
-}
-type AssertionBaseInfo struct {
-	AssertionTotalNum int64 `json:"assertion_total_num" bson:"assertion_total_num"`
-	SucceedNum        int64 `json:"succeed_num" bson:"succeed_num"`
-	FailNum           int64 `json:"fail_num" bson:"fail_num"`
-}
-
-type ApiBaseInfo struct {
-	ApiTotalNum int64 `json:"api_total_num" bson:"api_total_num"`
-	SucceedNum  int64 `json:"succeed_num" bson:"succeed_num"`
-	FailNum     int64 `json:"fail_num" bson:"fail_num"`
-	NotTestNum  int64 `json:"not_test_num" bson:"not_test_num"`
-}
-
-type CaseBaseInfo struct {
-	CaseTotalNum int64 `json:"case_total_num" bson:"case_total_num"`
-	SucceedNum   int64 `json:"succeed_num" bson:"succeed_num"`
-	FailNum      int64 `json:"fail_num" bson:"fail_num"`
-}
-
-type SceneBaseInfo struct {
-	SceneTotalNum int64 `json:"scene_total_num" bson:"scene_total_num"`
-}
-
-func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDetailReq) (*GetReportDetailResp, error) {
+func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDetailReq) (*rao.GetReportDetailResp, error) {
 	// 查询报告基本信息
 	tx := dal.GetQuery()
 	reportInfo, err := tx.AutoPlanReport.WithContext(ctx).Where(tx.AutoPlanReport.TeamID.Eq(req.TeamID),
@@ -1547,7 +1541,8 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 
 	// 查询当前计划下的所有场景信息
 	sceneList, err := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID),
-		tx.Target.PlanID.Eq(reportInfo.PlanID), tx.Target.TargetType.Eq(consts.TargetTypeScene), tx.Target.Source.Eq(consts.TargetSourceAutoPlan)).Find()
+		tx.Target.PlanID.Eq(reportInfo.PlanID), tx.Target.TargetType.Eq(consts.TargetTypeScene),
+		tx.Target.Source.Eq(consts.TargetSourceAutoPlan), tx.Target.IsDisabled.Eq(consts.TargetIsDisabledNo)).Find()
 	if err != nil {
 		return nil, err
 	}
@@ -1560,7 +1555,8 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 	//查询当前计划下所有场景用例
 	testCaseList, err := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID),
 		tx.Target.PlanID.Eq(reportInfo.PlanID), tx.Target.TargetType.Eq(consts.TargetTypeTestCase),
-		tx.Target.Source.Eq(consts.TargetSourceAutoPlan), tx.Target.IsChecked.Eq(consts.TargetIsCheckedOpen)).Find()
+		tx.Target.Source.Eq(consts.TargetSourceAutoPlan), tx.Target.IsChecked.Eq(consts.TargetIsCheckedOpen),
+		tx.Target.ParentID.In(allSceneIDs...)).Find()
 	if err != nil {
 		return nil, err
 	}
@@ -1587,11 +1583,12 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 	// 获取运行的结果数据
 	// 获取所有用例运行结果
 	collection = dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectAutoReport)
-	cur, err = collection.Find(ctx, bson.D{{"case_id", bson.D{{"$in", allCaseIDs}}}, {"report_id", req.ReportID}, {"type", "api"}})
+	cur, err = collection.Find(ctx, bson.D{{"case_id", bson.D{{"$in", allCaseIDs}}},
+		{"report_id", req.ReportID}, {"request_type", "api"}})
 	if err != nil {
 		return nil, fmt.Errorf("获取所有运行用例结果数据为空")
 	}
-	var sceneCaseReport []map[string]interface{}
+	sceneCaseReport := make([]mao.DebugMsg, 0, len(allCaseIDs))
 	if err := cur.All(ctx, &sceneCaseReport); err != nil {
 		return nil, fmt.Errorf("获取所有运行用例结果数据失败")
 	}
@@ -1610,48 +1607,52 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 	sceneFailMap := make(map[string]string) // [sceneID]caseID
 
 	// 组装event_id与接口运行结果映射
-	eventApiMap := make(map[string]map[string]interface{})
+	eventApiMap := make(map[string]mao.DebugMsg)
 
 	caseApiTotalNumMap := make(map[string]int)   // 某个用例的接口总数
 	caseApiSucceedNumMap := make(map[string]int) // 某个用例的接口成功数
 
+	// event_id与对应用例id的映射
+	eventIDCaseIDMap := make(map[string]string, len(sceneCaseReport))
+	eventIDTargetIDMap := make(map[string]string, len(sceneCaseReport))
+
 	for _, caseReportDetail := range sceneCaseReport {
 		// 统计排除控制器
-		apiName := caseReportDetail["type"].(string)
-		if apiName != "api" { // 非接口不参与统计
+		requestType := caseReportDetail.RequestType
+		if requestType != "api" { // 非接口不参与统计
 			continue
 		}
 
 		apiTotalNum++ // 统计所有的接口数
 
-		caseID := caseReportDetail["case_id"].(string)
-		parentID := caseReportDetail["parent_id"].(string)
-		eventID := caseReportDetail["event_id"].(string)
+		caseID := caseReportDetail.CaseId
+		parentID := caseReportDetail.ParentId
+		eventID := caseReportDetail.EventId
+		targetID := caseReportDetail.ApiId
+		eventIDCaseIDMap[eventID] = caseID
+
+		// 获取target_id
+		eventIDTargetIDMap[eventID] = targetID
+
 		// 统计断言总数
-		if assertionNum, ok := caseReportDetail["assertion_num"]; ok {
-			assertionTotalNum = assertionTotalNum + assertionNum.(int32)
-		}
+		assertionTotalNum = assertionTotalNum + int32(caseReportDetail.AssertNum)
 
 		// 统计失败断言总数
-		if assertionFailedNum, ok := caseReportDetail["assertion_failed_num"]; ok {
-			assertionFailNum = assertionFailNum + assertionFailedNum.(int32)
-		}
+		assertionFailNum = assertionFailNum + int32(caseReportDetail.AssertFailedNum)
 
-		if caseReportDetail["status"] == "success" {
+		if caseReportDetail.Status == "success" {
 			apiSucceedNum++
 			caseApiSucceedNumMap[caseID]++
 		}
 
-		var assertionFailedNum int32 = 0
-		if _, ok := caseReportDetail["assertion_failed_num"]; ok {
-			assertionFailedNum = caseReportDetail["assertion_failed_num"].(int32)
-		}
-		if caseReportDetail["status"] == "failed" || assertionFailedNum > 0 {
+		assertionFailedNum := int32(caseReportDetail.AssertFailedNum)
+
+		if caseReportDetail.Status == "failed" || assertionFailedNum > 0 {
 			apiFailNum++
 			failCaseMap[caseID]++
 			sceneFailMap[parentID] = caseID
 		}
-		if caseReportDetail["status"] == "not_run" {
+		if caseReportDetail.Status == "not_run" {
 			apiNotRunNum++
 		}
 
@@ -1668,9 +1669,9 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 	assertionSucceedNum := assertionTotalNum - assertionFailNum
 
 	// 统计场景结果数据
-	sceneResultSlice := make([]SceneResult, 0, len(sceneList))
+	sceneResultSlice := make([]rao.SceneResult, 0, len(sceneList))
 	for _, sceneInfo := range sceneList {
-		tempData := SceneResult{
+		tempData := rao.SceneResult{
 			SceneID:      sceneInfo.TargetID,
 			SceneName:    sceneInfo.Name,
 			CaseTotalNum: len(sceneCaseMap[sceneInfo.TargetID]),
@@ -1694,7 +1695,7 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 	}
 
 	// 用例id和所有接口的映射
-	caseIDApiMap := make(map[string][]ApiList)
+	caseIDApiMap := make(map[string][]rao.ApiList)
 	for _, sceneCaseFlowInfo := range sceneCaseFlows {
 		var Nodes *mao.SceneCaseFlowNode
 		if err := bson.Unmarshal(sceneCaseFlowInfo.Nodes, &Nodes); err != nil {
@@ -1702,75 +1703,77 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 		}
 
 		for _, apiInfo := range Nodes.Nodes {
-			if apiInfo.Type != "api" {
-				continue
-			}
-			tempData := ApiList{
-				EventID: apiInfo.ID,
-			}
+			if apiInfo.IsDisabled == consts.TargetIsDisabledNo {
+				if apiInfo.Type != "api" {
+					continue
+				}
+				tempData := rao.ApiList{
+					EventID: apiInfo.ID,
+				}
 
-			if apiInfo.API != nil {
 				tempData.ApiName = apiInfo.API.Name
 				tempData.Method = apiInfo.API.Method
-			}
-
-			if _, ok := eventApiMap[apiInfo.ID]; ok {
-				if temp, ok := eventApiMap[apiInfo.ID]["request_url"]; ok {
-					tempData.Url = temp.(string)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["status"]; ok {
-					tempData.Status = temp.(string)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["response_bytes"]; ok {
-					tempData.ResponseBytes = temp.(float64)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["request_time"]; ok {
-					tempData.RequestTime = temp.(int64)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["request_code"]; ok {
-					tempData.RequestCode = temp.(int32)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["request_header"]; ok {
-					tempData.RequestHeader = temp.(string)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["request_body"]; ok {
-					tempData.RequestBody = temp.(string)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["response_header"]; ok {
-					tempData.ResponseHeader = temp.(string)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["response_body"]; ok {
-					tempData.ResponseBody = temp.(string)
-				}
-				if temp, ok := eventApiMap[apiInfo.ID]["assertion"]; ok {
-					log.Logger.Info("日志快照--断言数据", temp)
-					if temp != nil {
-						for _, v := range temp.(primitive.A) {
-							if str, ok := v.(map[string]interface{}); ok {
-								tempAssertion := AssertionMsg{
-									Type:      str["type"].(string),
-									Code:      str["code"].(int64),
-									IsSucceed: str["isSucceed"].(bool),
-									Msg:       str["msg"].(string),
-								}
-								tempData.AssertionMsg = append(tempData.AssertionMsg, tempAssertion)
+				tempData.CaseID = eventIDCaseIDMap[apiInfo.ID]
+				tempData.TargetID = eventIDTargetIDMap[apiInfo.ID]
+				if _, ok := eventApiMap[apiInfo.ID]; ok {
+					tempData.Url = eventApiMap[apiInfo.ID].RequestUrl
+					tempData.Status = eventApiMap[apiInfo.ID].Status
+					tempData.ResponseBytes = eventApiMap[apiInfo.ID].ResponseBytes
+					tempData.RequestTime = int64(eventApiMap[apiInfo.ID].RequestTime)
+					tempData.RequestCode = int32(eventApiMap[apiInfo.ID].RequestCode)
+					tempData.RequestHeader = eventApiMap[apiInfo.ID].RequestHeader
+					tempData.RequestBody = eventApiMap[apiInfo.ID].RequestBody
+					tempData.ResponseHeader = eventApiMap[apiInfo.ID].ResponseHeader
+					tempData.ResponseBody = eventApiMap[apiInfo.ID].ResponseBody
+					assertionArr := make([]rao.AssertionMsg, 0, len(eventApiMap[apiInfo.ID].Assert.AssertionMsgs))
+					tempData.AssertionMsg = rao.AssertObj{
+						AssertionMsgs: assertionArr,
+					}
+					if len(eventApiMap[apiInfo.ID].Assert.AssertionMsgs) > 0 {
+						for _, v := range eventApiMap[apiInfo.ID].Assert.AssertionMsgs {
+							tempAssertion := rao.AssertionMsg{
+								Type:      v.Type,
+								Code:      v.Code,
+								IsSucceed: v.IsSucceed,
+								Msg:       v.Msg,
 							}
+							assertionArr = append(assertionArr, tempAssertion)
+						}
+						tempData.AssertionMsg = rao.AssertObj{
+							AssertionMsgs: assertionArr,
+						}
+					}
+
+					regexArr := make([]rao.Reg, 0, len(eventApiMap[apiInfo.ID].Regex.Regs))
+					tempData.RegexMsg = rao.RegexObj{
+						Regs: regexArr,
+					}
+					if len(eventApiMap[apiInfo.ID].Regex.Regs) > 0 {
+						for _, v := range eventApiMap[apiInfo.ID].Regex.Regs {
+							tempReg := rao.Reg{
+								Key:   v.Key,
+								Value: v.Value,
+							}
+							regexArr = append(regexArr, tempReg)
+						}
+						tempData.RegexMsg = rao.RegexObj{
+							Regs: regexArr,
 						}
 					}
 				}
+				caseIDApiMap[sceneCaseFlowInfo.SceneCaseID] = append(caseIDApiMap[sceneCaseFlowInfo.SceneCaseID], tempData)
 			}
-
-			caseIDApiMap[sceneCaseFlowInfo.SceneCaseID] = append(caseIDApiMap[sceneCaseFlowInfo.SceneCaseID], tempData)
 		}
 	}
 
 	// 组装场景ID与用例结果的映射
-	sceneIDCaseResultMap := make(map[string][]TestCaseResult)
+	sceneIDCaseResultMap := make(map[string][]rao.TestCaseResult)
 	for _, sceneInfo := range sceneList {
 		for _, caseInfo := range testCaseList {
 			if caseInfo.ParentID == sceneInfo.TargetID {
-				tempData := TestCaseResult{
+				tempData := rao.TestCaseResult{
 					CaseName:   caseInfo.Name,
+					CaseID:     caseInfo.TargetID,
 					SucceedNum: int64(caseApiSucceedNumMap[caseInfo.TargetID]),
 					TotalNum:   int64(caseApiTotalNumMap[caseInfo.TargetID]),
 					ApiList:    caseIDApiMap[caseInfo.TargetID],
@@ -1788,8 +1791,9 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 		reportRunTime = reportInfo.RunDurationTime
 	}
 
-	res := &GetReportDetailResp{
+	res := &rao.GetReportDetailResp{
 		PlanName:         reportInfo.PlanName,
+		ReportName:       reportInfo.ReportName,
 		Avatar:           userInfo.Avatar,
 		Remark:           reportInfo.Remark,
 		Nickname:         userInfo.Nickname,
@@ -1800,21 +1804,21 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 		ReportStartTime:  reportInfo.CreatedAt.Unix(),
 		ReportEndTime:    req.UpdatedAt,
 		ReportRunTime:    reportRunTime,
-		SceneBaseInfo: SceneBaseInfo{
+		SceneBaseInfo: rao.SceneBaseInfo{
 			SceneTotalNum: int64(len(sceneList)),
 		},
-		CaseBaseInfo: CaseBaseInfo{
+		CaseBaseInfo: rao.CaseBaseInfo{
 			CaseTotalNum: int64(len(testCaseList)),
 			SucceedNum:   int64(caseSucceedNum),
 			FailNum:      int64(len(failCaseMap)),
 		},
-		ApiBaseInfo: ApiBaseInfo{
+		ApiBaseInfo: rao.ApiBaseInfo{
 			ApiTotalNum: int64(apiTotalNum),
 			SucceedNum:  int64(apiSucceedNum),
 			FailNum:     int64(apiFailNum),
 			NotTestNum:  int64(apiNotRunNum),
 		},
-		AssertionBaseInfo: AssertionBaseInfo{
+		AssertionBaseInfo: rao.AssertionBaseInfo{
 			AssertionTotalNum: int64(assertionTotalNum),
 			SucceedNum:        int64(assertionSucceedNum),
 			FailNum:           int64(assertionFailNum),
@@ -1833,7 +1837,6 @@ func MakeAutoPlanReportDetail(ctx context.Context, req *rao.GetAutoPlanReportDet
 	if err != nil {
 		return nil, err
 	}
-	log.Logger.Info("日志快照--断言数据", res)
 	return res, nil
 }
 
@@ -1843,4 +1846,102 @@ func TransReportDetailDataToMao(teamID string, reportID string, reportDetailData
 		ReportID:         reportID,
 		ReportDetailData: reportDetailData,
 	}
+}
+
+func GetReportApiDetail(ctx *gin.Context, req *rao.GetReportApiDetailReq) (*rao.GetReportApiDetailResp, error) {
+	var nodes mao.Node
+	var flow mao.SceneCaseFlow
+	collection := dal.GetMongo().Database(dal.MongoDB()).Collection(consts.CollectSceneCaseFlow)
+	err := collection.FindOne(ctx, bson.D{{"scene_case_id", req.CaseID}}).Decode(&flow)
+	if err != nil {
+		return nil, err
+	}
+	if err = bson.Unmarshal(flow.Nodes, &nodes); err != nil {
+		return nil, err
+	}
+
+	res := &rao.GetReportApiDetailResp{}
+
+	apiDetail := rao.APIDetail{}
+
+	for _, nodeInfo := range nodes.Nodes {
+		if nodeInfo.ID == req.EventID {
+			apiDetail = nodeInfo.API
+		}
+	}
+	res.APIDetail = apiDetail
+	return res, nil
+}
+
+func SendReportApi(req *rao.SendReportApiReq) (string, error) {
+	req.ApiDetail.Request.PreUrl = req.ApiDetail.EnvInfo.PreUrl
+	retID, err := runner.RunAPI(req.ApiDetail)
+	if err != nil {
+		return "", fmt.Errorf("调试接口返回非200状态")
+	}
+	return retID, err
+}
+
+func UpdateAutoPlanReportName(ctx *gin.Context, req *rao.UpdateAutoPlanReportNameReq) error {
+	allErr := dal.GetQuery().Transaction(func(tx *query.Query) error {
+		_, err := tx.AutoPlanReport.WithContext(ctx).Where(tx.AutoPlanReport.ReportID.Eq(req.ReportID)).UpdateSimple(tx.AutoPlanReport.ReportName.Value(req.ReportName))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return allErr
+}
+
+func GetNewestAutoPlanList(ctx *gin.Context, req *rao.GetNewestAutoPlanListReq) ([]rao.GetNewestAutoPlanListResp, error) {
+	resData := make([]rao.GetNewestAutoPlanListResp, 0, req.Size)
+	_ = dal.GetQuery().Transaction(func(tx *query.Query) error {
+		// 查询数据库
+		limit := req.Size
+		offset := (req.Page - 1) * req.Size
+		sort := make([]field.Expr, 0, 6)
+		sort = append(sort, tx.AutoPlan.CreatedAt.Desc())
+		conditions := make([]gen.Condition, 0)
+		conditions = append(conditions, tx.AutoPlan.TeamID.Eq(req.TeamID))
+
+		list, _, err := tx.AutoPlan.WithContext(ctx).Where(conditions...).Order(sort...).FindByPage(offset, limit)
+		if err != nil {
+			log.Logger.Info("自动化计划列表--获取列表失败，err:", err)
+			return err
+		}
+
+		// 获取所有操作人id
+		userIDs := make([]string, 0, len(list))
+		for _, detail := range list {
+			userIDs = append(userIDs, detail.CreateUserID)
+		}
+
+		userTable := dal.GetQuery().User
+		userList, err := userTable.WithContext(ctx).Select(tx.User.UserID,
+			tx.User.Nickname).Where(userTable.UserID.In(userIDs...)).Find()
+		if err != nil {
+			return err
+		}
+		// 用户id和名称映射
+		userMap := make(map[string]*model.User, len(userList))
+		for _, userInfo := range userList {
+			userMap[userInfo.UserID] = userInfo
+		}
+
+		for _, detail := range list {
+			detailTmp := rao.GetNewestAutoPlanListResp{
+				PlanID:     detail.PlanID,
+				TeamID:     detail.TeamID,
+				PlanName:   detail.PlanName,
+				PlanType:   "auto",
+				Username:   userMap[detail.CreateUserID].Nickname,
+				UserAvatar: userMap[detail.CreateUserID].Avatar,
+				UpdatedAt:  detail.UpdatedAt.Unix(),
+			}
+			resData = append(resData, detailTmp)
+		}
+		return nil
+	})
+
+	return resData, nil
 }

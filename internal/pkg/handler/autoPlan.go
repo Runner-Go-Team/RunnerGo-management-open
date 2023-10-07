@@ -2,16 +2,16 @@ package handler
 
 import (
 	"context"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/mail"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/autoPlan"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/mail"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/autoPlan"
 	"strings"
 )
 
@@ -178,7 +178,7 @@ func RunAutoPlanDetail(ctx context.Context, req RunAutoPlanReq) (int, error) {
 		return errnoNum, err
 	}
 
-	// 组装设置变量数据
+	// 组装场景变量数据
 	errnoNum, err = autoPlan.AssembleVariable(baton)
 	if err != nil {
 		return errnoNum, err
@@ -518,7 +518,12 @@ func CloneAutoPlanScene(ctx *gin.Context) {
 	}
 	err := autoPlan.CloneAutoPlanScene(ctx, &req)
 	if err != nil {
-		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		if err.Error() == "名称过长！不可超出30字符" {
+			response.ErrorWithMsg(ctx, errno.ErrNameOverLength, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
+
 		return
 	}
 	response.Success(ctx)
@@ -625,3 +630,94 @@ func ReportEmailNotify(ctx *gin.Context) {
 	response.Success(ctx)
 	return
 }
+
+func GetReportApiDetail(ctx *gin.Context) {
+	var req rao.GetReportApiDetailReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	apiDetail, err := autoPlan.GetReportApiDetail(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrReportInRun, err.Error())
+		return
+	}
+	response.SuccessWithData(ctx, apiDetail)
+	return
+}
+
+func SendReportApi(ctx *gin.Context) {
+	var req rao.SendReportApiReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	retID, err := autoPlan.SendReportApi(&req)
+	if err != nil {
+		if err.Error() == "调试接口返回非200状态" {
+			response.ErrorWithMsg(ctx, errno.ErrHttpFailed, err.Error())
+		} else {
+			response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		}
+		return
+	}
+
+	response.SuccessWithData(ctx, rao.SendReportApiResp{RetID: retID})
+	return
+}
+
+func UpdateAutoPlanReportName(ctx *gin.Context) {
+	var req rao.UpdateAutoPlanReportNameReq
+	if err := ctx.ShouldBind(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+	err := autoPlan.UpdateAutoPlanReportName(ctx, &req)
+	if err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
+		return
+	}
+	response.Success(ctx)
+	return
+}
+
+//func DownloadAutoReportHtml(ctx *gin.Context) {
+//	var req rao.DownloadAutoReportHtmlReq
+//	if err := ctx.ShouldBind(&req); err != nil {
+//		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+//		return
+//	}
+//	fileContent, _, err := autoPlan.DownloadAutoReportHtml(ctx, &req)
+//	if err != nil {
+//		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+//		return
+//	}
+//
+//	//defer func(fileName string) {
+//	//	// 删除文件
+//	//	err := os.Remove(fileName)
+//	//	if err != nil {
+//	//		// 处理删除文件时可能发生的错误
+//	//		fmt.Println("Error deleting file:", err)
+//	//		log.Logger.Error("删除报告临时文件失败")
+//	//		return
+//	//	}
+//	//	log.Logger.Info("删除报告临时文件成功")
+//	//	return
+//	//}(fileName)
+//
+//	// 设置响应头，指定文件的 Content-Type 和 Content-Disposition
+//	ctx.Header("Content-Type", "application/octet-stream")
+//	ctx.Header("Content-Disposition", "attachment; filename=报告.html")
+//
+//	// 将文件内容写入响应体
+//	_, err = ctx.Writer.Write(fileContent)
+//	if err != nil {
+//		response.ErrorWithMsg(ctx, errno.ErrOperationFail, err.Error())
+//		return
+//	}
+//	response.Success(ctx)
+//	return
+//}

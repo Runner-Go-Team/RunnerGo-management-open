@@ -1,6 +1,8 @@
 package router
 
 import (
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -8,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-omnibus/proof"
 
-	"kp-management/internal/app/middleware"
-	"kp-management/internal/pkg/handler"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/app/middleware"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/handler"
 )
 
 func RegisterRouter(r *gin.Engine) {
@@ -26,6 +28,20 @@ func RegisterRouter(r *gin.Engine) {
 	r.Use(ginzap.Ginzap(proof.Logger.Z, time.RFC3339, true))
 
 	r.Use(ginzap.RecoveryWithZap(proof.Logger.Z, true))
+
+	r.Use(middleware.RecoverPanic()) // 恢复因接口内部错误导致的panic
+
+	// 探活接口
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+		})
+	})
+
+	// 开放接口
+	openApi := r.Group("open/api/v1")
+	openApi.POST("run_stress_plan", handler.OpenRunStressPlan) // 运行性能计划
+	openApi.POST("run_auto_plan", handler.OpenRunAutoPlan)     // 运行自动化计划
 
 	// 独立报告页面接口
 	html := r.Group("/html/api/v1/report")
@@ -70,6 +86,12 @@ func RegisterRouter(r *gin.Engine) {
 	auth.POST("get_wechat_login_result", handler.GetWechatLoginResult)        // 获取微信登录结果
 	auth.POST("check_wechat_is_change_bind", handler.CheckWechatIsChangeBind) // 检查当前用户是否需要换绑微信
 
+	// 设置静态文件路径
+	r.Static("/static", conf.Conf.Static)
+
+	file := api.Group("/v1/file")
+	file.POST("upload/base64", handler.FileUploadBase64) // 文件上传
+
 	// 开启接口鉴权
 	api.Use(middleware.JWT())
 
@@ -81,6 +103,7 @@ func RegisterRouter(r *gin.Engine) {
 	user.POST("collect_user_info", handler.CollectUserInfo)        // 用户信息收集
 	user.POST("get_collect_user_info", handler.GetCollectUserInfo) // 判断是否需要手机用户信息
 	user.POST("update_email", handler.UpdateEmail)                 // 修改用户邮箱
+	user.POST("update_account", handler.UpdateAccount)
 
 	// 用户配置
 	setting := api.Group("/v1/setting")
@@ -123,23 +146,54 @@ func RegisterRouter(r *gin.Engine) {
 	dashboard.GET("default", handler.DashboardDefault)
 	dashboard.POST("home_page", handler.HomePage)
 	dashboard.GET("underway_plans", handler.ListUnderwayPlan)
+	dashboard.GET("public_function_list", handler.GetPublicFunctionList)
 
 	// 文件夹
 	folder := api.Group("/v1/folder")
 	folder.POST("/save", handler.SaveFolder)
 	folder.GET("/detail", handler.GetFolder)
 
-	// 接口
+	// 测试对象
 	target := api.Group("/v1/target")
-	// 接口调试
-	target.POST("/send", handler.SendTarget)
+	target.POST("/send", handler.SendTarget) // 接口调试
 	target.GET("/result", handler.GetSendTargetResult)
-	// 接口保存
-	target.POST("/save", handler.SaveTarget)
+	target.POST("/save", handler.SaveTarget) // 测试对象保存
 	target.POST("save_import_api", handler.SaveImportApi)
 	target.POST("/sort", handler.SortTarget)
 	target.GET("/list", handler.ListFolderAPI)
 	target.GET("/detail", handler.BatchGetTarget)
+	target.POST("just_send_target", handler.JustSendTarget) // 测试对象--仅发送
+	target.POST("export_target", handler.ExportTarget)      // 导出测试对象到json文件
+	// 测试对象-版本管理
+	target.POST("get_history_record", handler.GetHistoryRecord)        // 获取测试对象历史记录列表
+	target.POST("mark_tag_version", handler.MarkTagVersion)            // 标记tab版本
+	target.POST("get_tag_version_list", handler.GetTagVersionList)     // 获取tab版本列表
+	target.POST("update_tag_version", handler.UpdateTagVersion)        // 编辑tab版本
+	target.POST("delete_tag_version", handler.DeleteTagVersion)        // 删除tab版本
+	target.POST("restore_history_or_tag", handler.RestoreHistoryOrTag) // 还原历史记录或tag
+	// sql 调试相关接口
+	target.POST("get_sql_database_list", handler.GetSqlDatabaseList) // 获取当前团队下sql数据库列表
+	target.POST("send_sql", handler.SendSql)                         // 调试sql语句
+	target.POST("connection_database", handler.ConnectionDatabase)   // 测试连接数据库接口
+	target.POST("get_send_sql_result", handler.GetSendSqlResult)     // 获取运行sql语句结果
+	// Tcp 调试相关接口
+	target.POST("send_tcp", handler.SendTcp)                              // 调试tcp接口
+	target.POST("get_send_tcp_result", handler.GetSendTcpResult)          // 获取运行tcp结果
+	target.POST("tcp_send_or_stop_message", handler.TcpSendOrStopMessage) // 发送或者停止ws消息
+	// Websocket 调试相关接口
+	target.POST("send_websocket", handler.SendWebsocket)                     // 调试websocket接口
+	target.POST("get_send_websocket_result", handler.GetSendWebsocketResult) // 获取运行websocket结果
+	target.POST("ws_send_or_stop_message", handler.WsSendOrStopMessage)      // 发送或者停止ws消息
+	// Dubbo 调试相关接口
+	target.POST("send_dubbo", handler.SendDubbo)                     // 调试Dubbo接口
+	target.POST("get_send_dubbo_result", handler.GetSendDubboResult) // 获取运行Dubbo结果
+	// Mqtt 调试相关接口
+	target.POST("send_mqtt", handler.SendMqtt)                     // 调试Mqtt接口
+	target.POST("get_send_mqtt_result", handler.GetSendMqttResult) // 获取运行Mqtt结果
+	// 测试对象数据同步
+	target.POST("get_can_sync_data", handler.GetCanSyncData) // 获取测试对象可以同步数据的列表
+	target.POST("exec_sync_data", handler.ExecSyncData)      // 执行同步测试对象数据
+
 	// 接口回收站
 	target.GET("/trash_list", handler.TrashTargetList)
 	target.POST("/trash", handler.TrashTarget)
@@ -159,7 +213,7 @@ func RegisterRouter(r *gin.Engine) {
 	scene.POST("/api/send", handler.SendSceneAPI)
 	scene.GET("/result", handler.GetSendSceneResult)
 	scene.POST("/delete", handler.DeleteScene)
-
+	scene.POST("send_mysql", handler.SendMysql) // 调试场景里面的mysql
 	// 场景管理
 	scene.POST("/save", handler.SaveScene)
 	scene.GET("/list", handler.ListGroupScene)
@@ -167,6 +221,11 @@ func RegisterRouter(r *gin.Engine) {
 	scene.GET("/flow/get", handler.GetFlow)
 	scene.GET("/flow/batch/get", handler.BatchGetFlow)
 	scene.POST("/flow/save", handler.SaveFlow)
+	scene.POST("change_disabled_status", handler.ChangeDisabledStatus) // 修改场景禁用状态
+	scene.POST("export_scene", handler.ExportScene)                    // 导出场景
+	// 场景同步
+	scene.POST("get_can_sync_data", handler.GetSceneCanSyncData) // 获取场景可以同步数据的列表
+	scene.POST("exec_sync_data", handler.ExecSyncSceneData)      // 执行同步场景数据
 
 	//用例集管理
 	caseAssemble := api.Group("/v1/case")
@@ -179,6 +238,7 @@ func RegisterRouter(r *gin.Engine) {
 	caseAssemble.POST("/send", handler.SendSceneCase)                     //调试用例
 	caseAssemble.POST("/stop", handler.StopSceneCase)                     //停止调试用例
 	caseAssemble.POST("/change/check", handler.ChangeCaseAssembleCheck)   //用例启用/关闭
+	caseAssemble.POST("change_case_sort", handler.ChangeCaseSort)         //修改用例的排序
 
 	// 测试计划
 	plan := api.Group("/v1/plan/")
@@ -200,7 +260,7 @@ func RegisterRouter(r *gin.Engine) {
 	// 测试报告
 	report := api.Group("/v1/report/")
 	report.GET("list", handler.ListReports)
-	report.GET("detail", handler.ReportDetail)
+	report.POST("detail", handler.ReportDetail)
 	report.GET("machine", handler.ListMachines)
 	report.POST("delete", handler.DeleteReport)
 	report.GET("debug", handler.GetDebug)
@@ -213,6 +273,7 @@ func RegisterRouter(r *gin.Engine) {
 	report.POST("compare_report", handler.CompareReport)           // 对比报告
 	report.POST("update/description", handler.UpdateDescription)   // 保存或更新测试结果描述
 	report.POST("batch_delete", handler.BatchDeleteReport)         // 批量删除性能计划报告
+	report.POST("update_report_name", handler.UpdateReportName)    // 修改计划报告名称
 
 	// 操作日志
 	operation := api.Group("/v1/operation")
@@ -230,6 +291,7 @@ func RegisterRouter(r *gin.Engine) {
 	preinstall.POST("detail", handler.GetPreinstallDetail)
 	preinstall.POST("delete", handler.DeletePreinstall)
 	preinstall.POST("copy", handler.CopyPreinstall)
+	preinstall.POST("get_available_machine_list", handler.GetAvailableMachineList)
 
 	// 自动化测试
 	// 计划相关
@@ -244,29 +306,146 @@ func RegisterRouter(r *gin.Engine) {
 	autoPlan.POST("batch_delete", handler.BatchDeleteAutoPlan)
 	autoPlan.POST("clone_scene", handler.CloneAutoPlanScene) // 克隆场景
 	autoPlan.POST("stop_auto_plan", handler.StopAutoPlan)
-
 	// 邮件相关
 	autoPlan.POST("email_list", handler.GetEmailList)
 	autoPlan.POST("add_email", handler.AddEmail)
 	autoPlan.POST("delete_email", handler.DeleteEmail)
-
 	// 配置相关
 	autoPlan.POST("save_task_conf", handler.SaveTaskConf)
 	autoPlan.POST("get_task_conf", handler.GetTaskConf)
-
 	// 报告相关
 	autoPlan.POST("get_report_list", handler.GetAutoPlanReportList)
 	autoPlan.POST("batch_delete_report", handler.BatchDeleteAutoPlanReport)
 	autoPlan.POST("get_report_detail", handler.GetAutoPlanReportDetail)
 	autoPlan.POST("report_email_notify", handler.ReportEmailNotify)
+	autoPlan.POST("get_report_api_detail", handler.GetReportApiDetail)    // 获取自动化报告里面的接口详情
+	autoPlan.POST("send_report_api", handler.SendReportApi)               // 运行自动化报告里面的接口
+	autoPlan.POST("update_report_name", handler.UpdateAutoPlanReportName) // 修改自动化计划报告名称
+	//autoPlan.Any("download_auto_report_html", handler.DownloadAutoReportHtml) // 下载自动化计划报告到html文件
 
 	//环境管理
 	env := api.Group("/v1/env/")
-	env.POST("list", handler.EnvList)           //获取环境列表
-	env.POST("save", handler.SaveEnv)           //保存/编辑环境信息
-	env.POST("copy", handler.CopyEnv)           //复制环境信息
-	env.POST("del", handler.DelEnv)             //删除环境
-	env.POST("del_service", handler.DelService) //删除环境下服务
-	//env.POST("get_service_list", handler.ServiceList) //获取环境下服务列表
-	//env.POST("save_service", handler.SaveService)     //保存/编辑环境下服务信息
+	env.POST("list", handler.EnvList)                        //获取环境列表 (待废弃)
+	env.POST("update_env", handler.UpdateEnv)                //更新环境名称
+	env.POST("create_env", handler.CreateEnv)                //新建环境名称
+	env.POST("copy_env", handler.CopyEnv)                    //克隆环境信息
+	env.POST("del_env", handler.DelEnv)                      //删除环境
+	env.POST("del_env_service", handler.DelEnvService)       //删除环境下服务
+	env.POST("del_env_database", handler.DelEnvDatabase)     //删除环境下数据库
+	env.POST("get_env_list", handler.GetEnvList)             //获取环境列表
+	env.POST("get_service_list", handler.GetServiceList)     //获取环境下服务列表
+	env.POST("get_database_list", handler.GetDatabaseList)   //获取环境下数据库列表
+	env.POST("save_env_service", handler.CreateEnvService)   //新建/修改环境下服务
+	env.POST("save_env_database", handler.CreateEnvDatabase) //新建/修改环境下数据库
+
+	// 企业管理相关接口
+	company := r.Group("management/api/company")
+	company.POST("get_newest_stress_plan_list", handler.GetNewestStressPlanList) // 获取团队最新性能计划列表
+	company.POST("get_newest_auto_plan_list", handler.GetNewestAutoPlanList)     // 获取团队最新自动化计划列表
+
+	// 权限相关接口
+	permission := api.Group("permission")
+	permission.POST("get_team_company_members", handler.GetTeamCompanyMembers) // 获取当前团队和企业成员关系
+	permission.POST("team_members_save", handler.TeamMembersSave)              // 添加团队成员
+	permission.POST("get_role_member_info", handler.GetRoleMemberInfo)         // 获取我的角色信息
+	permission.POST("user_get_marks", handler.UserGetMarks)                    // 获取用户的全部角色对应的mark
+	permission.GET("get_notice_group_list", handler.GetNoticeGroupList)        // 获取通知组列表
+	permission.GET("get_notice_third_users", handler.GetNoticeThirdUsers)      // 获取三方组织架构成员
+
+	// mock 相关接口
+	mock := api.Group("/v1/mock/")
+	mock.GET("get", handler.MockInfo)
+	mock.POST("save_to_target", handler.MockSaveToTarget) // mock 接口同步至测试对象
+
+	mockFolder := mock.Group("folder/") // 文件夹
+	mockFolder.POST("save", handler.MockSaveFolder)
+	mockFolder.GET("detail", handler.MockGetFolder)
+
+	mockTarget := mock.Group("target/")             // mock 测试对象
+	mockTarget.POST("save", handler.MockSaveTarget) // 测试对象保存
+	mockTarget.POST("send", handler.MockSendTarget) // 接口调试
+	mockTarget.GET("result", handler.MockGetSendTargetResult)
+	mockTarget.GET("detail", handler.MockBatchGetTarget)
+	mockTarget.POST("sort", handler.MockSortTarget)
+	mockTarget.GET("list", handler.MockListFolderAPI)
+	mockTarget.POST("trash", handler.MockTrashTarget)
+
+	// 三方通知
+	notice := api.Group("/v1/notice")
+	notice.POST("send", handler.SendNotice)                    // 发送通知
+	notice.POST("save_event", handler.SaveNoticeEvent)         // 三方通知绑定
+	notice.GET("get_group_event", handler.GetGroupNoticeEvent) // 获取通知事件对应通知组ID
+
+	// 元素管理
+	element := api.Group("/v1/element")
+	elementFolder := element.Group("folder") // 文件夹
+	elementFolder.POST("save", handler.ElementSaveFolder)
+	elementFolder.POST("update", handler.ElementUpdateFolder)
+	elementFolder.GET("list", handler.ElementListFolder)
+	elementFolder.POST("remove", handler.ElementRemoveFolder)
+	elementFolder.POST("sort", handler.ElementSortFolder)
+
+	element.POST("save", handler.ElementSave)
+	element.POST("update", handler.ElementUpdate)
+	element.GET("detail", handler.ElementDetail)
+	element.POST("list", handler.ElementList)
+	element.POST("remove", handler.ElementRemove)
+	element.POST("sort", handler.ElementSort)
+
+	// UI 自动化场景管理
+	uiScene := api.Group("/v1/ui_scene")
+	uiScene.POST("folder/save", handler.UISceneSaveFolder)
+	uiScene.POST("folder/update", handler.UISceneUpdateFolder)
+	uiScene.GET("folder/detail", handler.UISceneGetFolder)
+
+	uiScene.POST("save", handler.UISceneSave)                   // 场景基本信息保存
+	uiScene.POST("update", handler.UISceneUpdate)               // 场景基本信息修改
+	uiScene.GET("detail", handler.UISceneDetail)                // 场景基本信息详细
+	uiScene.POST("send", handler.SendUIScene)                   // 调试
+	uiScene.POST("stop", handler.StopUIScene)                   // 停止场景
+	uiScene.POST("sort", handler.UIScenesSort)                  // 场景排序
+	uiScene.POST("copy", handler.UISceneCopy)                   // 场景复制
+	uiScene.GET("list", handler.UISceneList)                    // 场景列表
+	uiScene.POST("trash", handler.UISceneTrash)                 // 回收站
+	uiScene.GET("trash_list", handler.UISceneTrashList)         // 回收站列表
+	uiScene.POST("recall", handler.UISceneRecall)               // 恢复
+	uiScene.POST("delete", handler.UISceneDelete)               // 删除
+	uiScene.GET("engine_machine", handler.UISceneEngineMachine) // 获取机器
+
+	uiScene.POST("operator/save", handler.UISceneSaveOperator)            // 场景操作步骤保存
+	uiScene.POST("operator/update", handler.UISceneUpdateOperator)        // 场景操作步骤保存
+	uiScene.GET("operator/detail", handler.UISceneDetailOperator)         // 场景操作步骤详情
+	uiScene.GET("operator/list", handler.UISceneOperatorList)             // 场景操作列表
+	uiScene.POST("operator/sort", handler.UIScenesOperatorSort)           // 场景操作排序
+	uiScene.POST("operator/copy", handler.UISceneCopyOperator)            // 场景操作复制
+	uiScene.POST("operator/set/status", handler.UISceneSetStatusOperator) // 场景操作设置状态
+	uiScene.POST("operator/delete", handler.UISceneDeleteOperator)        // 场景操作删除
+
+	// UI 自动化计划管理
+	uiPlan := api.Group("/v1/ui_plan")
+	uiPlan.POST("save", handler.UIPlanSave)     // 计划基本信息保存
+	uiPlan.POST("update", handler.UIPlanUpdate) // 计划基本信息修改
+	uiPlan.POST("list", handler.UIPlanList)     // 计划列表
+	uiPlan.GET("detail", handler.UIPlanDetail)  // 详情
+	uiPlan.POST("delete", handler.UIPlanDelete) // 删除
+	uiPlan.POST("copy", handler.UIPlanCopy)     // 复制
+	uiPlan.POST("run", handler.RunUIPlan)       // 执行计划
+	uiPlan.POST("stop", handler.StopUIPlan)     // 停止计划
+
+	uiPlan.POST("scene/import", handler.UIPlanImportScene)              // 导入场景
+	uiPlan.POST("scene/sync_mode", handler.UIPlanSetSceneSyncMode)      // 修改场景同步方式
+	uiPlan.POST("scene/sync_last_data", handler.UIPlanHandSyncLastData) // 手动同步最新数据
+
+	// 配置相关
+	uiPlan.POST("save_task_conf", handler.UIPlanSaveTaskConf)
+	uiPlan.POST("get_task_conf", handler.UIPlanGetTaskConf)
+
+	// UI 自动化计划管理
+	uiReport := api.Group("/v1/ui_report")
+	uiReport.POST("list", handler.ListUIReports)
+	uiReport.GET("detail", handler.UIReportDetail)
+	uiReport.POST("delete", handler.UIReportDelete)
+	uiReport.POST("run", handler.RunUIReport)       // 运行报告
+	uiReport.POST("stop", handler.StopUIReport)     // 停止报告
+	uiReport.POST("update", handler.UIReportUpdate) // 修改报告
 }

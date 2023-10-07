@@ -1,8 +1,8 @@
 package packer
 
 import (
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
 )
 
 func TransReportModelToRaoReportList(reports []*model.StressPlanReport, users []*model.User) []*rao.StressPlanReport {
@@ -16,6 +16,7 @@ func TransReportModelToRaoReportList(reports []*model.StressPlanReport, users []
 	for _, r := range reports {
 		ret = append(ret, &rao.StressPlanReport{
 			ReportID:    r.ReportID,
+			ReportName:  r.ReportName,
 			RankID:      r.RankID,
 			TaskType:    r.TaskType,
 			TaskMode:    r.TaskMode,

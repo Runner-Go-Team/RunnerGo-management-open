@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/smtp"
 
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 const (
@@ -141,7 +141,7 @@ func SendReportEmail(toEmail string, reportID string, team *model.Team, user *mo
 	header := make(map[string]string)
 	header["From"] = "RunnerGo" + "<" + email + ">"
 	header["To"] = toEmail
-	header["Subject"] = fmt.Sprintf("测试报告 【%s】的【%s】给您发送了【%s-%s】的测试报告", team.Name, user.Nickname, report.PlanName, report.SceneName)
+	header["Subject"] = fmt.Sprintf("测试报告 【%s】的【%s】给您发送了【%s】的测试报告", team.Name, user.Nickname, report.ReportName)
 	header["Content-Type"] = "text/html; charset=UTF-8"
 
 	domainUrl := conf.Conf.Base.Domain

@@ -6,14 +6,13 @@ const (
 
 	PlanTaskTypeNormal  = 1 // 普通任务
 	PlanTaskTypeCronjob = 2 // 定时任务
-	PlanTaskTypeMix     = 3 // 混合模式
 
 	PlanModeConcurrence  = 1 // 并发模式
 	PlanModeStep         = 2 // 阶梯模式
 	PlanModeErrorRate    = 3 // 错误率模式
 	PlanModeResponseTime = 4 // 响应时间模式
 	PlanModeRPS          = 5 //每秒请求数模式
-	PlanModeTPS          = 6 //每秒事务数模式
+	PlanModeRound        = 6 //轮次模式
 	PlanModeMix          = 7 // 混合模式
 
 	// 定时任务的几个状态
@@ -32,10 +31,14 @@ const (
 	AutoPlanTaskRunMode = 1 // 按照用例执行
 
 	// 场景运行模式
-	AutoPlanSceneRunModeOrder    = 1 // 顺讯执行
+	AutoPlanSceneRunModeOrder    = 1 // 顺序执行
 	AutoPlanSceneRunModeMeantime = 2 // 同时执行
 
 	// 用例运行模式
-	AutoPlanTestCaseRunModeOrder    = 1 // 顺讯执行
+	AutoPlanTestCaseRunModeOrder    = 1 // 顺序执行
 	AutoPlanTestCaseRunModeMeantime = 2 // 同时执行
+
+	PlanStress = 1 // 性能计划
+	PlanAuto   = 2 // 自动化测试-计划
+	PlanUI     = 3 // UI自动化测试
 )

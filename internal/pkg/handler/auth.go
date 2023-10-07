@@ -1,17 +1,20 @@
 package handler
 
 import (
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/log"
+	"errors"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"gorm.io/gorm"
 	"time"
 
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/auth"
 	"github.com/go-omnibus/omnibus"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/auth"
 
 	"github.com/gin-gonic/gin"
 )
@@ -60,7 +63,8 @@ func AuthLogin(ctx *gin.Context) {
 	}
 
 	// 开始生成token
-	d := 1 * 24 * time.Hour
+	expireTime := conf.Conf.AboutTimeConfig.DefaultTokenExpireTime
+	d := expireTime * time.Hour
 	if req.IsAutoLogin {
 		d = 30 * 24 * time.Hour
 	}
@@ -660,6 +664,29 @@ func CheckWechatIsChangeBind(ctx *gin.Context) {
 	}
 
 	response.SuccessWithData(ctx, res)
+	return
+}
+
+func UpdateAccount(ctx *gin.Context) {
+	var req rao.UpdateAccountReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(ctx, errno.ErrParam, err.Error())
+		return
+	}
+
+	tx := dal.GetQuery().User
+	_, err := tx.WithContext(ctx).Where(tx.Account.Eq(req.Account)).First()
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if _, err := tx.WithContext(ctx).Where(tx.UserID.Eq(jwt.GetUserIDByCtx(ctx))).UpdateColumn(tx.Account, req.Account); err != nil {
+			response.ErrorWithMsg(ctx, errno.ErrServer, "update account failed")
+			return
+		}
+
+		response.Success(ctx)
+		return
+	}
+
+	response.ErrorWithMsg(ctx, errno.ErrYetAccountRegister, "update account failed")
 	return
 }
 

@@ -2,12 +2,12 @@ package handler
 
 import (
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/log"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 	"golang.org/x/net/context"
 	"gorm.io/gen"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/log"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/model"
 	"time"
 )
 
@@ -20,7 +20,8 @@ func AutoPlanTimedTaskExec() {
 		conditions := make([]gen.Condition, 0)
 		conditions = append(conditions, tx.Status.Eq(consts.TimedTaskInExec))
 		// 从数据库当中，查出当前需要执行的定时任务
-		timedTaskData, err := tx.WithContext(ctx).Where(conditions...).Find()
+		timedTaskData, err := tx.WithContext(ctx).Select(tx.TeamID, tx.PlanID,
+			tx.TaskExecTime, tx.TaskCloseTime, tx.Frequency, tx.RunUserID).Where(conditions...).Find()
 
 		if err != nil {
 			log.Logger.Info("自动化测试--定时任务查询数据库出错，err：", err)
@@ -28,6 +29,8 @@ func AutoPlanTimedTaskExec() {
 		}
 
 		if len(timedTaskData) == 0 {
+			// 睡眠一分钟，再循环执行
+			time.Sleep(60 * time.Second)
 			continue
 		}
 
@@ -57,8 +60,7 @@ func AutoPlanTimedTaskExec() {
 			// 排除过期的定时任务
 			if timedTaskInfo.TaskCloseTime < nowTime {
 				// 把当前定时任务状态变成未开始状态
-				_, err := tx.WithContext(ctx).Where(tx.TeamID.Eq(timedTaskInfo.TeamID)).
-					Where(tx.PlanID.Eq(timedTaskInfo.PlanID)).
+				_, err := tx.WithContext(ctx).Where(tx.PlanID.Eq(timedTaskInfo.PlanID)).
 					UpdateColumn(tx.Status, consts.TimedTaskWaitEnable)
 				if err != nil {
 					log.Logger.Info("自动化测试--定时任务过期状态修改失败，err：", err)

@@ -1,15 +1,14 @@
 package consts
 
 const (
-	MachineStatusIdle = 1
-	MachineStatusBusy = 2
+	MachineStatusAvailable = 1 // 使用中
+	MachineStatusUnload    = 2 // 已卸载
 
-	MachineListRedisKey   = "RunnerMachineList"
-	MachineUseStatePrefix = "MachineUseState:"
-	MachineAliveTime      = 10
+	MachineListRedisKey         = "RunnerMachineList"
+	MachineUseStatePrefix       = "MachineUseState:"
+	UiEngineMachineListRedisKey = "UiEngineMachineList"
 
-	MachineMonitorPrefix = "MachineMonitor:" // 压力机监控数据
-
-	StressBelongPartitionKey = "StressBelongPartition" // 压力机对应已经使用的分区数据前缀
-	TotalKafkaPartitionKey   = "TotalKafkaPartition"
+	MachineMonitorPrefix   = "MachineMonitor:"     // 压力机监控数据
+	TotalKafkaPartitionKey = "TotalKafkaPartition" // 总的可用分区数据
+	RunKafkaPartitionKey   = "RunKafkaPartition"   // 发送广播消息
 )

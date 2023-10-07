@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"kp-management/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
 )
 
 func newUser(db *gorm.DB, opts ...gen.DOOption) user {
@@ -29,6 +29,7 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.ALL = field.NewAsterisk(tableName)
 	_user.ID = field.NewInt64(tableName, "id")
 	_user.UserID = field.NewString(tableName, "user_id")
+	_user.Account = field.NewString(tableName, "account")
 	_user.Email = field.NewString(tableName, "email")
 	_user.Mobile = field.NewString(tableName, "mobile")
 	_user.Password = field.NewString(tableName, "password")
@@ -52,6 +53,7 @@ type user struct {
 	ALL          field.Asterisk
 	ID           field.Int64
 	UserID       field.String // 用户id
+	Account      field.String // 账号
 	Email        field.String // 邮箱
 	Mobile       field.String // 手机号
 	Password     field.String // 密码
@@ -81,6 +83,7 @@ func (u *user) updateTableName(table string) *user {
 	u.ALL = field.NewAsterisk(table)
 	u.ID = field.NewInt64(table, "id")
 	u.UserID = field.NewString(table, "user_id")
+	u.Account = field.NewString(table, "account")
 	u.Email = field.NewString(table, "email")
 	u.Mobile = field.NewString(table, "mobile")
 	u.Password = field.NewString(table, "password")
@@ -114,9 +117,10 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 13)
+	u.fieldMap = make(map[string]field.Expr, 14)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["user_id"] = u.UserID
+	u.fieldMap["account"] = u.Account
 	u.fieldMap["email"] = u.Email
 	u.fieldMap["mobile"] = u.Mobile
 	u.fieldMap["password"] = u.Password

@@ -1,7 +1,5 @@
 package rao
 
-import "sync"
-
 type SendSceneReq struct {
 	TeamID  string `json:"team_id" binding:"required,gt=0"`
 	SceneID string `json:"scene_id" binding:"required,gt=0"`
@@ -85,13 +83,13 @@ type Scene struct {
 }
 
 type SaveFlowReq struct {
-	SceneID string `json:"scene_id" binding:"required,gt=0"`
-	TeamID  string `json:"team_id" binding:"required,gt=0"`
-	Version int32  `json:"version"`
-
-	Nodes           []*Node `json:"nodes"`
-	Edges           []*Edge `json:"edges"`
-	MultiLevelNodes string  `json:"multi_level_nodes"`
+	SceneID         string `json:"scene_id" binding:"required,gt=0"`
+	TeamID          string `json:"team_id" binding:"required,gt=0"`
+	Version         int32  `json:"version"`
+	Nodes           []Node `json:"nodes"`
+	Edges           []Edge `json:"edges"`
+	MultiLevelNodes string `json:"multi_level_nodes"`
+	Prepositions    []Node `json:"prepositions"` // 前置条件
 }
 
 type SaveFlowResp struct {
@@ -103,12 +101,12 @@ type Point struct {
 }
 
 type Node struct {
-	ID      string `json:"id"`
-	Type    string `json:"type"`
-	IsCheck bool   `json:"is_check"`
-
-	PositionAbsolute *Point   `json:"positionAbsolute"`
-	Position         *Point   `json:"position"`
+	ID               string   `json:"id"`
+	Type             string   `json:"type"`
+	IsCheck          bool     `json:"is_check"`
+	IsDisabled       int      `json:"is_disabled"` // 0-不禁用，1-禁用该接口
+	PositionAbsolute Point    `json:"positionAbsolute"`
+	Position         Point    `json:"position"`
 	PreList          []string `json:"pre_list"`
 	NextList         []string `json:"next_list"`
 	Width            int      `json:"width"`
@@ -120,27 +118,19 @@ type Node struct {
 		ID   string `json:"id"`
 		From string `json:"from"`
 	} `json:"data"`
-
-	// 接口
-	Weight            int        `json:"weight,omitempty"`
-	Mode              int        `json:"mode,omitempty"`
-	ErrorThreshold    float64    `json:"error_threshold,omitempty"`
-	ResponseThreshold int        `json:"response_threshold,omitempty"`
-	RequestThreshold  int        `json:"request_threshold,omitempty"`
-	PercentAge        int        `json:"percent_age,omitempty"`
-	API               *APIDetail `json:"api,omitempty"`
-
-	// 全局断言
-	Assets []string `json:"assets,omitempty"`
-
-	// 等待控制器
-	WaitMs int `json:"wait_ms,omitempty"`
-
-	// 条件控制器
-	Var     string `json:"var,omitempty"`
-	Compare string `json:"compare,omitempty"`
-	Val     string `json:"val,omitempty"`
-	Remark  string `json:"remark"`
+	Weight            int       `json:"weight,omitempty"`
+	Mode              int       `json:"mode,omitempty"`
+	ErrorThreshold    float64   `json:"error_threshold,omitempty"`
+	ResponseThreshold int       `json:"response_threshold,omitempty"`
+	RequestThreshold  int       `json:"request_threshold,omitempty"`
+	PercentAge        int       `json:"percent_age,omitempty"`
+	API               APIDetail `json:"api,omitempty"`
+	Assets            []string  `json:"assets,omitempty"`  // 全局断言
+	WaitMs            int       `json:"wait_ms,omitempty"` // 等待控制器
+	Var               string    `json:"var,omitempty"`     // 条件控制器
+	Compare           string    `json:"compare,omitempty"`
+	Val               string    `json:"val,omitempty"`
+	Remark            string    `json:"remark"`
 }
 
 type Edge struct {
@@ -156,35 +146,19 @@ type EdgeData struct {
 	From string `json:"from"`
 }
 
-// API 接口详情
-//type API struct {
-//	TargetID    int64     `json:"target_id"`
-//	ParentID    int64     `json:"parent_id"`
-//	TeamID      int64     `json:"team_id"`
-//	ProjectID   string    `json:"project_id"`
-//	Mark        string    `json:"mark"`
-//	Name        string    `json:"name"`
-//	Method      string    `json:"method"`
-//	URL         string    `json:"url"`
-//	Request     *Request  `json:"request"`
-//	Response    *Response `json:"response,omitempty"`
-//	Version     int32     `json:"version"`
-//	Description string    `json:"description"`
-//}
-
 type GetFlowReq struct {
 	SceneID string `form:"scene_id" binding:"required,gt=0"`
 	TeamID  string `form:"team_id" binding:"required,gt=0"`
 }
 
 type GetFlowResp struct {
-	SceneID string `json:"scene_id"`
-	TeamID  string `json:"team_id"`
-	Version int32  `json:"version"`
-
-	Nodes           []*Node `json:"nodes"`
-	Edges           []*Edge `json:"edges"`
-	MultiLevelNodes []byte  `json:"multi_level_nodes"`
+	SceneID         string `json:"scene_id"`
+	TeamID          string `json:"team_id"`
+	Version         int32  `json:"version"`
+	Nodes           []Node `json:"nodes"`
+	Edges           []Edge `json:"edges"`
+	MultiLevelNodes []byte `json:"multi_level_nodes"`
+	EnvID           int64  `json:"env_id"`
 }
 
 type BatchGetFlowReq struct {
@@ -201,41 +175,91 @@ type Flow struct {
 	TeamID  string `json:"team_id"`
 	Version int32  `json:"version"`
 
-	Nodes           []*Node `json:"nodes"`
-	Edges           []*Edge `json:"edges"`
-	MultiLevelNodes []byte  `json:"multi_level_nodes"`
+	Nodes           []Node `json:"nodes"`
+	Edges           []Edge `json:"edges"`
+	MultiLevelNodes []byte `json:"multi_level_nodes"`
 }
 
 type SceneFlow struct {
-	SceneID       string        `json:"scene_id"`
-	SceneName     string        `json:"scene_name"`
-	TeamID        string        `json:"team_id"`
-	Nodes         []*Node       `json:"nodes"`
-	Configuration Configuration `json:"configuration"`
-	Variable      []*KVVariable `json:"variable"` // 全局变量
+	SceneID        string             `json:"scene_id"`
+	SceneName      string             `json:"scene_name"`
+	TeamID         string             `json:"team_id"`
+	Configuration  SceneConfiguration `json:"configuration"`
+	Variable       []KVVariable       `json:"variable"` // 全局变量
+	NodesRound     [][]Node           `json:"nodes_round"`
+	GlobalVariable GlobalVariable     `json:"global_variable"`
+	Prepositions   []Preposition      `json:"prepositions"` // 前置条件
+}
+
+type Preposition struct {
+	Type       string `json:"type"`
+	ValueType  string `json:"value_type"`
+	Key        string `json:"key"`
+	Scope      int32  `json:"scope"`
+	JsScript   string `json:"js_script"`
+	IsDisabled int    `json:"is_disabled"` // 0-不禁用，1-禁用该接口
+	Event      Node   `json:"event"`
+}
+
+type SceneConfiguration struct {
+	ParameterizedFile SceneVariablePath `json:"parameterizedFile"`
+	SceneVariable     GlobalVariable    `json:"scene_variable"`
+	//Variable          []*Variable        `json:"variable"` // todo 已废弃
+}
+
+type GlobalVariable struct {
+	Cookie   Cookie          `json:"cookie"`
+	Header   Header          `json:"header"`
+	Variable []VarForm       `json:"variable"`
+	Assert   []AssertionText `json:"assert"` // 验证的方法(断言)
+}
+
+type SceneVariablePath struct {
+	Paths []FileList `json:"paths"`
+}
+
+// VarForm 参数表
+type VarForm struct {
+	IsChecked   int64       `json:"is_checked" bson:"is_checked"`
+	Type        string      `json:"type" bson:"type"`
+	FileBase64  []string    `json:"fileBase64"`
+	Key         string      `json:"key" bson:"key"`
+	Value       interface{} `json:"value" bson:"value"`
+	NotNull     int64       `json:"not_null" bson:"not_null"`
+	Description string      `json:"description" bson:"description"`
+	FieldType   string      `json:"field_type" bson:"field_type"`
+}
+
+// AssertionText 文本断言 0
+type AssertionText struct {
+	IsChecked    int    `json:"is_checked"`    // 1 选中  -1 未选
+	ResponseType int8   `json:"response_type"` //  1:ResponseHeaders; 2:ResponseData; 3: ResponseCode;
+	Compare      string `json:"compare"`       // Includes、UNIncludes、Equal、UNEqual、GreaterThan、GreaterThanOrEqual、LessThan、LessThanOrEqual、Includes、UNIncludes、NULL、NotNULL、OriginatingFrom、EndIn
+	Var          string `json:"var"`
+	Val          string `json:"val"`
 }
 
 type Configuration struct {
 	ParameterizedFile ParameterizedFile `json:"parameterizedFile" bson:"parameterizedFile"`
+	SceneVariable     GlobalVariable    `json:"scene_variable"`
 	Variable          []KV              `json:"variable" bson:"variable"`
 }
 
 // ParameterizedFile 参数化文件
 type ParameterizedFile struct {
-	Paths         []FileList     `json:"paths"` // 文件地址
-	RealPaths     []string       `json:"real_paths"`
-	VariableNames *VariableNames `json:"variable_names"` // 存储变量及数据的map
+	Paths         []FileList    `json:"paths"` // 文件地址
+	RealPaths     []string      `json:"real_paths"`
+	VariableNames VariableNames `json:"variable_names"` // 存储变量及数据的map
 }
 
 type FileList struct {
-	IsChecked int64  `json:"is_checked"` // 1 开， 2： 关
-	Path      string `json:"path"`
+	IsChecked int64  `json:"is_checked,omitempty"` // 1 开， 2： 关
+	Path      string `json:"path,omitempty"`
 }
 
 type VariableNames struct {
-	VarMapList map[string][]string `json:"var_map_list"`
-	Index      int                 `json:"index"`
-	Mu         sync.Mutex          `json:"mu"`
+	VarMapList map[string][]string `json:"var_map_list,omitempty"`
+	Index      int                 `json:"index,omitempty"`
 }
 
 type ConfVariable struct {
@@ -248,4 +272,57 @@ type DeleteSceneReq struct {
 	TeamID   string `json:"team_id"`
 	PlanID   string `json:"plan_id"`
 	Source   int64  `json:"source"`
+}
+
+type ChangeDisabledStatusReq struct {
+	TargetID   string `json:"target_id" binding:"required"`
+	IsDisabled int32  `json:"is_disabled"`
+}
+
+type SendMysqlReq struct {
+	TeamID  string `json:"team_id" binding:"required"`
+	SceneID string `json:"scene_id" binding:"required"`
+	NodeID  string `json:"node_id" binding:"required"`
+}
+
+type GetSceneCanSyncDataReq struct {
+	TeamID  string `json:"team_id"`
+	SceneID string `json:"scene_id"`
+	Source  int32  `json:"source"`
+}
+
+type ExecSyncSceneDataReq struct {
+	TeamID        string          `json:"team_id"`
+	SceneID       string          `json:"scene_id"`
+	SyncType      int32           `json:"sync_type"`
+	Source        int32           `json:"source"`
+	SyncSceneInfo []SyncSceneInfo `json:"sync_scene_info"`
+}
+
+type SyncSceneInfo struct {
+	Source  int32  `json:"source"`
+	PlanID  string `json:"plan_id"`
+	SceneID string `json:"scene_id"`
+}
+
+type ExportSceneReq struct {
+	ExportType int32    `json:"export_type" binding:"required"` // 导出类型：1-场景，2-用例，3-场景及用例
+	SceneIDs   []string `json:"scene_ids" binding:"required"`
+}
+
+type ExportSceneResp struct {
+	SceneDetailList []map[string]interface{} `json:"scene_detail_list,omitempty"`
+	CaseDetailList  []map[string]interface{} `json:"case_detail_list,omitempty"`
+}
+
+type ExportPreposition struct {
+	Prepositions []Node `json:"prepositions"`
+}
+
+type ExportNode struct {
+	Nodes []Node `json:"nodes"`
+}
+
+type ExportEdge struct {
+	Edges []Edge `json:"edges"`
 }

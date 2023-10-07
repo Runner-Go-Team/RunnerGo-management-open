@@ -11,9 +11,11 @@ const (
 	ErrInvalidToken                           = 10006
 	ErrMarshalFailed                          = 10007
 	ErrUnMarshalFailed                        = 10008
+	ErrOperationFail                          = 10009
 	ErrMustDID                                = 10011
 	ErrMustSN                                 = 10012
 	ErrHttpFailed                             = 10013
+	ErrNameAlreadyExist                       = 10014
 	ErrRedisFailed                            = 10100
 	ErrMongoFailed                            = 10101
 	ErrMysqlFailed                            = 10102
@@ -53,7 +55,7 @@ const (
 	ErrMachineMonitorDataPastDue              = 20047
 	ErrInPlanSceneNameAlreadyExist            = 20048
 	ErrPlanNameNotEmpty                       = 20049
-	ErrInPlanGroupNameAlreadyExist            = 20050
+	ErrInPlanFolderNameAlreadyExist           = 20050
 	ErrVerifyFail                             = 20051
 	ErrTimedTaskOverdue                       = 20052
 	ErrWechatLoginQrCodeOverdue               = 20054
@@ -61,6 +63,40 @@ const (
 	ErrCannotBatchDeleteRunningPlan           = 20056
 	ErrMaxConcurrencyLessThanStartConcurrency = 20058
 	ErrNotEmailConfig                         = 20059
+	ErrEmptySceneFlow                         = 20061
+	ErrEmptyTestCaseFlow                      = 20062
+	ErrNameOverLength                         = 20063
+	ErrTargetSortNameAlreadyExist             = 20064
+	ErrEnvNameAlreadyExist                    = 20065
+	ErrServiceNameAlreadyExist                = 20066
+	ErrExecSqlErr                             = 20067
+	ErrCannotDeleteRunningReport              = 20068
+	ErrCannotBatchDeleteRunningReport         = 20069
+	ErrMockPathExists                         = 20070
+	ErrYetAccountRegister                     = 20071
+	ErrAccountDel                             = 20072
+	ErrNoticeBatchReportLimit                 = 20073
+	ErrNoticeConfigError                      = 20074
+	ErrMockPathNotNull                        = 20080
+	ErrAlreadyMarkTag                         = 20081
+
+	ErrElementFolderNameRepeat = 21000
+	ErrElementNameRepeat       = 21001
+	ErrElementNotFound         = 21002
+	ErrElementNotDeleteReScene = 21003
+	ErrElementLocatorNotFound  = 21004
+
+	ErrUISceneFolderNameRepeat = 21100
+	ErrUISceneNameRepeat       = 21101
+	ErrUISceneOptEmpty         = 21102
+	ErrUIEngineError           = 21103
+	ErrUISceneNameLong         = 21104
+	ErrUISceneNameNotEmpty     = 21105
+	ErrUISceneGetMachineError  = 21106
+	ErrSendOperatorNotNull     = 21107
+	ErrCheckParams             = 21108
+	ErrSendLinuxNotQTMode      = 21109
+	ErrUISceneRequired         = 21110
 )
 
 // CodeAlertMap 错图码映射错误提示，展示给用户
@@ -77,13 +113,15 @@ var CodeAlertMap = map[int]string{
 	ErrInvalidToken:                 "无效的token",
 	ErrMarshalFailed:                "序列化失败",
 	ErrUnMarshalFailed:              "反序列化失败",
+	ErrOperationFail:                "操作失败",
 	ErrRedisFailed:                  "redis操作失败",
 	ErrMongoFailed:                  "mongo操作失败",
-	ErrMysqlFailed:                  "mysql操作失败",
+	ErrMysqlFailed:                  "操作失败",
 	ErrMustLogin:                    "没有获取到登录态",
 	ErrMustDID:                      "缺少设备DID信息",
 	ErrMustSN:                       "缺少设备SN信息",
 	ErrHttpFailed:                   "请求下游Http服务失败",
+	ErrNameAlreadyExist:             "名称已存在",
 	ErrAuthFailed:                   "用户名或密码错误",
 	ErrYetRegister:                  "用户邮箱已注册",
 	ErrURLExpired:                   "邀请链接已过期",
@@ -98,7 +136,7 @@ var CodeAlertMap = map[int]string{
 	ErrRecordExists:                 "数据库记录已存在",
 	ErrEmptyTestCase:                "场景用例不能为空",
 	ErrSceneCaseNameIsExist:         "同一场景下用例名称不能重复",
-	ErrApiNameAlreadyExist:          "接口名称已存在",
+	ErrApiNameAlreadyExist:          "名称已存在",
 	ErrGroupNameAlreadyExist:        "分组名称已存在",
 	ErrFolderNameAlreadyExist:       "文件夹名称已存在",
 	ErrSceneNameAlreadyExist:        "场景名称已存在",
@@ -116,7 +154,7 @@ var CodeAlertMap = map[int]string{
 	ErrMachineMonitorDataPastDue:    "只能查询15天以内的压力机监控数据",
 	ErrInPlanSceneNameAlreadyExist:  "计划内场景不可重名",
 	ErrPlanNameNotEmpty:             "计划名称不能为空",
-	ErrInPlanGroupNameAlreadyExist:  "计划内分组不可重名",
+	ErrInPlanFolderNameAlreadyExist: "计划内目录不可重名",
 	ErrVerifyFail:                   "验证失败",
 	ErrTimedTaskOverdue:             "开始或结束时间不能早于当前时间",
 	ErrWechatLoginQrCodeOverdue:     "当前微信二维码过期",
@@ -124,6 +162,40 @@ var CodeAlertMap = map[int]string{
 	ErrCannotBatchDeleteRunningPlan: "存在运行中的计划，无法删除",
 	ErrMaxConcurrencyLessThanStartConcurrency: "最大并发数不能小于起始并发数",
 	ErrNotEmailConfig:                         "请配置邮件相关环境变量",
+	ErrEmptySceneFlow:                         "场景flow不能为空",
+	ErrEmptyTestCaseFlow:                      "场景用例flow不能为空",
+	ErrNameOverLength:                         "名称过长！不可超出30字符",
+	ErrTargetSortNameAlreadyExist:             "存在重名，无法操作",
+	ErrEnvNameAlreadyExist:                    "环境名称已存在",
+	ErrServiceNameAlreadyExist:                "服务名称已存在",
+	ErrExecSqlErr:                             "执行sql语句失败",
+	ErrCannotDeleteRunningReport:              "运行中的报告不能删除",
+	ErrCannotBatchDeleteRunningReport:         "存在运行中的报告，无法删除",
+	ErrMockPathExists:                         "mock 路径已存在，不能重复",
+	ErrYetAccountRegister:                     "用户账户已注册",
+	ErrAccountDel:                             "用户不存在或已删除",
+	ErrMockPathNotNull:                        "路径不能为空",
+	ErrNoticeBatchReportLimit:                 "批量操作最多支持选择10条数据",
+	ErrNoticeConfigError:                      "三方配置有误，请检查",
+	ErrAlreadyMarkTag:                         "已经打过tag版本",
+
+	ErrElementFolderNameRepeat: "元素目录不能重复",
+	ErrElementNameRepeat:       "元素名称不能重复",
+	ErrElementNotFound:         "元素不存在",
+	ErrElementNotDeleteReScene: "元素与场景存在关联关系，不可删除",
+	ErrElementLocatorNotFound:  "元素属性不能为空",
+
+	ErrUISceneFolderNameRepeat: "目录名称不能重复",
+	ErrUISceneNameRepeat:       "名称不能重复",
+	ErrUISceneOptEmpty:         "参数为空：",
+	ErrUIEngineError:           "发送失败：",
+	ErrUISceneNameLong:         "名称过长！不可超出30字符",
+	ErrUISceneNameNotEmpty:     "名称不能为空",
+	ErrUISceneGetMachineError:  "获取UI引擎失败",
+	ErrSendOperatorNotNull:     "发送的步骤不能为空",
+	ErrCheckParams:             "请检查参数",
+	ErrSendLinuxNotQTMode:      "linux 机器不支持前台运行模式,请修改运行配置",
+	ErrUISceneRequired:         "请检查必填项",
 }
 
 // CodeMsgMap 错误码映射错误信息，不展示给用户
@@ -140,6 +212,7 @@ var CodeMsgMap = map[int]string{
 	ErrInvalidToken:                 "invalid token",
 	ErrMarshalFailed:                "marshal failed",
 	ErrUnMarshalFailed:              "unmarshal failed",
+	ErrOperationFail:                "ErrOperationFail",
 	ErrRedisFailed:                  "redis operate failed",
 	ErrMongoFailed:                  "mongo operate failed",
 	ErrMysqlFailed:                  "mysql operate failed",
@@ -147,6 +220,7 @@ var CodeMsgMap = map[int]string{
 	ErrMustDID:                      "must DID",
 	ErrMustSN:                       "must SN",
 	ErrHttpFailed:                   "http failed",
+	ErrNameAlreadyExist:             "ErrNameAlreadyExist",
 	ErrAuthFailed:                   "username/password failed",
 	ErrYetRegister:                  "email yet register",
 	ErrURLExpired:                   "invite url expired",
@@ -161,7 +235,7 @@ var CodeMsgMap = map[int]string{
 	ErrRecordExists:                 "record exists",
 	ErrEmptyTestCase:                "scenario cases cannot be empty",
 	ErrSceneCaseNameIsExist:         "scene case name is exist",
-	ErrApiNameAlreadyExist:          "api name already exist",
+	ErrApiNameAlreadyExist:          "ErrApiNameAlreadyExist",
 	ErrGroupNameAlreadyExist:        "group name already exist",
 	ErrFolderNameAlreadyExist:       "folder name already exist",
 	ErrSceneNameAlreadyExist:        "scene name already exist",
@@ -179,7 +253,7 @@ var CodeMsgMap = map[int]string{
 	ErrMachineMonitorDataPastDue:    "ErrMachineMonitorDataPastDue",
 	ErrInPlanSceneNameAlreadyExist:  "ErrInPlanSceneNameAlreadyExist",
 	ErrPlanNameNotEmpty:             "ErrPlanNameNotEmpty",
-	ErrInPlanGroupNameAlreadyExist:  "ErrInPlanGroupNameAlreadyExist",
+	ErrInPlanFolderNameAlreadyExist: "ErrInPlanFolderNameAlreadyExist",
 	ErrVerifyFail:                   "ErrVerifyFail",
 	ErrTimedTaskOverdue:             "ErrTimedTaskOverdue",
 	ErrWechatLoginQrCodeOverdue:     "ErrWechatLoginQrCodeOverdue",
@@ -187,4 +261,39 @@ var CodeMsgMap = map[int]string{
 	ErrCannotBatchDeleteRunningPlan: "ErrCannotBatchDeleteRunningPlan",
 	ErrMaxConcurrencyLessThanStartConcurrency: "ErrMaxConcurrencyLessThanStartConcurrency",
 	ErrNotEmailConfig:                         "ErrNotEmailConfig",
+	ErrEmptySceneFlow:                         "ErrEmptySceneFlow",
+	ErrEmptyTestCaseFlow:                      "ErrEmptyTestCaseFlow",
+	ErrNameOverLength:                         "ErrNameOverLength",
+	ErrTargetSortNameAlreadyExist:             "ErrTargetSortNameAlreadyExist",
+	ErrEnvNameAlreadyExist:                    "ErrEnvNameAlreadyExist",
+	ErrServiceNameAlreadyExist:                "ErrServiceNameAlreadyExist",
+	ErrExecSqlErr:                             "ErrExecSqlErr",
+	ErrCannotDeleteRunningReport:              "ErrCannotDeleteRunningReport",
+	ErrCannotBatchDeleteRunningReport:         "ErrCannotBatchDeleteRunningReport",
+	ErrMockPathExists:                         "ErrMockPathExists",
+	ErrYetAccountRegister:                     "ErrYetAccountRegister",
+	ErrAccountDel:                             "ErrAccountDel",
+	ErrMockPathNotNull:                        "ErrMockPathNotNull",
+	ErrNoticeBatchReportLimit:                 "ErrNoticeBatchReportLimit",
+	ErrNoticeConfigError:                      "ErrNoticeConfigError",
+	ErrAlreadyMarkTag:                         "ErrAlreadyMarkTag",
+
+	ErrElementNameRepeat:       "ErrElementNameRepeat",
+	ErrElementFolderNameRepeat: "ErrElementFolderNameRepeat",
+	ErrElementNotFound:         "ErrElementNotFound",
+	ErrElementNotDeleteReScene: "ErrElementNotDeleteReScene",
+	ErrElementLocatorNotFound:  "ErrElementLocatorNotFound",
+
+	ErrUISceneFolderNameRepeat: "ErrUISceneFolderNameRepeat",
+	ErrUISceneNameRepeat:       "ErrUISceneNameRepeat",
+	ErrUISceneOptEmpty:         "ErrUISceneOptEmpty",
+
+	ErrUIEngineError:          "ErrUIEngineError",
+	ErrUISceneNameLong:        "ErrUISceneNameLong",
+	ErrUISceneNameNotEmpty:    "ErrUISceneNameNotEmpty",
+	ErrUISceneGetMachineError: "ErrUISceneGetMachineError",
+	ErrSendOperatorNotNull:    "ErrSendOperatorNotNull",
+	ErrCheckParams:            "ErrCheckParams",
+	ErrSendLinuxNotQTMode:     "ErrSendLinuxNotQTMode",
+	ErrUISceneRequired:        "ErrUISceneRequired",
 }

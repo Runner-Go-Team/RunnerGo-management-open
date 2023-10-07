@@ -14,23 +14,26 @@ const TableNameStressPlanReport = "stress_plan_report"
 
 // StressPlanReport mapped from table <stress_plan_report>
 type StressPlanReport struct {
-	ID          int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`
-	ReportID    string         `gorm:"column:report_id;not null" json:"report_id"`                             // 报告ID
-	TeamID      string         `gorm:"column:team_id;not null" json:"team_id"`                                 // 团队ID
-	PlanID      string         `gorm:"column:plan_id;not null" json:"plan_id"`                                 // 计划ID
-	RankID      int64          `gorm:"column:rank_id;not null" json:"rank_id"`                                 // 序号ID
-	PlanName    string         `gorm:"column:plan_name;not null" json:"plan_name"`                             // 计划名称
-	SceneID     string         `gorm:"column:scene_id;not null" json:"scene_id"`                               // 场景ID
-	SceneName   string         `gorm:"column:scene_name;not null" json:"scene_name"`                           // 场景名称
-	TaskType    int32          `gorm:"column:task_type;not null" json:"task_type"`                             // 任务类型
-	TaskMode    int32          `gorm:"column:task_mode;not null" json:"task_mode"`                             // 压测模式
-	ControlMode int32          `gorm:"column:control_mode;not null" json:"control_mode"`                       // 控制模式：0-集中模式，1-单独模式
-	Status      int32          `gorm:"column:status;not null" json:"status"`                                   // 报告状态1:进行中，2:已完成
-	Remark      string         `gorm:"column:remark;not null" json:"remark"`                                   // 备注
-	RunUserID   string         `gorm:"column:run_user_id;not null" json:"run_user_id"`                         // 启动人id
-	CreatedAt   time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"` // 创建时间（执行时间）
-	UpdatedAt   time.Time      `gorm:"column:updated_at;not null;default:CURRENT_TIMESTAMP" json:"updated_at"` // 修改时间
-	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`                                    // 删除时间
+	ID              int64          `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`
+	ReportID        string         `gorm:"column:report_id;not null" json:"report_id"`                             // 报告ID
+	ReportName      string         `gorm:"column:report_name;not null" json:"report_name"`                         // 报告名称
+	TeamID          string         `gorm:"column:team_id;not null" json:"team_id"`                                 // 团队ID
+	PlanID          string         `gorm:"column:plan_id;not null" json:"plan_id"`                                 // 计划ID
+	RankID          int64          `gorm:"column:rank_id;not null" json:"rank_id"`                                 // 序号ID
+	PlanName        string         `gorm:"column:plan_name;not null" json:"plan_name"`                             // 计划名称
+	SceneID         string         `gorm:"column:scene_id;not null" json:"scene_id"`                               // 场景ID
+	SceneName       string         `gorm:"column:scene_name;not null" json:"scene_name"`                           // 场景名称
+	TaskType        int32          `gorm:"column:task_type;not null" json:"task_type"`                             // 任务类型
+	TaskMode        int32          `gorm:"column:task_mode;not null" json:"task_mode"`                             // 压测模式
+	ControlMode     int32          `gorm:"column:control_mode;not null" json:"control_mode"`                       // 控制模式：0-集中模式，1-单独模式
+	DebugMode       string         `gorm:"column:debug_mode;not null;default:stop" json:"debug_mode"`              // debug模式：stop-关闭，all-开启全部日志，only_success-开启仅成功日志，only_error-开启仅错误日志
+	RunDurationTime int64          `gorm:"column:run_duration_time;not null" json:"run_duration_time"`             // 任务运行持续时长
+	Status          int32          `gorm:"column:status;not null" json:"status"`                                   // 报告状态1:进行中，2:已完成
+	Remark          string         `gorm:"column:remark;not null" json:"remark"`                                   // 备注
+	RunUserID       string         `gorm:"column:run_user_id;not null" json:"run_user_id"`                         // 启动人id
+	CreatedAt       time.Time      `gorm:"column:created_at;not null;default:CURRENT_TIMESTAMP" json:"created_at"` // 创建时间（执行时间）
+	UpdatedAt       time.Time      `gorm:"column:updated_at;not null;default:CURRENT_TIMESTAMP" json:"updated_at"` // 修改时间
+	DeletedAt       gorm.DeletedAt `gorm:"column:deleted_at" json:"deleted_at"`                                    // 删除时间
 }
 
 // TableName StressPlanReport's table name

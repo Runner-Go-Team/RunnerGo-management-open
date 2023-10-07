@@ -2,20 +2,20 @@ package handler
 
 import (
 	"fmt"
-	"kp-management/internal/pkg/biz/encrypt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/encrypt"
 	"math/rand"
 	"time"
 
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/errno"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/response"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/logic/team"
 	"github.com/gin-gonic/gin"
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/errno"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/response"
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/logic/team"
 )
 
 // SaveTeam 创建或修改团队
@@ -58,7 +58,7 @@ func ListTeamMembers(ctx *gin.Context) {
 		return
 	}
 
-	members, err := team.ListMembersByTeamID(ctx, req.TeamID)
+	members, total, err := team.ListMembersByTeamID(ctx, req)
 	if err != nil {
 		response.ErrorWithMsg(ctx, errno.ErrMysqlFailed, err.Error())
 		return
@@ -66,6 +66,7 @@ func ListTeamMembers(ctx *gin.Context) {
 
 	response.SuccessWithData(ctx, rao.ListMembersResp{
 		Members: members,
+		Total:   total,
 	})
 	return
 }

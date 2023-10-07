@@ -2,9 +2,10 @@ package dal
 
 import (
 	"fmt"
+	"time"
 
-	"kp-management/internal/pkg/conf"
-	"kp-management/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -26,6 +27,16 @@ func MustInitMySQL() {
 	if err != nil {
 		panic(fmt.Errorf("fatal error db init: %w", err))
 	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		panic(err)
+	}
+
+	// 设置连接池参数
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	if c.Base.IsDebug {
 		db = db.Debug()

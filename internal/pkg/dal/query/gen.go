@@ -23,10 +23,17 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		AutoPlanReport:          newAutoPlanReport(db, opts...),
 		AutoPlanTaskConf:        newAutoPlanTaskConf(db, opts...),
 		AutoPlanTimedTaskConf:   newAutoPlanTimedTaskConf(db, opts...),
+		Company:                 newCompany(db, opts...),
+		Element:                 newElement(db, opts...),
 		Machine:                 newMachine(db, opts...),
-		Operation:               newOperation(db, opts...),
+		MockTarget:              newMockTarget(db, opts...),
+		Permission:              newPermission(db, opts...),
 		PreinstallConf:          newPreinstallConf(db, opts...),
+		PublicFunction:          newPublicFunction(db, opts...),
 		ReportMachine:           newReportMachine(db, opts...),
+		Role:                    newRole(db, opts...),
+		RolePermission:          newRolePermission(db, opts...),
+		RoleTypePermission:      newRoleTypePermission(db, opts...),
 		Setting:                 newSetting(db, opts...),
 		SmsLog:                  newSmsLog(db, opts...),
 		StressPlan:              newStressPlan(db, opts...),
@@ -35,14 +42,31 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		StressPlanTaskConf:      newStressPlanTaskConf(db, opts...),
 		StressPlanTimedTaskConf: newStressPlanTimedTaskConf(db, opts...),
 		Target:                  newTarget(db, opts...),
-		TargetDebugLog:          newTargetDebugLog(db, opts...),
 		Team:                    newTeam(db, opts...),
 		TeamEnv:                 newTeamEnv(db, opts...),
+		TeamEnvDatabase:         newTeamEnvDatabase(db, opts...),
 		TeamEnvService:          newTeamEnvService(db, opts...),
 		TeamUserQueue:           newTeamUserQueue(db, opts...),
+		ThirdNotice:             newThirdNotice(db, opts...),
+		ThirdNoticeChannel:      newThirdNoticeChannel(db, opts...),
+		ThirdNoticeGroup:        newThirdNoticeGroup(db, opts...),
+		ThirdNoticeGroupEvent:   newThirdNoticeGroupEvent(db, opts...),
+		ThirdNoticeGroupRelate:  newThirdNoticeGroupRelate(db, opts...),
+		UIPlan:                  newUIPlan(db, opts...),
+		UIPlanReport:            newUIPlanReport(db, opts...),
+		UIPlanTaskConf:          newUIPlanTaskConf(db, opts...),
+		UIPlanTimedTaskConf:     newUIPlanTimedTaskConf(db, opts...),
+		UIScene:                 newUIScene(db, opts...),
+		UISceneElement:          newUISceneElement(db, opts...),
+		UISceneOperator:         newUISceneOperator(db, opts...),
+		UISceneSync:             newUISceneSync(db, opts...),
+		UISceneTrash:            newUISceneTrash(db, opts...),
 		User:                    newUser(db, opts...),
 		UserCollectInfo:         newUserCollectInfo(db, opts...),
+		UserCompany:             newUserCompany(db, opts...),
+		UserRole:                newUserRole(db, opts...),
 		UserTeam:                newUserTeam(db, opts...),
+		UserTeamCollection:      newUserTeamCollection(db, opts...),
 		Variable:                newVariable(db, opts...),
 		VariableImport:          newVariableImport(db, opts...),
 	}
@@ -56,10 +80,17 @@ type Query struct {
 	AutoPlanReport          autoPlanReport
 	AutoPlanTaskConf        autoPlanTaskConf
 	AutoPlanTimedTaskConf   autoPlanTimedTaskConf
+	Company                 company
+	Element                 element
 	Machine                 machine
-	Operation               operation
+	MockTarget              mockTarget
+	Permission              permission
 	PreinstallConf          preinstallConf
+	PublicFunction          publicFunction
 	ReportMachine           reportMachine
+	Role                    role
+	RolePermission          rolePermission
+	RoleTypePermission      roleTypePermission
 	Setting                 setting
 	SmsLog                  smsLog
 	StressPlan              stressPlan
@@ -68,14 +99,31 @@ type Query struct {
 	StressPlanTaskConf      stressPlanTaskConf
 	StressPlanTimedTaskConf stressPlanTimedTaskConf
 	Target                  target
-	TargetDebugLog          targetDebugLog
 	Team                    team
 	TeamEnv                 teamEnv
+	TeamEnvDatabase         teamEnvDatabase
 	TeamEnvService          teamEnvService
 	TeamUserQueue           teamUserQueue
+	ThirdNotice             thirdNotice
+	ThirdNoticeChannel      thirdNoticeChannel
+	ThirdNoticeGroup        thirdNoticeGroup
+	ThirdNoticeGroupEvent   thirdNoticeGroupEvent
+	ThirdNoticeGroupRelate  thirdNoticeGroupRelate
+	UIPlan                  uIPlan
+	UIPlanReport            uIPlanReport
+	UIPlanTaskConf          uIPlanTaskConf
+	UIPlanTimedTaskConf     uIPlanTimedTaskConf
+	UIScene                 uIScene
+	UISceneElement          uISceneElement
+	UISceneOperator         uISceneOperator
+	UISceneSync             uISceneSync
+	UISceneTrash            uISceneTrash
 	User                    user
 	UserCollectInfo         userCollectInfo
+	UserCompany             userCompany
+	UserRole                userRole
 	UserTeam                userTeam
+	UserTeamCollection      userTeamCollection
 	Variable                variable
 	VariableImport          variableImport
 }
@@ -90,10 +138,17 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		AutoPlanReport:          q.AutoPlanReport.clone(db),
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.clone(db),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.clone(db),
+		Company:                 q.Company.clone(db),
+		Element:                 q.Element.clone(db),
 		Machine:                 q.Machine.clone(db),
-		Operation:               q.Operation.clone(db),
+		MockTarget:              q.MockTarget.clone(db),
+		Permission:              q.Permission.clone(db),
 		PreinstallConf:          q.PreinstallConf.clone(db),
+		PublicFunction:          q.PublicFunction.clone(db),
 		ReportMachine:           q.ReportMachine.clone(db),
+		Role:                    q.Role.clone(db),
+		RolePermission:          q.RolePermission.clone(db),
+		RoleTypePermission:      q.RoleTypePermission.clone(db),
 		Setting:                 q.Setting.clone(db),
 		SmsLog:                  q.SmsLog.clone(db),
 		StressPlan:              q.StressPlan.clone(db),
@@ -102,14 +157,31 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		StressPlanTaskConf:      q.StressPlanTaskConf.clone(db),
 		StressPlanTimedTaskConf: q.StressPlanTimedTaskConf.clone(db),
 		Target:                  q.Target.clone(db),
-		TargetDebugLog:          q.TargetDebugLog.clone(db),
 		Team:                    q.Team.clone(db),
 		TeamEnv:                 q.TeamEnv.clone(db),
+		TeamEnvDatabase:         q.TeamEnvDatabase.clone(db),
 		TeamEnvService:          q.TeamEnvService.clone(db),
 		TeamUserQueue:           q.TeamUserQueue.clone(db),
+		ThirdNotice:             q.ThirdNotice.clone(db),
+		ThirdNoticeChannel:      q.ThirdNoticeChannel.clone(db),
+		ThirdNoticeGroup:        q.ThirdNoticeGroup.clone(db),
+		ThirdNoticeGroupEvent:   q.ThirdNoticeGroupEvent.clone(db),
+		ThirdNoticeGroupRelate:  q.ThirdNoticeGroupRelate.clone(db),
+		UIPlan:                  q.UIPlan.clone(db),
+		UIPlanReport:            q.UIPlanReport.clone(db),
+		UIPlanTaskConf:          q.UIPlanTaskConf.clone(db),
+		UIPlanTimedTaskConf:     q.UIPlanTimedTaskConf.clone(db),
+		UIScene:                 q.UIScene.clone(db),
+		UISceneElement:          q.UISceneElement.clone(db),
+		UISceneOperator:         q.UISceneOperator.clone(db),
+		UISceneSync:             q.UISceneSync.clone(db),
+		UISceneTrash:            q.UISceneTrash.clone(db),
 		User:                    q.User.clone(db),
 		UserCollectInfo:         q.UserCollectInfo.clone(db),
+		UserCompany:             q.UserCompany.clone(db),
+		UserRole:                q.UserRole.clone(db),
 		UserTeam:                q.UserTeam.clone(db),
+		UserTeamCollection:      q.UserTeamCollection.clone(db),
 		Variable:                q.Variable.clone(db),
 		VariableImport:          q.VariableImport.clone(db),
 	}
@@ -131,10 +203,17 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		AutoPlanReport:          q.AutoPlanReport.replaceDB(db),
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.replaceDB(db),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.replaceDB(db),
+		Company:                 q.Company.replaceDB(db),
+		Element:                 q.Element.replaceDB(db),
 		Machine:                 q.Machine.replaceDB(db),
-		Operation:               q.Operation.replaceDB(db),
+		MockTarget:              q.MockTarget.replaceDB(db),
+		Permission:              q.Permission.replaceDB(db),
 		PreinstallConf:          q.PreinstallConf.replaceDB(db),
+		PublicFunction:          q.PublicFunction.replaceDB(db),
 		ReportMachine:           q.ReportMachine.replaceDB(db),
+		Role:                    q.Role.replaceDB(db),
+		RolePermission:          q.RolePermission.replaceDB(db),
+		RoleTypePermission:      q.RoleTypePermission.replaceDB(db),
 		Setting:                 q.Setting.replaceDB(db),
 		SmsLog:                  q.SmsLog.replaceDB(db),
 		StressPlan:              q.StressPlan.replaceDB(db),
@@ -143,14 +222,31 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		StressPlanTaskConf:      q.StressPlanTaskConf.replaceDB(db),
 		StressPlanTimedTaskConf: q.StressPlanTimedTaskConf.replaceDB(db),
 		Target:                  q.Target.replaceDB(db),
-		TargetDebugLog:          q.TargetDebugLog.replaceDB(db),
 		Team:                    q.Team.replaceDB(db),
 		TeamEnv:                 q.TeamEnv.replaceDB(db),
+		TeamEnvDatabase:         q.TeamEnvDatabase.replaceDB(db),
 		TeamEnvService:          q.TeamEnvService.replaceDB(db),
 		TeamUserQueue:           q.TeamUserQueue.replaceDB(db),
+		ThirdNotice:             q.ThirdNotice.replaceDB(db),
+		ThirdNoticeChannel:      q.ThirdNoticeChannel.replaceDB(db),
+		ThirdNoticeGroup:        q.ThirdNoticeGroup.replaceDB(db),
+		ThirdNoticeGroupEvent:   q.ThirdNoticeGroupEvent.replaceDB(db),
+		ThirdNoticeGroupRelate:  q.ThirdNoticeGroupRelate.replaceDB(db),
+		UIPlan:                  q.UIPlan.replaceDB(db),
+		UIPlanReport:            q.UIPlanReport.replaceDB(db),
+		UIPlanTaskConf:          q.UIPlanTaskConf.replaceDB(db),
+		UIPlanTimedTaskConf:     q.UIPlanTimedTaskConf.replaceDB(db),
+		UIScene:                 q.UIScene.replaceDB(db),
+		UISceneElement:          q.UISceneElement.replaceDB(db),
+		UISceneOperator:         q.UISceneOperator.replaceDB(db),
+		UISceneSync:             q.UISceneSync.replaceDB(db),
+		UISceneTrash:            q.UISceneTrash.replaceDB(db),
 		User:                    q.User.replaceDB(db),
 		UserCollectInfo:         q.UserCollectInfo.replaceDB(db),
+		UserCompany:             q.UserCompany.replaceDB(db),
+		UserRole:                q.UserRole.replaceDB(db),
 		UserTeam:                q.UserTeam.replaceDB(db),
+		UserTeamCollection:      q.UserTeamCollection.replaceDB(db),
 		Variable:                q.Variable.replaceDB(db),
 		VariableImport:          q.VariableImport.replaceDB(db),
 	}
@@ -162,10 +258,17 @@ type queryCtx struct {
 	AutoPlanReport          *autoPlanReportDo
 	AutoPlanTaskConf        *autoPlanTaskConfDo
 	AutoPlanTimedTaskConf   *autoPlanTimedTaskConfDo
+	Company                 *companyDo
+	Element                 *elementDo
 	Machine                 *machineDo
-	Operation               *operationDo
+	MockTarget              *mockTargetDo
+	Permission              *permissionDo
 	PreinstallConf          *preinstallConfDo
+	PublicFunction          *publicFunctionDo
 	ReportMachine           *reportMachineDo
+	Role                    *roleDo
+	RolePermission          *rolePermissionDo
+	RoleTypePermission      *roleTypePermissionDo
 	Setting                 *settingDo
 	SmsLog                  *smsLogDo
 	StressPlan              *stressPlanDo
@@ -174,14 +277,31 @@ type queryCtx struct {
 	StressPlanTaskConf      *stressPlanTaskConfDo
 	StressPlanTimedTaskConf *stressPlanTimedTaskConfDo
 	Target                  *targetDo
-	TargetDebugLog          *targetDebugLogDo
 	Team                    *teamDo
 	TeamEnv                 *teamEnvDo
+	TeamEnvDatabase         *teamEnvDatabaseDo
 	TeamEnvService          *teamEnvServiceDo
 	TeamUserQueue           *teamUserQueueDo
+	ThirdNotice             *thirdNoticeDo
+	ThirdNoticeChannel      *thirdNoticeChannelDo
+	ThirdNoticeGroup        *thirdNoticeGroupDo
+	ThirdNoticeGroupEvent   *thirdNoticeGroupEventDo
+	ThirdNoticeGroupRelate  *thirdNoticeGroupRelateDo
+	UIPlan                  *uIPlanDo
+	UIPlanReport            *uIPlanReportDo
+	UIPlanTaskConf          *uIPlanTaskConfDo
+	UIPlanTimedTaskConf     *uIPlanTimedTaskConfDo
+	UIScene                 *uISceneDo
+	UISceneElement          *uISceneElementDo
+	UISceneOperator         *uISceneOperatorDo
+	UISceneSync             *uISceneSyncDo
+	UISceneTrash            *uISceneTrashDo
 	User                    *userDo
 	UserCollectInfo         *userCollectInfoDo
+	UserCompany             *userCompanyDo
+	UserRole                *userRoleDo
 	UserTeam                *userTeamDo
+	UserTeamCollection      *userTeamCollectionDo
 	Variable                *variableDo
 	VariableImport          *variableImportDo
 }
@@ -193,10 +313,17 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		AutoPlanReport:          q.AutoPlanReport.WithContext(ctx),
 		AutoPlanTaskConf:        q.AutoPlanTaskConf.WithContext(ctx),
 		AutoPlanTimedTaskConf:   q.AutoPlanTimedTaskConf.WithContext(ctx),
+		Company:                 q.Company.WithContext(ctx),
+		Element:                 q.Element.WithContext(ctx),
 		Machine:                 q.Machine.WithContext(ctx),
-		Operation:               q.Operation.WithContext(ctx),
+		MockTarget:              q.MockTarget.WithContext(ctx),
+		Permission:              q.Permission.WithContext(ctx),
 		PreinstallConf:          q.PreinstallConf.WithContext(ctx),
+		PublicFunction:          q.PublicFunction.WithContext(ctx),
 		ReportMachine:           q.ReportMachine.WithContext(ctx),
+		Role:                    q.Role.WithContext(ctx),
+		RolePermission:          q.RolePermission.WithContext(ctx),
+		RoleTypePermission:      q.RoleTypePermission.WithContext(ctx),
 		Setting:                 q.Setting.WithContext(ctx),
 		SmsLog:                  q.SmsLog.WithContext(ctx),
 		StressPlan:              q.StressPlan.WithContext(ctx),
@@ -205,14 +332,31 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		StressPlanTaskConf:      q.StressPlanTaskConf.WithContext(ctx),
 		StressPlanTimedTaskConf: q.StressPlanTimedTaskConf.WithContext(ctx),
 		Target:                  q.Target.WithContext(ctx),
-		TargetDebugLog:          q.TargetDebugLog.WithContext(ctx),
 		Team:                    q.Team.WithContext(ctx),
 		TeamEnv:                 q.TeamEnv.WithContext(ctx),
+		TeamEnvDatabase:         q.TeamEnvDatabase.WithContext(ctx),
 		TeamEnvService:          q.TeamEnvService.WithContext(ctx),
 		TeamUserQueue:           q.TeamUserQueue.WithContext(ctx),
+		ThirdNotice:             q.ThirdNotice.WithContext(ctx),
+		ThirdNoticeChannel:      q.ThirdNoticeChannel.WithContext(ctx),
+		ThirdNoticeGroup:        q.ThirdNoticeGroup.WithContext(ctx),
+		ThirdNoticeGroupEvent:   q.ThirdNoticeGroupEvent.WithContext(ctx),
+		ThirdNoticeGroupRelate:  q.ThirdNoticeGroupRelate.WithContext(ctx),
+		UIPlan:                  q.UIPlan.WithContext(ctx),
+		UIPlanReport:            q.UIPlanReport.WithContext(ctx),
+		UIPlanTaskConf:          q.UIPlanTaskConf.WithContext(ctx),
+		UIPlanTimedTaskConf:     q.UIPlanTimedTaskConf.WithContext(ctx),
+		UIScene:                 q.UIScene.WithContext(ctx),
+		UISceneElement:          q.UISceneElement.WithContext(ctx),
+		UISceneOperator:         q.UISceneOperator.WithContext(ctx),
+		UISceneSync:             q.UISceneSync.WithContext(ctx),
+		UISceneTrash:            q.UISceneTrash.WithContext(ctx),
 		User:                    q.User.WithContext(ctx),
 		UserCollectInfo:         q.UserCollectInfo.WithContext(ctx),
+		UserCompany:             q.UserCompany.WithContext(ctx),
+		UserRole:                q.UserRole.WithContext(ctx),
 		UserTeam:                q.UserTeam.WithContext(ctx),
+		UserTeamCollection:      q.UserTeamCollection.WithContext(ctx),
 		Variable:                q.Variable.WithContext(ctx),
 		VariableImport:          q.VariableImport.WithContext(ctx),
 	}

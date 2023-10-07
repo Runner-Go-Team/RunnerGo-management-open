@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/record"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/record"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 )
 
 func Save(ctx context.Context, userID string, req *rao.SaveFolderReq) error {
@@ -18,7 +18,8 @@ func Save(ctx context.Context, userID string, req *rao.SaveFolderReq) error {
 		// 接口名排重
 		_, err := tx.Target.WithContext(ctx).Where(tx.Target.TeamID.Eq(req.TeamID), tx.Target.Name.Eq(req.Name),
 			tx.Target.TargetType.Eq(consts.TargetTypeFolder), tx.Target.TargetID.Neq(req.TargetID),
-			tx.Target.Status.Eq(consts.TargetStatusNormal)).First()
+			tx.Target.Status.Eq(consts.TargetStatusNormal), tx.Target.Source.Eq(consts.TargetSourceApi),
+			tx.Target.ParentID.Eq(req.ParentID)).First()
 		if err == nil {
 			return fmt.Errorf("名称已存在")
 		}
@@ -47,7 +48,6 @@ func GetByTargetID(ctx context.Context, teamID string, targetID string) (*rao.Fo
 		tx.TeamID.Eq(teamID),
 		tx.TargetType.Eq(consts.TargetTypeFolder),
 		tx.Status.Eq(consts.TargetStatusNormal),
-		tx.Source.Eq(consts.TargetSourceNormal),
 	).First()
 
 	if err != nil {

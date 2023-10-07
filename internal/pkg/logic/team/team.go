@@ -3,24 +3,25 @@ package team
 import (
 	"context"
 	"fmt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/jwt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/uuid"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/conf"
 	"github.com/gin-gonic/gin"
 	"github.com/go-omnibus/omnibus"
 	"github.com/go-omnibus/proof"
+	"gorm.io/gen"
 	"gorm.io/gorm"
-	"kp-management/internal/pkg/biz/jwt"
-	"kp-management/internal/pkg/biz/uuid"
-	"kp-management/internal/pkg/conf"
 	"strconv"
 	"strings"
 
-	"kp-management/internal/pkg/biz/consts"
-	"kp-management/internal/pkg/biz/encrypt"
-	"kp-management/internal/pkg/biz/mail"
-	"kp-management/internal/pkg/dal"
-	"kp-management/internal/pkg/dal/model"
-	"kp-management/internal/pkg/dal/query"
-	"kp-management/internal/pkg/dal/rao"
-	"kp-management/internal/pkg/packer"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/consts"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/encrypt"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/biz/mail"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/model"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/query"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/dal/rao"
+	"github.com/Runner-Go-Team/RunnerGo-management-open/internal/pkg/packer"
 )
 
 func SaveTeam(ctx *gin.Context, req *rao.SaveTeamReq) (string, error) {
@@ -122,11 +123,48 @@ func ListByUserID(ctx context.Context, userID string) ([]*rao.Team, error) {
 	return packer.TransTeamsModelToRaoTeam(teams, userTeamsNew, teamCnt, users), nil
 }
 
-func ListMembersByTeamID(ctx context.Context, teamID string) ([]*rao.Member, error) {
+func ListMembersByTeamID(ctx context.Context, req rao.ListMembersReq) ([]*rao.Member, int64, error) {
+	teamID := req.TeamID
+	limit := req.Size
+	offset := (req.Page - 1) * req.Size
+	keyword := strings.TrimSpace(req.Keyword)
+
+	// 查询可用的用户团队数据
 	ut := query.Use(dal.DB()).UserTeam
-	userTeams, err := ut.WithContext(ctx).Where(ut.TeamID.Eq(teamID)).Order(ut.RoleID).Find()
+	userTeams, err := ut.WithContext(ctx).Where(ut.TeamID.Eq(teamID)).Find()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	var kUserIDs []string
+	for _, teamInfo := range userTeams {
+		kUserIDs = append(kUserIDs, teamInfo.UserID)
+	}
+	// keyword 搜索昵称/账号
+	u := dal.GetQuery().User
+	conditions := make([]gen.Condition, 0)
+	conditions = append(conditions, u.UserID.In(kUserIDs...))
+	conditionsAccount := conditions
+	keyword = strings.TrimSpace(keyword)
+	if len(keyword) > 0 {
+		conditions = append(conditions, u.Nickname.Like(fmt.Sprintf("%%%s%%", keyword)))
+		conditionsAccount = append(conditionsAccount, u.Account.Like(fmt.Sprintf("%%%s%%", keyword)))
+	}
+	users, err := u.WithContext(ctx).Where(conditions...).Or(conditionsAccount...).Find()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	showUserIDs := make([]string, 0, len(users))
+	for _, user := range users {
+		showUserIDs = append(showUserIDs, user.UserID)
+	}
+
+	userTeams, total, err := ut.WithContext(ctx).Where(
+		ut.TeamID.Eq(teamID),
+		ut.UserID.In(showUserIDs...),
+	).Order(ut.ID).FindByPage(offset, limit)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	var userIDs []string
@@ -135,104 +173,146 @@ func ListMembersByTeamID(ctx context.Context, teamID string) ([]*rao.Member, err
 		userIDs = append(userIDs, team.InviteUserID)
 	}
 
-	u := query.Use(dal.DB()).User
-	users, err := u.WithContext(ctx).Where(u.UserID.In(userIDs...)).Find()
+	users, err = u.WithContext(ctx).Where(u.UserID.In(userIDs...)).Find()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return packer.TransUsersToRaoMembers(users, userTeams), nil
+	ur := dal.GetQuery().UserRole
+	urList, err := ur.WithContext(ctx).Where(ur.TeamID.Eq(teamID), ur.UserID.In(userIDs...)).Find()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	t := dal.GetQuery().Team
+	team, err := t.WithContext(ctx).Where(t.TeamID.Eq(req.TeamID)).First()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	companyRoleList, err := ur.WithContext(ctx).Where(ur.CompanyID.Eq(team.CompanyID), ur.UserID.In(userIDs...)).Find()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	roleIDs := make([]string, 0, len(urList))
+	for _, urInfo := range urList {
+		roleIDs = append(roleIDs, urInfo.RoleID)
+	}
+
+	roleTable := dal.GetQuery().Role
+	roleList, err := roleTable.WithContext(ctx).Find()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return packer.TransUsersToRaoMembers(users, userTeams, urList, roleList, companyRoleList), total, nil
 }
 
 func InviteMember(ctx context.Context, inviteUserID string, teamID string, members []*rao.InviteMember) (*rao.InviteMemberResp, error) {
-
-	var emails []string
-	memo := make(map[string]int64)
-	for _, member := range members {
-		emails = append(emails, member.Email)
-		memo[member.Email] = member.RoleID
+	teamKey := "InviteMemberTeamID:" + teamID
+	setRedisRes := dal.GetRDB().SetNX(ctx, teamKey, 1, 0)
+	if setRedisRes.Val() == false {
+		return nil, fmt.Errorf("添加失败")
 	}
-
-	tx := query.Use(dal.DB()).User
-	users, err := tx.WithContext(ctx).Where(tx.Email.In(emails...)).Find()
-	if err != nil {
-		return nil, err
-	}
+	defer dal.GetRDB().Del(ctx, teamKey)
 
 	var registerEmail []string
-	for _, user := range users {
-		registerEmail = append(registerEmail, user.Email)
-	}
-	registerEmail = omnibus.StringArrayUnique(registerEmail)
+	var unRegisterEmail []string
 
-	var userIDs []string
-	for _, user := range users {
-		userIDs = append(userIDs, user.UserID)
-	}
-	utt := dal.GetQuery().UserTeam
-	existUser, err := utt.WithContext(ctx).Where(utt.TeamID.Eq(teamID), utt.UserID.In(userIDs...)).Find()
-	if err != nil {
-		return nil, err
-	}
+	err := dal.GetQuery().Transaction(func(tx *query.Query) error {
+		// 校验当前团队还可以邀请多少人进来
+		teamInfo, err := tx.Team.WithContext(ctx).Where(tx.Team.TeamID.Eq(teamID)).First()
+		if err != nil {
+			return err
+		}
 
-	for i, user := range users {
-		for _, eu := range existUser {
-			if eu.UserID == user.UserID {
-				users[i] = nil
+		var emails []string
+		memo := make(map[string]int64)
+		for _, member := range members {
+			emails = append(emails, member.Email)
+			memo[member.Email] = member.RoleID
+		}
+
+		users, err := tx.User.WithContext(ctx).Where(tx.User.Email.In(emails...)).Find()
+		if err != nil {
+			return err
+		}
+
+		for _, user := range users {
+			registerEmail = append(registerEmail, user.Email)
+		}
+		registerEmail = omnibus.StringArrayUnique(registerEmail)
+
+		var userIDs []string
+		for _, user := range users {
+			userIDs = append(userIDs, user.UserID)
+		}
+
+		existUser, err := tx.UserTeam.WithContext(ctx).Where(tx.UserTeam.TeamID.Eq(teamID), tx.UserTeam.UserID.In(userIDs...)).Find()
+		if err != nil {
+			return err
+		}
+
+		for i, user := range users {
+			for _, eu := range existUser {
+				if eu.UserID == user.UserID {
+					users[i] = nil
+				}
 			}
 		}
-	}
 
-	var ut []*model.UserTeam
-	for _, user := range users {
-		if user != nil {
-			ut = append(ut, &model.UserTeam{
-				UserID:       user.UserID,
-				TeamID:       teamID,
-				InviteUserID: inviteUserID,
-				RoleID:       memo[user.Email],
-			})
-		}
-	}
-
-	if err := query.Use(dal.DB()).UserTeam.WithContext(ctx).CreateInBatches(ut, 5); err != nil {
-		return nil, err
-	}
-
-	u, err := tx.WithContext(ctx).Where(tx.UserID.Eq(inviteUserID)).First()
-	if err != nil {
-		return nil, err
-	}
-
-	px := dal.GetQuery().Team
-	t, err := px.WithContext(ctx).Where(px.TeamID.Eq(teamID)).First()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, e := range registerEmail {
-		if err := mail.SendInviteEmail(e, inviteUserID, u.Nickname, t.Name, teamID, memo[e], true); err != nil {
-			return nil, err
-		}
-	}
-
-	unRegisterEmail := omnibus.StringArrayUnique(omnibus.StringArrayDiff(emails, registerEmail))
-	if len(unRegisterEmail) > 0 {
-		var userQueue []*model.TeamUserQueue
-		for _, e := range unRegisterEmail {
-			if err := mail.SendInviteEmail(e, inviteUserID, u.Nickname, t.Name, teamID, memo[e], false); err != nil {
-				return nil, err
+		var ut []*model.UserTeam
+		for _, user := range users {
+			if user != nil {
+				ut = append(ut, &model.UserTeam{
+					UserID:       user.UserID,
+					TeamID:       teamID,
+					InviteUserID: inviteUserID,
+					RoleID:       memo[user.Email],
+				})
 			}
+		}
 
-			userQueue = append(userQueue, &model.TeamUserQueue{
-				Email:  e,
-				TeamID: teamID,
-			})
+		if err := tx.UserTeam.WithContext(ctx).CreateInBatches(ut, 5); err != nil {
+			return err
 		}
-		qx := dal.GetQuery().TeamUserQueue
-		if err := qx.WithContext(ctx).CreateInBatches(userQueue, 5); err != nil {
-			return nil, err
+
+		u, err := tx.User.WithContext(ctx).Where(tx.User.UserID.Eq(inviteUserID)).First()
+		if err != nil {
+			return err
 		}
+
+		for _, e := range registerEmail {
+			if err := mail.SendInviteEmail(e, inviteUserID, u.Nickname, teamInfo.Name, teamID, memo[e], true); err != nil {
+				return err
+			}
+		}
+
+		unRegisterEmail = omnibus.StringArrayUnique(omnibus.StringArrayDiff(emails, registerEmail))
+		if len(unRegisterEmail) > 0 {
+			var userQueue []*model.TeamUserQueue
+			for _, e := range unRegisterEmail {
+				if err := mail.SendInviteEmail(e, inviteUserID, u.Nickname, teamInfo.Name, teamID, memo[e], false); err != nil {
+					return err
+				}
+
+				userQueue = append(userQueue, &model.TeamUserQueue{
+					Email:  e,
+					TeamID: teamID,
+				})
+			}
+			qx := dal.GetQuery().TeamUserQueue
+			if err := qx.WithContext(ctx).CreateInBatches(userQueue, 5); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &rao.InviteMemberResp{
@@ -298,7 +378,7 @@ func RemoveMember(ctx *gin.Context, teamID string, userID string, memberID strin
 
 		// 如果被移除成员的默认团队是被移除出去的团队
 		if memberDefaultTeamInfo.TeamID == teamID {
-			// 修改移除成员的新的默认团队
+			// 修改移除成员到最新地默认团队
 			newTeamID = GetNewDefaultTeamID(ctx, teamID, userID)
 			// 修改用户的默认团队为新的团队id
 			_, err = tx.Setting.WithContext(ctx).Where(tx.Setting.UserID.Eq(memberID)).UpdateColumnSimple(tx.Setting.TeamID.Value(newTeamID))

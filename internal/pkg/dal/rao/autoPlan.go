@@ -22,7 +22,7 @@ type SaveAutoPlanResp struct {
 
 type GetAutoPlanListReq struct {
 	PlanName     string `json:"plan_name"`
-	TeamId       string `json:"team_id"`
+	TeamID       string `json:"team_id"`
 	TaskType     int32  `json:"task_type"`
 	Status       int32  `json:"status"`
 	StartTimeSec int64  `json:"start_time_sec"`
@@ -166,6 +166,7 @@ type GetAutoPlanReportListReq struct {
 
 type GetAutoPlanReportList struct {
 	RankID           int64  `json:"rank_id"`
+	ReportName       string `json:"report_name"`
 	ReportID         string `json:"report_id"`
 	PlanID           string `json:"plan_id"`
 	TeamID           string `json:"team_id"`
@@ -221,4 +222,34 @@ type ReportEmailNotifyReq struct {
 	TeamID   string   `json:"team_id"`
 	ReportID string   `json:"report_id"`
 	Emails   []string `json:"emails"`
+}
+
+type GetReportApiDetailReq struct {
+	TeamID  string `json:"team_id"`
+	CaseID  string `json:"case_id"`
+	EventID string `json:"event_id"`
+}
+
+type GetReportApiDetailResp struct {
+	APIDetail APIDetail `json:"api_detail"`
+}
+
+type SendReportApiReq struct {
+	TeamID    string    `json:"team_id"`
+	ApiDetail APIDetail `json:"api_detail"`
+}
+
+type SendReportApiResp struct {
+	RetID string `json:"ret_id"`
+}
+
+type UpdateAutoPlanReportNameReq struct {
+	ReportID   string `json:"report_id"`
+	ReportName string `json:"report_name"`
+}
+
+type DownloadAutoReportHtmlReq struct {
+	TeamID   string `form:"team_id" json:"team_id"`
+	PlanID   string `form:"plan_id" json:"plan_id"`
+	ReportID string `form:"report_id" json:"report_id"`
 }
